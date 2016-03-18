@@ -6,8 +6,7 @@ The only measured things is the number of cycles elapsed.
 For each memory(including cache) in the memory hierarchy a buffer is loaded a fixed number of time, then the median value is saved.
 For each memory, several size fitting the memory space are loaded, and again, the median value is saved as well as the standard deviation.
 
-
-![Output chart](https://github.com/NicolasDenoyelle/LARM-Locality-Aware-Roofline-Model-/roofline_chart.pdf)
+![Output chart](https://github.com/NicolasDenoyelle/LARM-Locality-Aware-Roofline-Model-/roofline_chart.png)
 
 ### Installation
 ```
