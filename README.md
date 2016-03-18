@@ -16,11 +16,11 @@ git clone https://github.com/NicolasDenoyelle/LARM-Locality-Aware-Roofline-Model
 cd LARM-Locality-Aware-Roofline-Model-/src
 make
 ```
-Their are 3 customizable options which can be appended to `make`:
+Their are 3 options which can be appended to `make`:
 
 * `PAR=` with values among `{SEQ, OMP}` which compiles whether the sequential (default) version or the parallel version.
 
-* `SIMD=` with values among `{AVX512, AVX, SSE, SSE2, DBL}` which compiles the code in with appropriate instructions, for your cpu. DBL option actually compile SSE assembly with the instruction loading the smallest piece of data.
+* `SIMD=` with values among `{AVX512, AVX, SSE, SSE2, DBL}` which compiles the code with appropriate instructions, for your cpu. DBL option actually compile SSE assembly with the instruction loading the smallest piece of data.
 
 * `DUR=` repeat the benchmark to make it last DUR milliseconds. This is useful in case you want to sample benchmarks performance with external sampling tool.
 
@@ -28,12 +28,15 @@ Their are 3 customizable options which can be appended to `make`:
 
 ### Requirements
 This soft requires at least hwloc library to be installed.
+
 For multithread result, it is also required to have a recent version of gcc supporting omp reduce pragma.
-For now, it only works with intel cpu but one can implement the interface MSC.h with other architectures code.
+
+For now, it only works with intel cpus but one can implement the interface MSC.h with other architectures code.
 
 
 ### Usage
 First of all it is required to export the variable BENCHMARK_CPU_FREQ (The frequency of your CPU in Hertz)
+`utils` directory hold a utilities which may help to do so.
 ```
 export BENCHMARK_CPU_FREQ=2100000000
 ```
