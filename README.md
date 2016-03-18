@@ -7,7 +7,7 @@ For each memory(including cache) in the memory hierarchy a buffer is loaded a fi
 For each memory, several size fitting the memory space are loaded, and again, the median value is saved as well as the standard deviation.
 
 
-![Output chart](https://github.com/NicolasDenoyelle/LARM-Locality-Aware-Roofline-Model-/master/roofline_chart.pdf)
+![Output chart](https://github.com/NicolasDenoyelle/LARM-Locality-Aware-Roofline-Model-/roofline_chart.pdf)
 
 ### Installation
 ```
