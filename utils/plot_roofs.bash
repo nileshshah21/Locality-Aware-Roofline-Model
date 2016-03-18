@@ -1,8 +1,7 @@
 #!/bin/bash 
 #################################################################################################################################
-# This is a script to merge results output in the benchmark summary, and results output by the script smon_roofline_run.sh into #
-# the first one.                                                                                                                #
-# usage: smon_benchmark_run.sh -o <output> -b <benchmark_runnable> -s <smon_roofline_script>                                    #
+# This is a script to plot results output by main benchmark.                                                                    #
+# usage: plot_roofs.sh -o <output> -f <format> -t <filter(for input info col)> -i <input>                                       #
 #                                                                                                                               #
 # Author: Nicolas Denoyelle (nicolas.denoyelle@inria.fr)                                                                        #
 # Date: 12/11/2015 (FR format)                                                                                                  #
@@ -11,7 +10,7 @@
 
 FORMATS=("gnuplot" "R")
 usage(){
-    printf "plot_script_gen.sh -o <output> -f <format> -t <filter(for input type col)> -i <input>\n"; 
+    printf "plot_roofs.sh -o <output> -f <format> -t <filter(for input info col)> -i <input>\n"; 
     printf "FORMATS: "; 
     for format in ${FORMATS[@]}; do
 	printf "$format "
