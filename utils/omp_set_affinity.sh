@@ -1,5 +1,3 @@
-#!/bin/sh
-
 #Openmp Bind to Cores
 export OMP_NUM_THREADS=$(lstopo --only Core --restrict `hwloc-calc Node:0`| wc -l)
 export GOMP_CPU_AFFINITY=""
