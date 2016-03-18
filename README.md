@@ -31,6 +31,9 @@ This soft requires at least hwloc library to be installed.
 
 For multithread result, it is also required to have a recent version of gcc supporting omp reduce pragma.
 It is recomended that you use the script `utils/omp_set_affinity.sh` to properly set GOMP openmp threads binding.
+```
+source utils/omp_set_affinity.sh	
+```
 The benchmark will set the number of threads depending on the memory level to test afterward.
 
 For now, it only works with intel cpus but one can implement the interface MSC.h with other architectures code.
