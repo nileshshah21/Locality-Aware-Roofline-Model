@@ -38,6 +38,9 @@ The benchmark will set the number of threads depending on the memory level to te
 
 For now, it only works with intel cpus but one can implement the interface MSC.h with other architectures code.
 
+# /!\ Important: 
+Generally speaking, if you want to get relevant results on such benchmarks, you have to assert that options like turbo-boost are disabled and
+the cpu frequency is set.
 
 ### Usage
 First of all it is required to export the variable BENCHMARK_CPU_FREQ (The frequency of your CPU in Hertz)
