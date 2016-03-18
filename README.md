@@ -12,13 +12,16 @@ For each memory, several size fitting the memory space are loaded, and again, th
 ### Installation
 ```
 git clone https://github.com/NicolasDenoyelle/LARM-Locality-Aware-Roofline-Model-.git
-cd roofline_benchmark/src
+cd LARM-Locality-Aware-Roofline-Model-/src
 make
 ```
 Their are 3 customizable options which can be appended to `make`:
-*`PAR=` with values among `{SEQ, OMP}` which compiles whether the sequential (default) version or the parallel version.
-*`SIMD=` with values among `{AVX512, AVX, SSE, SSE2, DBL}` which compiles the code in with appropriate instructions, for your cpu. DBL option actually compile SSE assembly with the instruction loading the smallest piece of data.
-*`DUR=` repeat the benchmark to make it last DUR milliseconds. This is useful in case you want to sample benchmarks performance with external sampling tool.
+
+* `PAR=` with values among `{SEQ, OMP}` which compiles whether the sequential (default) version or the parallel version.
+
+* `SIMD=` with values among `{AVX512, AVX, SSE, SSE2, DBL}` which compiles the code in with appropriate instructions, for your cpu. DBL option actually compile SSE assembly with the instruction loading the smallest piece of data.
+
+* `DUR=` repeat the benchmark to make it last DUR milliseconds. This is useful in case you want to sample benchmarks performance with external sampling tool.
 
 
 
@@ -39,12 +42,16 @@ export CC=gcc
 ```
 Here you are ready to play
 
-*Display usage: `./main -h`
-*Running benchmark: `./main`
-*Running benchmark with validation `./main -v`
+* Display usage: `./main -h`
+
+* Running benchmark: `./main`
+
+* Running benchmark with validation `./main -v`
 Validation consists in writing a list of load/store operation, interleaved with mul/add operation depending on the required operational intensity,
 compile and run each benchmark.
-*Restrict to a type of operation `./main --load`
-*Restrict to a given memory `./main -m L1d:0`
+
+* Restrict to a type of operation `./main --load`
+
+* Restrict to a given memory `./main -m L1d:0`
 
 
