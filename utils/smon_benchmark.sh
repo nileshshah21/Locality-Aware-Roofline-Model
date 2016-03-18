@@ -1,8 +1,7 @@
 #!/bin/sh 
 #################################################################################################################################
-# This is a script to merge results output in the benchmark summary, and results output by the script smon_roofline_run.sh into #
-# the first one.                                                                                                                #
-# usage: smon_benchmark_run.sh -o <output> -b <benchmark_runnable> -s <smon_roofline_script>                                    #
+# This is a script to run the benchmark with smon profiler, and output measured bandwidth instead of counted bandwidth.         #
+# usage: smon_benchmark.sh -o <output> -b <benchmark_runnable>                                                                  #
 #                                                                                                                               #
 # Author: Nicolas Denoyelle (nicolas.denoyelle@inria.fr)                                                                        #
 # Date: 12/11/2015 (FR format)                                                                                                  #
