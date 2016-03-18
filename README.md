@@ -50,7 +50,7 @@ Here you are ready to play
 * Running benchmark: `./main`
 
 * Running benchmark with validation `./main -v`
-Validation consists in writing a list of load/store operation, interleaved with mul/add operation depending on the required operational intensity,
+Validation consists in writing a list of load/store operations, interleaved with mul/add operations depending on the required operational intensity,
 compile and run each benchmark.
 
 * Restrict to a type of operation `./main --load`
