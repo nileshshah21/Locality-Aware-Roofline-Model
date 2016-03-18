@@ -36,7 +36,6 @@ For now, it only works with intel cpus but one can implement the interface MSC.h
 
 ### Usage
 First of all it is required to export the variable BENCHMARK_CPU_FREQ (The frequency of your CPU in Hertz)
-`utils` directory hold a utilities which may help to do so.
 ```
 export BENCHMARK_CPU_FREQ=2100000000
 ```
