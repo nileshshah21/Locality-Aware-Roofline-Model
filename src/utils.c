@@ -1,0 +1,288 @@
+#ifdef USE_OMP
+#include <omp.h>
+#endif
+#include "roofline.h"
+#include <math.h>
+
+size_t * roofline_log_array(size_t start, size_t end, int * n){
+    if(*n == 0)
+	*n = ROOFLINE_N_SAMPLES;
+    size_t * sizes = NULL; roofline_alloc(sizes,sizeof(*sizes)* (*n));
+    sizes[0] = start; if(*n==1) return sizes;
+    double multiplier = 1, val = (double)start;
+    if(start > 0){
+	multiplier = pow((double)end/(double)start,1.0/(double)(*n));
+	val = ((double)sizes[0]*multiplier);
+    }
+    else{
+	val = multiplier = pow((double)end,1.0/(double)(*n));
+    }
+    int i;
+    for(i=1; i<*n-1;i++){
+	sizes[i] = (size_t)val;
+	val*=multiplier;
+	if(sizes[i] == sizes[i-1]){i--; *n = *n-1;}
+    }
+    sizes[*n-1] = end;
+    return sizes;
+}
+
+const char * roofline_type_str(int type){
+    switch(type){
+    case ROOFLINE_LOAD:
+	return "LOAD";
+	break;
+    case ROOFLINE_STORE:
+	return "STORE";
+	break;
+    default:
+	return "UNKNOWN";
+	break;
+    }    
+}
+
+inline void roofline_print_header(FILE * output, const char * append){
+    fprintf(output, "%12s %16s %16s %16s %10s %10s %10s %10s %10s %s\n",
+	    "Obj", "start", "end", "Instructions", "Throughput", "SDev", "GByte/s", "GFlop/s", "Flops/Byte", append);
+}
+
+void roofline_print_sample(FILE * output, hwloc_obj_t obj, struct roofline_sample_out * sample_out, double sd, 
+			   const char * append)
+{
+    roofline_mkstr_stack(obj_str,12);
+    hwloc_obj_type_snprintf(obj_str, 10, obj, 0);
+    snprintf(obj_str+strlen(obj_str),5,":%d",obj->logical_index);
+    long long cyc = sample_out->ts_end - sample_out->ts_start;
+#ifdef USE_OMP
+#pragma omp critical
+#endif
+    fprintf(output, "%12s %16lu %16lu %16lld %10.3f %10.3f %10.3f %10.3f %10.6f %s\n",
+	    obj_str, 
+	    sample_out->ts_start, 
+	    sample_out->ts_end, 
+	    sample_out->instructions, 
+	    (float)sample_out->instructions / (float) cyc,
+	    sd,
+	    (float)(sample_out->bytes * cpu_freq) / (float)(cyc*1e9), 
+	    (float)(sample_out->flops * cpu_freq) / (float)(1e9*cyc),
+	    (float)(sample_out->flops) / (float)(sample_out->bytes),
+	    append);
+    fflush(output);
+}
+
+int roofline_hwloc_obj_snprintf(hwloc_obj_t obj, char * info_in, size_t n){
+    memset(info_in,0,n);
+    int nc = hwloc_obj_type_snprintf(info_in, n, obj, 0);
+    nc += snprintf(info_in+nc,n-nc,":%d ",obj->logical_index);
+    return nc;
+}
+
+int roofline_hwloc_check_cpu_bind(hwloc_cpuset_t cpuset, int print){
+    hwloc_bitmap_t checkset = hwloc_bitmap_alloc();
+    if(hwloc_get_cpubind(topology, checkset, HWLOC_CPUBIND_PROCESS) == -1){
+	perror("get_cpubind");
+	hwloc_bitmap_free(checkset);  
+	return 0; 
+    }
+    if(print){
+	hwloc_obj_t cpu_obj = hwloc_get_first_largest_obj_inside_cpuset(topology, checkset);
+	printf("cpubind=%s:%d\n",hwloc_obj_type_string(cpu_obj->type),cpu_obj->logical_index);
+    }
+    
+    if(cpuset == NULL)
+	return 0;
+    int ret = hwloc_bitmap_isequal(cpuset,checkset);
+    hwloc_bitmap_free(checkset);  
+    return ret;
+}
+
+int roofline_hwloc_check_mem_bind(hwloc_cpuset_t nodeset, int print){
+    if(nodeset == NULL)
+	return 0;
+  
+    hwloc_membind_policy_t policy;
+    hwloc_bitmap_t checkset = hwloc_bitmap_alloc();
+  
+    if(hwloc_get_membind(topology, checkset, &policy, 0) == -1){
+	perror("get_membind");
+	hwloc_bitmap_free(checkset);  
+	return 0; 
+    }
+
+    if(print){
+	char * policy_name;
+	switch(policy){
+	case HWLOC_MEMBIND_DEFAULT:
+	    policy_name = "DEFAULT";
+	    break;
+	case HWLOC_MEMBIND_FIRSTTOUCH:
+	    policy_name = "FIRSTTOUCH";
+	    break;
+	case HWLOC_MEMBIND_BIND:
+	    policy_name = "BIND";
+	    break;
+	case HWLOC_MEMBIND_INTERLEAVE:
+	    policy_name = "INTERLEAVE";
+	    break;
+	case HWLOC_MEMBIND_NEXTTOUCH:
+	    policy_name = "NEXTTOUCH";
+	    break;
+	case HWLOC_MEMBIND_MIXED:
+	    policy_name = "MIXED";
+	    break;
+	default:
+	    policy_name=NULL;
+	    break;
+	}
+	hwloc_obj_t mem_obj = hwloc_get_first_largest_obj_inside_cpuset(topology, checkset);
+	printf("membind(%s)=%s:%d\n",policy_name,hwloc_obj_type_string(mem_obj->type),mem_obj->logical_index);
+    }
+
+    int ret = hwloc_bitmap_isequal(nodeset,checkset);
+    hwloc_bitmap_free(checkset);  
+    return ret;
+} 
+
+inline int roofline_hwloc_objtype_is_cache(hwloc_obj_type_t type){
+    return type==HWLOC_OBJ_L1CACHE || type==HWLOC_OBJ_L2CACHE || type==HWLOC_OBJ_L3CACHE || type==HWLOC_OBJ_L4CACHE || type==HWLOC_OBJ_L5CACHE;
+}
+
+hwloc_obj_t roofline_hwloc_parse_obj(char* arg){
+    char * name = strtok(arg,":");
+    if(name==NULL)
+	return NULL;
+    hwloc_obj_type_t type; 
+    struct hwloc_cache_attr_s cache_attr;
+    if(hwloc_obj_type_sscanf(name,&type,(union hwloc_obj_attr_u *) (&cache_attr),sizeof(cache_attr))==-1){
+	fprintf(stderr,"type \"%s\" was not recognized\n",name);
+	return NULL;
+    }
+    int depth = hwloc_get_type_depth(topology,type);
+    if(roofline_hwloc_objtype_is_cache(type)){
+	depth = hwloc_get_cache_type_depth(topology,cache_attr.depth,cache_attr.type);
+	if(depth == HWLOC_TYPE_DEPTH_UNKNOWN){
+	    fprintf(stderr,"type %s cannot be found, level=%d\n",name,depth);
+	    return NULL;
+	}
+	if(depth == HWLOC_TYPE_DEPTH_MULTIPLE){
+	    fprintf(stderr,"type %s multiple caches match for\n",name);
+	    return NULL;
+	}
+    }
+    char * idx = strtok(NULL,":");
+    int logical_index = 0;
+    if(idx!=NULL)
+	logical_index = atoi(idx);
+    return hwloc_get_obj_by_depth(topology,depth,logical_index);
+}
+
+int roofline_hwloc_cpubind(hwloc_cpuset_t cpuset){
+    if(hwloc_set_cpubind(topology,cpuset, HWLOC_CPUBIND_PROCESS|HWLOC_CPUBIND_STRICT|HWLOC_CPUBIND_NOMEMBIND) == -1){
+	perror("cpubind");
+	return 0;
+    }
+    return roofline_hwloc_check_cpu_bind(cpuset,0);
+}
+
+int roofline_hwloc_membind(hwloc_obj_t obj){
+    /* bind cpuset local memory if there are multiple memories */
+    if(hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_NODE) == 1)
+	return 0;
+
+    hwloc_obj_t parent_node = obj;
+    if(parent_node->type!=HWLOC_OBJ_NODE)
+	parent_node = hwloc_get_ancestor_obj_by_type(topology, HWLOC_OBJ_NODE, parent_node);
+
+    if(parent_node == NULL){
+	fprintf(stderr, "This cpuset has no ancestor Node\n");
+	return 0;
+    }
+    if(hwloc_set_membind_nodeset(topology,parent_node->nodeset,HWLOC_MEMBIND_BIND,0) == -1){
+	perror("membind");
+	return 0;
+    }
+    return roofline_hwloc_check_mem_bind(parent_node->cpuset,0);
+}
+
+int roofline_hwloc_obj_is_memory(hwloc_obj_t obj){
+    if (obj->type == HWLOC_OBJ_NODE)
+	return 1;
+    if(roofline_hwloc_objtype_is_cache(obj->type)){
+	hwloc_obj_cache_type_t type = obj->attr->cache.type;
+	if(type == HWLOC_OBJ_CACHE_UNIFIED || type == HWLOC_OBJ_CACHE_DATA){
+	    return 1;
+	}
+    }
+    return 0;
+}
+
+size_t roofline_hwloc_get_memory_size(hwloc_obj_t obj){
+    if(obj==NULL)
+	return 0;
+    if (obj->type == HWLOC_OBJ_NODE)
+	return obj->memory.local_memory;
+    if(roofline_hwloc_objtype_is_cache(obj->type)){
+	hwloc_obj_cache_type_t type = obj->attr->cache.type;
+	if(type == HWLOC_OBJ_CACHE_UNIFIED || type == HWLOC_OBJ_CACHE_DATA){
+	    return ((struct hwloc_cache_attr_s *)obj->attr)->size;
+	}
+    }
+    return 0;
+}
+
+hwloc_obj_t roofline_hwloc_get_instruction_cache(void){
+    hwloc_obj_t obj = hwloc_get_obj_by_depth(topology, hwloc_topology_get_depth(topology)-1,0);
+    if(obj == NULL){errEXIT("No obj at topology leaves\n");}
+    while(obj != NULL && !roofline_hwloc_objtype_is_cache(obj->type) && 
+	  obj->attr->cache.type != HWLOC_OBJ_CACHE_INSTRUCTION){
+	obj = obj->parent;
+    }
+    if(obj==NULL){fprintf(stderr, "No instruction cache\n");}
+    return obj;
+}
+
+inline size_t roofline_hwloc_get_instruction_cache_size(void){
+    return ((struct hwloc_cache_attr_s *)roofline_hwloc_get_instruction_cache()->attr)->size;
+}
+
+
+hwloc_obj_t roofline_hwloc_get_previous_memory(hwloc_obj_t obj){
+    if(obj==NULL)
+	return NULL;
+    hwloc_obj_t child=obj;
+    unsigned depth = hwloc_topology_get_depth(topology)-1;
+    do{
+	child = hwloc_get_obj_by_depth(topology,child->depth+1,0);
+    } while(child != NULL && child->depth<depth && !roofline_hwloc_obj_is_memory(child));
+    if(!roofline_hwloc_obj_is_memory(child))
+	return NULL;
+    return child;
+}
+
+
+hwloc_obj_t roofline_hwloc_get_next_memory(hwloc_obj_t obj){
+    hwloc_obj_t tmp,root = hwloc_get_root_obj(topology);
+    /* If current_obj is not set, start from the bottom of the topology to return the first memory */
+    if(obj == NULL){
+	obj = hwloc_get_obj_by_depth(topology,hwloc_topology_get_depth(topology)-1,0);
+    }
+    /* If current_mem_obj is a node, get next node at this depth*/
+    if(obj->type==HWLOC_OBJ_NODE){
+	tmp = hwloc_get_next_obj_by_type(topology,obj->type, obj);
+	if(tmp != NULL && tmp->logical_index!=0){
+	    obj = tmp;
+	    return obj;
+	}
+    }
+    /* climb the topology on left side (assuming:
+     * each node at a given depth have the same amount of children and are of the same type) */
+    while(obj != root){
+	obj = hwloc_get_obj_by_depth(topology,obj->depth-1,0);
+	if(roofline_hwloc_obj_is_memory(obj)){
+	    return obj;
+	}
+    }
+    /* No memory left in topology */
+    return NULL;
+}
+
