@@ -8,6 +8,8 @@ For each memory, several size fitting the memory space are loaded, and again, th
 
 ![](roofline_chart.png?raw=true)
 
+This plot output shows store rooflines (lines) and validation kernels (points) hitting the measured bandwidth.
+
 ### Installation
 ```
 git clone https://github.com/NicolasDenoyelle/LARM-Locality-Aware-Roofline-Model-.git
@@ -52,5 +54,9 @@ compile and run each benchmark.
 * Restrict to a type of operation `./main --load`
 
 * Restrict to a given memory `./main -m L1d:0`
+
+* plot help: `./utils/plot_roofs.bash -h`
+
+* plot output: `./utils/plot_roofs.bash -i input -f gnuplot -t LOAD`
 
 
