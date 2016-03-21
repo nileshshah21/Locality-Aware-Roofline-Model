@@ -203,11 +203,7 @@ size_t alloc_chunk_aligned(double ** data, size_t size){
 void load_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sample_out * out){
 #ifdef USE_OMP
     struct roofline_sample_out t_out;
-    t_out.ts_start = 0;
-    t_out.ts_end = 0;
-    t_out.bytes = 0;
-    t_out.flops = 0;
-    t_out.instructions = 0;
+    roofline_output_clear(&t_out);
 #pragma omp parallel
     {
 	size_t size;
@@ -233,11 +229,7 @@ void load_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sample
 void store_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sample_out * out){
 #ifdef USE_OMP
     struct roofline_sample_out t_out;
-    t_out.ts_start = 0;
-    t_out.ts_end = 0;
-    t_out.bytes = 0;
-    t_out.flops = 0;
-    t_out.instructions = 0;
+    roofline_output_clear(&t_out);
 #pragma omp parallel
     {
 	size_t size;
