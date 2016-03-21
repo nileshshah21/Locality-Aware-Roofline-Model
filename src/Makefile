@@ -1,38 +1,45 @@
+#Compilation
 OPTIONS=-g -Wall -Werror -Wextra
+CC=gcc
+OMP_FLAG=-fopenmp
+HWLOC_FLAG=-lhwloc
 
-SIMD=AVX #Vectorisation type among {AVX, SSE, SSE2, DBL}
-DUR=1    #Duration time of each sample
-PAR=SEQ  #Type of parallelisme among {SEQ, OMP}
+#Vectorisation type among {AVX512, AVX, SSE, SSE2, DBL}
+SIMD=AVX
+#Duration time of each sample (millisecond)
+DUR=1
+#Type of parallelisme among {SEQ, OMP}
+PAR=OMP
+#Machinde specific code implementing MSC/MSC.h
 MSC=MSC/intel.c
-HWLOC=-lhwloc
 
-DEFINES=-DUSE_$(SIMD) -DBENCHMARK_MIN_DUR=$(DUR) -DUSE_$(PAR) 
+DEFINES=-DUSE_$(SIMD) -DBENCHMARK_MIN_DUR=$(DUR) -DUSE_$(PAR) -DCC=$(CC)
 
 all: main
 
 MSC.o: $(MSC)
-	gcc -O0 $(OPTIONS) $(DEFINES) -c -o $@ $^ -ldl -fopenmp
+	$(CC) -O0 $(OPTIONS) $(DEFINES) -c -o $@ $^ -ldl $(OMP_FLAG)
 
 MSC.s: $(MSC)
-	gcc -O0 $(OPTIONS) $(DEFINES) -S -o $@ $^ -ldl -fopenmp
+	$(CC) -O0 $(OPTIONS) $(DEFINES) -S -o $@ $^ -ldl $(OMP_FLAG)
 
 roofline.o: roofline.c
-	gcc $(OPTIONS) $(DEFINES) -c -o $@ $^ -fopenmp
+	$(CC) $(OPTIONS) -pedantic-errors $(DEFINES) -c -o $@ $^ $(OMP_FLAG)
 
 utils.o: utils.c
-	gcc $(OPTIONS) -c -o $@ $^ -lm $(HWLOC)
+	$(CC) $(OPTIONS) -pedantic-errors -c -o $@ $^ -lm $(HWLOC_FLAG)
 
 stats.o: stats.c
-	gcc $(OPTIONS) -c -o $@ $^
+	$(CC) $(OPTIONS) -pedantic-errors -c -o $@ $^
 
 progress.o: progress.c
-	gcc $(OPTIONS) -c -o $@ $^
+	$(CC) $(OPTIONS) -pedantic-errors -c -o $@ $^
 
 main: main.c roofline.o utils.o progress.o stats.o MSC.o
-	gcc $(DEFINES) $(OPTIONS) $^ -o $@ $(HWLOC) -lm -ldl -fopenmp
+	$(CC) $(DEFINES) $(OPTIONS) -pedantic-errors $^ -o $@ $(HWLOC_FLAG) -lm -ldl $(OMP_FLAG)
 
 benchmark_bandwidth: benchmark_bandwidth.c utils.o roofline.o stats.o progress.o MSC.o
-	gcc $(OPTIONS) $(DEFINES) -o $@ $^ $(HWLOC) -lm -ldl -fopenmp
+	$(CC) $(OPTIONS) -pedantic-errors $(DEFINES) -o $@ $^ $(HWLOC_FLAG) -lm -ldl $(OMP_FLAG)
 
 clean:
 	rm -f *.o *.s main benchmark_bandwidth
