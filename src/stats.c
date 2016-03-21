@@ -82,12 +82,7 @@ long roofline_autoset_loop_repeat(void (* bench_fun)(struct roofline_sample_in *
     mul = 0;
     tv_ms = 0;
     while(tv_ms < ms_dur){
-	out.ts_start = 0;
-	out.ts_end = 0;
-	out.flops = 0;
-	out.bytes = 0;
-	out.instructions = 0;    
-
+	roofline_output_clear(&out);
 	bench_fun(in,&out);
 	tv_ms = (out.ts_end-out.ts_start)*1e3/cpu_freq;
 	mul = (float)ms_dur/(float)tv_ms;
@@ -118,11 +113,7 @@ roofline_repeat_bench(void (* bench_fun)(struct roofline_sample_in *, struct roo
 
     roofline_alloc(samples,sizeof(*samples)*BENCHMARK_REPEAT);
     for(i=0;i<BENCHMARK_REPEAT;i++){
-	samples[i].ts_start = 0;
-	samples[i].ts_end = 0;
-	samples[i].flops = 0;
-	samples[i].bytes = 0;
-	samples[i].instructions = 0;
+	roofline_output_clear(&(samples[i]));
 	bench_fun(in,&samples[i]);
     }    
     /* sort results */
