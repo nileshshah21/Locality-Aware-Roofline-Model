@@ -30,6 +30,7 @@ struct roofline_sample_out{
     uint64_t flops;          /* The amount of flops computed */
 };
 
+void roofline_output_clear(struct roofline_sample_out * out);
 void roofline_output_accumulate(struct roofline_sample_out *, struct roofline_sample_out *);
 void print_roofline_sample_output(struct roofline_sample_out * out);
 
