@@ -18,7 +18,7 @@ make
 ```
 Their are 3 options which can be appended to `make`:
 
-* `PAR=` with values among `{SEQ, OMP}` which compiles whether the sequential (default) version or the parallel version.
+* `PAR=` with values among `{SEQ, OMP}` which compiles whether the sequential version or the parallel (default) version.
 
 * `SIMD=` with values among `{AVX512, AVX, SSE, SSE2, DBL}` which compiles the code with appropriate instructions, for your cpu. DBL option actually compile SSE assembly with the instruction loading the smallest piece of data.
 
@@ -29,7 +29,7 @@ Their are 3 options which can be appended to `make`:
 ### Requirements
 This soft requires at least hwloc library to be installed.
 
-For multithread result, it is also required to have a recent version of gcc supporting omp reduce pragma.
+For multithread result, it is also required to have a compiler with openmp support.
 It is recomended that you use the script `utils/omp_set_affinity.sh` to properly set GOMP openmp threads binding.
 ```
 source utils/omp_set_affinity.sh	
@@ -38,18 +38,12 @@ The benchmark will set the number of threads depending on the memory level to te
 
 For now, it only works with intel cpus but one can implement the interface MSC.h with other architectures code.
 
-# /!\ Important: 
+#### /!\ Important: 
 Generally speaking, if you want to get relevant results on such benchmarks, you have to assert that options like turbo-boost are disabled and
 the cpu frequency is set.
-
-### Usage
-First of all it is required to export the variable BENCHMARK_CPU_FREQ (The frequency of your CPU in Hertz)
+Therefore, it is required to export the variable BENCHMARK_CPU_FREQ (The frequency of your CPU in Hertz)
 ```
 export BENCHMARK_CPU_FREQ=2100000000
-```
-Then you need to tell which compiler do you use, in order to compile and run validation benchmarks on the fly:
-```
-export CC=gcc
 ```
 Here you are ready to play
 
