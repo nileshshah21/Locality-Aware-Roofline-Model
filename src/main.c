@@ -85,13 +85,8 @@ int main(int argc, char * argv[]){
     if(out==NULL) out = stdout;
 
     /* print header */
-#ifdef USE_OMP
-    snprintf(info,sizeof(info), "%5s %5s", "info", "scale");
-    roofline_print_header(out, info);
-#else
     snprintf(info,sizeof(info), "%5s", "info");
     roofline_print_header(out, info);
-#endif
 
     /* roofline for flops */
     roofline_fpeak(out);
