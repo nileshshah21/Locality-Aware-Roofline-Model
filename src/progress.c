@@ -54,6 +54,7 @@ void roofline_progress_print(struct roofline_progress_bar * progress){
     /* print progress percentage */
     printf("] ");
     printf("[%3ld%%]", percent);
+    fflush(stdout);
 }
 
 void roofline_progress_clean(void){
