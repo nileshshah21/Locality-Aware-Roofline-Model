@@ -79,6 +79,14 @@ inline void roofline_lib_finalize(void)
     hwloc_topology_destroy(topology);
 }
 
+void roofline_output_clear(struct roofline_sample_out * out){
+    out->ts_start = 0;
+    out->ts_end = 0;
+    out->bytes = 0;
+    out->flops = 0;
+    out->instructions = 0;
+}
+
 void roofline_output_accumulate(struct roofline_sample_out * a, struct roofline_sample_out * b){
     uint64_t cyc_a = a->ts_end-a->ts_start;
     uint64_t cyc_b = b->ts_end-b->ts_start;
@@ -126,7 +134,9 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int ty
     struct roofline_sample_in in;
     struct roofline_sample_out result, out;
     double sd;
+    unsigned n_threads, k;
 
+    n_threads=1; k=0;
     memset(info,0,sizeof(info));
     memset(progress_info,0,sizeof(progress_info));
 
@@ -151,7 +161,13 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int ty
 
     /* Set the number of running threads to the number of Cores sharing the memory */
 #ifdef USE_OMP
-    omp_set_num_threads(hwloc_get_nbobjs_inside_cpuset_by_type(topology,memory->cpuset, HWLOC_OBJ_CORE));
+    n_threads = hwloc_get_nbobjs_inside_cpuset_by_type(topology,memory->cpuset, HWLOC_OBJ_CORE);
+    lower_bound_size *= n_threads;
+#endif
+    results = malloc(n_threads*sizeof(*results));
+#ifdef USE_OMP
+    for(k=0;k<n_threads;k++){
+	omp_set_num_threads(k+1);
 #endif
  
     /* get array of input sizes */
@@ -166,39 +182,37 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int ty
 
     /* Iterate roofline among sizes */
     for(i=0;i<n_sizes;i++){
-    /*Inform user of the progress */
-    roofline_progress_set(&progress_bar, progress_info, 0, i, n_sizes);
+	/*Inform user of the progress */
+	roofline_progress_set(&progress_bar, progress_info, 0, i, n_sizes);
 
-    /* Prepare input / output */
-    in.stream_size = alloc_chunk_aligned(NULL,sizes[i]);
-    roofline_autoset_loop_repeat(bench, &in, BENCHMARK_MIN_DUR);
-    result.bytes = 0;
-    result.flops = 0;
-    result.instructions = 0;
-    result.ts_start = 0;
-    result.ts_end = 0;
+	/* Prepare input / output */
+	in.stream_size = alloc_chunk_aligned(NULL,sizes[i]);
+	roofline_autoset_loop_repeat(bench, &in, BENCHMARK_MIN_DUR);
+	roofline_output_clear(&result);
 
-    /* benchmark */
-    roofline_repeat_bench(bench,&in,&result, roofline_output_median);
-    results[i] = result;
+	/* benchmark */
+	roofline_repeat_bench(bench,&in,&result, roofline_output_median);
+	results[i] = result;
     }
     
     /* sort results */
     median = roofline_output_median(results, n_sizes);
-    sd = roofline_output_sd(results, n_sizes);
+    sd = roofline_output_sd(results, n_sizes); 
     out = results[median];
     /*Inform user of the progress */
     roofline_progress_set(&progress_bar, progress_info, 0, i, n_sizes);
-	
+    
     /* End progress bar */
     roofline_progress_clean();
-	
     /* print output */
     roofline_print_sample(output, memory, &out, sd, info);
-
+    
     /* Cleanup */
     free(results);
     free(in.stream);
+#ifdef USE_OMP
+    }
+#endif
 }
 
 inline void roofline_bandwidth(FILE * output, hwloc_obj_t mem, int type){
