@@ -61,6 +61,7 @@ void roofline_progress_clean(void);
 #define BENCHMARK_MIN_DUR 1 /* milliseconds */
 #endif
 
+int    comp_roofline_throughput(void * a, void * b);
 int    roofline_output_min(struct roofline_sample_out * samples, size_t n);
 int    roofline_output_max(struct roofline_sample_out * samples, size_t n);
 int    roofline_output_median(struct roofline_sample_out * samples, size_t n);
@@ -105,7 +106,7 @@ size_t      roofline_hwloc_get_instruction_cache_size(void);
 
 const char * roofline_type_str(int type);
 void   roofline_print_header(FILE * output, const char * append);
-void   roofline_print_sample(FILE * output, hwloc_obj_t obj, struct roofline_sample_out * sample_out, double sd, const char * append);
+void   roofline_print_sample(FILE * output, hwloc_obj_t obj, struct roofline_sample_out * sample_out, double sd, unsigned n_threads, const char * append);
 
 /**
  * Compute a logarithmic array of sizes
