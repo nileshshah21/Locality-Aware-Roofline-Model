@@ -13,8 +13,8 @@ void roofline_lib_finalize(void);
 /***********************************  BENCHMARK INPUT  *******************************************/
 struct roofline_sample_in{
     /* All sample type specific data */
-    long long loop_repeat;    /* Make the roofline longer if you use an external tool to sample */
-    void * stream;            /* The buffer to stream */
+    long loop_repeat;    /* Make the roofline longer if you use an external tool to sample */
+    double * stream;          /* The buffer to stream */
     size_t stream_size;       /* The total size to stream */
 };
 
@@ -25,12 +25,12 @@ struct roofline_sample_out{
     /* All sample type specific data */
     uint64_t ts_start;       /* Timestamp in cycles where the roofline started */
     uint64_t ts_end;         /* Timestamp in cycles where the roofline ended */
-    long long instructions;   /* The number of instructions */
-    long long bytes;          /* The amount of bytes transfered */
-    long long flops;          /* The amount of flops computed */
+    uint64_t instructions;   /* The number of instructions */
+    uint64_t bytes;          /* The amount of bytes transfered */
+    uint64_t flops;          /* The amount of flops computed */
 };
 
-struct roofline_sample_out roofline_output_accumulate(struct roofline_sample_out, struct roofline_sample_out);
+void roofline_output_accumulate(struct roofline_sample_out *, struct roofline_sample_out *);
 void print_roofline_sample_output(struct roofline_sample_out * out);
 
 /***********************************  BENCHMARK FUNCTIONS ****************************************/
@@ -58,7 +58,7 @@ void roofline_progress_clean(void);
 /*************************************  Statistical sampling *************************************/
 #define BENCHMARK_REPEAT 16
 #ifndef BENCHMARK_MIN_DUR
-#define BENCHMARK_MIN_DUR 1 //ms
+#define BENCHMARK_MIN_DUR 1 /* milliseconds */
 #endif
 
 int    roofline_output_min(struct roofline_sample_out * samples, size_t n);
@@ -66,7 +66,7 @@ int    roofline_output_max(struct roofline_sample_out * samples, size_t n);
 int    roofline_output_median(struct roofline_sample_out * samples, size_t n);
 double roofline_output_sd(struct roofline_sample_out * samples, unsigned n);
 double roofline_repeat_bench(void (* bench_fun)(struct roofline_sample_in *, struct roofline_sample_out *), struct roofline_sample_in * in, struct roofline_sample_out * out, int (* bench_stat)(struct roofline_sample_out * , size_t));
-long long roofline_autoset_loop_repeat(void (* bench_fun)(struct roofline_sample_in *, struct roofline_sample_out *), struct roofline_sample_in * in, long long ms_dur);
+long roofline_autoset_loop_repeat(void (* bench_fun)(struct roofline_sample_in *, struct roofline_sample_out *), struct roofline_sample_in * in, long ms_dur);
 
 /******************************************* Hardware locality ***********************************/
 extern hwloc_topology_t topology; /* The current machine topology */
@@ -102,8 +102,6 @@ size_t      roofline_hwloc_get_instruction_cache_size(void);
 	while(size>=max_size){max_size*=2;}				\
 	if((ptr = realloc(ptr,sizeof(*ptr)*max_size)) == NULL) perrEXIT("realloc"); \
     } while(0)
-#define roofline_mkstr_heap(str,strlen)  char* str;roofline_alloc(str,strlen);memset(str,0,strlen)
-#define roofline_mkstr_stack(str,strlen) char str[strlen];memset(str,0,strlen)
 
 const char * roofline_type_str(int type);
 void   roofline_print_header(FILE * output, const char * append);
