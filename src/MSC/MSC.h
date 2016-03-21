@@ -7,7 +7,7 @@
  * @return The size of allocated chunk.
  *
  **/
-size_t alloc_chunk_aligned(void ** data, size_t size);
+size_t alloc_chunk_aligned(double ** data, size_t size);
 void fpeak_bench(struct roofline_sample_in * in, struct roofline_sample_out * out);
 
 /**
@@ -20,7 +20,5 @@ void (*roofline_oi_bench(double oi, int type)) (struct roofline_sample_in * in, 
 
 #define roofline_rdtsc(c_high,c_low) __asm__ __volatile__ ("CPUID\n\tRDTSC\n\tmovq %%rdx, %0\n\tmovq %%rax, %1\n\t" :"=r" (c_high), "=r" (c_low)::"%rax", "%rbx", "%rcx", "%rdx")
 #define roofline_rdtsc_diff(high, low) ((high << 32) | low)
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
