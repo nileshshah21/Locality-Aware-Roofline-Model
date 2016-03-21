@@ -15,27 +15,33 @@ void roofline_progress_set(struct roofline_progress_bar * bar, char * info, size
  * info [====>            ][ 76%] 
  */
 void roofline_progress_print(struct roofline_progress_bar * progress){
+    unsigned cols;
+    FILE * cmd_f;
+    size_t percent;
+    unsigned bar_len, fill_len, i;
+    char cols_str[16];
+    
+    memset(cols_str,0,sizeof(cols_str));
+
     /* get term width */
-    unsigned cols = 100;
-    FILE * cmd_f = popen("tput cols","r");
-    roofline_mkstr_stack(cols_str,16);
+    cols = 100;
+    cmd_f = popen("tput cols","r");
     if(fread(cols_str,sizeof(*cols_str),sizeof(cols_str),cmd_f) == 0)
 	perror("fread");
     else if(strcmp(cols_str,""))
 	cols = atoi(cols_str);
      
     pclose(cmd_f);
-    size_t percent = 100 * (progress->current - progress->begin)/ (double)(progress->end - progress->begin);
+    percent = 100 * (progress->current - progress->begin)/ (double)(progress->end - progress->begin);
     /* compute bars length */
-    unsigned bar_len = cols;
+    bar_len = cols;
     bar_len -= 1+(progress->info != NULL ? strlen(progress->info) : 0); /* progress bar is after info */
     bar_len -= 7;                        /* progress bar is before contexts percent */
     bar_len -= 2;                        /* progress bar is between brackets */
-    unsigned fill_len = bar_len;
+    fill_len = bar_len;
     fill_len -= 1;                       /* filled region is preceeded by '>' */
     fill_len = fill_len * percent / 100;
 
-    unsigned i;
     /* print begin */
     printf("\r%s [",progress->info != NULL ? progress->info : "");
     /* print progress */
@@ -51,10 +57,15 @@ void roofline_progress_print(struct roofline_progress_bar * progress){
 }
 
 void roofline_progress_clean(void){
+    unsigned cols;
+    FILE * cmd_f;
+    char cols_str[16];
+    
+    memset(cols_str,0,sizeof(cols_str));
+
     /* get term width */
-    unsigned cols = 100;
-    FILE * cmd_f = popen("tput cols","r");
-    roofline_mkstr_stack(cols_str,16);
+    cols = 100;
+    cmd_f = popen("tput cols","r");
     if(fread(cols_str,sizeof(*cols_str),sizeof(cols_str),cmd_f) == 0)
 	perror("fread");
     else if(strcmp(cols_str,""))
