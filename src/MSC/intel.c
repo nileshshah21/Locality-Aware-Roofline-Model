@@ -215,10 +215,11 @@ void load_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sample
 	struct roofline_sample_in t_in;
 
 	size = in->stream_size/omp_get_num_threads();
-	offset = size * omp_get_thread_num() / sizeof(double);
+	size-=size%chunk_size;
+	offset = size * omp_get_thread_num() / sizeof(*(in->stream));
+
 	t_in.loop_repeat = in->loop_repeat;
 	t_in.stream = in->stream+offset;
-	size-=size%chunk_size;
 	t_in.stream_size = size;
 	bandwidth_bench_run((&t_in), (&t_out), "load", roofline_load_ins);
 #pragma omp critical
@@ -244,10 +245,11 @@ void store_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sampl
 	struct roofline_sample_in t_in;
 
 	size = in->stream_size/omp_get_num_threads();
+	size-=size%chunk_size;
 	offset = size * omp_get_thread_num() / sizeof(double);
+
 	t_in.loop_repeat = in->loop_repeat;
 	t_in.stream = in->stream+offset;
-	size-=size%chunk_size;
 	t_in.stream_size = size;
 	bandwidth_bench_run((&t_in), (&t_out), "store", roofline_store_ins);
 #pragma omp critical
