@@ -16,13 +16,19 @@ double roofline_output_sd(struct roofline_sample_out * out, unsigned n){
         return M2 / (n-1);
 }
 
-static int comp_roofline_throughput(void * a, void * b){
+int comp_roofline_throughput(void * a, void * b){
     struct roofline_sample_out a_out, b_out;
     float val_a, val_b;
     a_out = (*(struct roofline_sample_out *)a);
     b_out = (*(struct roofline_sample_out *)b);
-    val_a = a_out.instructions / (float)(a_out.ts_end - a_out .ts_start);
-    val_b = b_out.instructions / (float)(b_out.ts_end - b_out .ts_start);
+    if(a_out.ts_end == a_out .ts_start)
+	val_a = 0;
+    else
+	val_a = a_out.instructions / (float)(a_out.ts_end - a_out .ts_start);
+    if(b_out.ts_end == b_out .ts_start)
+	val_b = 0;
+    else
+	val_b = b_out.instructions / (float)(b_out.ts_end - b_out .ts_start);
     if( val_a < val_b )
 	return -1;
     else if(val_a > val_b)
@@ -76,8 +82,14 @@ long roofline_autoset_loop_repeat(void (* bench_fun)(struct roofline_sample_in *
     mul = 0;
     tv_ms = 0;
     while(tv_ms < ms_dur){
+	out.ts_start = 0;
+	out.ts_end = 0;
+	out.flops = 0;
+	out.bytes = 0;
+	out.instructions = 0;    
+
 	bench_fun(in,&out);
-	tv_ms = (out.ts_end-out.ts_start)*1000/cpu_freq;
+	tv_ms = (out.ts_end-out.ts_start)*1e3/cpu_freq;
 	mul = (float)ms_dur/(float)tv_ms;
 	if(tv_ms==0){
 	    in->loop_repeat *= 2;
@@ -90,7 +102,7 @@ long roofline_autoset_loop_repeat(void (* bench_fun)(struct roofline_sample_in *
 		in->loop_repeat *= mul;
 	}
     }
-    in->loop_repeat = roofline_MAX(4,in->loop_repeat);
+
     return tv_ms;
 }
 
