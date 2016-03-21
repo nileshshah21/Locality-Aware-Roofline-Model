@@ -36,7 +36,7 @@ progress.o: progress.c
 	$(CC) $(OPTIONS) -pedantic-errors -c -o $@ $^
 
 main: main.c roofline.o utils.o progress.o stats.o MSC.o
-	$(CC) $(DEFINES) $(OPTIONS) -pedantic-errors $^ -o $@ $(HWLOC_FLAG) -lm -ldl $(OMP_FLAG)
+	$(CC) $(DEFINES) $(OPTIONS) -pedantic-errors $^ -o $@ -lm -ldl $(OMP_FLAG) $(HWLOC_FLAG)
 
 benchmark_bandwidth: benchmark_bandwidth.c utils.o roofline.o stats.o progress.o MSC.o
 	$(CC) $(OPTIONS) -pedantic-errors $(DEFINES) -o $@ $^ $(HWLOC_FLAG) -lm -ldl $(OMP_FLAG)
