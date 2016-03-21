@@ -338,12 +338,18 @@ static void dprint_MUOP(int fd, int type, off_t * offset, unsigned * simdregnum,
 
 static void  dprint_header(int fd) {
     dprintf(fd, "#include <stdlib.h>\n");
+#ifdef USE_OMP
+    dprintf(fd, "#include <omp.h>\n");
+#endif
     dprintf(fd, "#include \"roofline.h\"\n\n");
 }
  
 static void dprint_oi_bench_begin(int fd, const char * id, const char * name){
     dprintf(fd, "void %s(struct roofline_sample_in * in, struct roofline_sample_out * out){\n", name);
-    dprintf(fd, "uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0;\n");
+#ifdef USE_OMP
+    dprintf(fd,"#pragma omp parallel\n\t{\n");
+#endif
+    dprintf(fd, "uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0, start=0, end=0;\n");
     dprintf(fd, "__asm__ __volatile__ (    \\\n");
     dprintf(fd, "\"mov %%4, %%%%r8     \\n\\t\"\\\n");
     dprintf(fd, "\"mov %%5, %%%%r9     \\n\\t\"\\\n");
@@ -371,8 +377,8 @@ static void dprint_oi_bench_end(int fd, const char * id, off_t offset){
     dprintf(fd,": \"=r\" (c_high), \"=r\" (c_low), \"=r\" (c_high1), \"=r\" (c_low1)  \\\n");
     dprintf(fd,": \"g\" (in->loop_repeat), \"o\" (in->stream), \"g\" (in->stream_size)\\\n");
     dprintf(fd,": \"%%rax\", \"%%rbx\", \"%%rcx\", \"%%rdx\", \"%%r8\", \"%%r9\", \"%%r10\", \"%%r11\", \"%%r12\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"memory\" );\n", SIMD_CLOBBERED_REGS);
-    dprintf(fd, "out->ts_start = ((c_high << 32) | c_low);\n");
-    dprintf(fd, "out->ts_end = ((c_high1 << 32) | c_low1);\n");
+    dprintf(fd, "start = ((c_high << 32) | c_low);\n");
+    dprintf(fd, "end = ((c_high1 << 32) | c_low1);\n");
 }
 
 
@@ -397,7 +403,11 @@ extern char * compiler;
 static int roofline_compile_lib(char * c_path, char* so_path){
     char cmd[2048];
     memset(cmd,0,sizeof(cmd));
-    sprintf(cmd, "%s -g -O0 -fPIC -shared %s -rdynamic -o %s", compiler, c_path, so_path);
+#ifdef USE_OMP
+    sprintf(cmd, "%s -O0 -fPIC -shared %s -rdynamic -o %s -fopenmp", compiler, c_path, so_path);
+#else
+    sprintf(cmd, "%s -O0 -fPIC -shared %s -rdynamic -o %s", compiler, c_path, so_path);
+#endif
     return system(cmd);
 }
 
@@ -477,9 +487,18 @@ static off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int ty
     }
 
     dprint_oi_bench_end(fd, roofline_type_str(type), offset);
-    dprintf(fd, "out->instructions = in->loop_repeat * %u * in->stream_size / %lu;\n", mem_instructions+fop_instructions, offset);
-    dprintf(fd, "out->bytes = in->loop_repeat * in->stream_size;\n");
-    dprintf(fd, "out->flops = in->loop_repeat * %u * in->stream_size / %lu;\n", fop_instructions*SIMD_REG_DOUBLE, offset);
+#ifdef USE_OMP
+    dprintf(fd,"#pragma omp critical\n{\n");
+#endif
+    dprintf(fd, "out->instructions += in->loop_repeat * %u * in->stream_size / %lu;\n", mem_instructions+fop_instructions, offset);
+    dprintf(fd, "out->bytes += in->loop_repeat * in->stream_size;\n");
+    dprintf(fd, "out->flops += in->loop_repeat * %u * in->stream_size / %lu;\n", fop_instructions*SIMD_REG_DOUBLE, offset);
+#ifdef USE_OMP
+    dprintf(fd, "out->ts_end = (out->ts_end > (end-start)) ? out->ts_end : (end-start);\n}\n}\n");
+#else
+    dprintf(fd, "out->ts_end = end; out->ts_start = start;\n");
+#endif
+
     dprintf(fd, "}\n\n");
     return offset;
 }
