@@ -79,6 +79,14 @@ inline void roofline_lib_finalize(void)
     hwloc_topology_destroy(topology);
 }
 
+void roofline_output_clear(struct roofline_sample_out * out){
+    out->ts_start = 0;
+    out->ts_end = 0;
+    out->bytes = 0;
+    out->flops = 0;
+    out->instructions = 0;
+}
+
 void roofline_output_accumulate(struct roofline_sample_out * a, struct roofline_sample_out * b){
     uint64_t cyc_a = a->ts_end-a->ts_start;
     uint64_t cyc_b = b->ts_end-b->ts_start;
@@ -95,110 +103,144 @@ inline void print_roofline_sample_output(struct roofline_sample_out * out){
 
 void roofline_fpeak(FILE * output)
 {
-    const char * info = "FLOPS";
+    char info[128];
     hwloc_obj_t obj;
 
     struct roofline_sample_out result = {0,0,0,0,0};
     struct roofline_sample_in in = {1,NULL,0};  
     double sd = 0;
 
+    unsigned n_threads;
+    n_threads = 1;
 #ifdef USE_OMP
-    omp_set_num_threads(hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_CORE));
+    n_threads = hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_CORE);
+    omp_set_num_threads(n_threads);
     obj = hwloc_get_root_obj(topology);    
 #else
     obj = hwloc_get_obj_by_type(topology, HWLOC_OBJ_PU, 0);    
 #endif
+    snprintf(info, sizeof(info), "%5s","FLOPS");
 
     /* Benchmark */
     roofline_autoset_loop_repeat(fpeak_bench, &in, BENCHMARK_MIN_DUR);
     sd = roofline_repeat_bench(fpeak_bench,&in,&result, roofline_output_median);    
     /* Output */
-    roofline_print_sample(output, obj, &result, sd, info);
+    roofline_print_sample(output, obj, &result, sd, n_threads, info);
 }
 
 static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int type){
     char info[128];
     char progress_info[128];
     void (* bench) (struct roofline_sample_in * in, struct roofline_sample_out * out);    
-    size_t * sizes, lower_bound_size, upper_bound_size;
-    struct roofline_sample_out * results; 
-    int nc, n_sizes, i, median;
-    struct roofline_sample_in in;
-    struct roofline_sample_out result, out;
-    double sd;
 
+    int nc;
+
+    int i, n_sizes;
+    size_t * sizes, lower_bound_size, upper_bound_size;    
+
+    int progress_high, progress_current;
+
+    struct roofline_sample_in in;
+    struct roofline_sample_out current, * currents, median, best;
+
+    double sd, best_sd;
+    unsigned n_threads, k, n_child, best_n_threads;
+    hwloc_obj_t child;
+
+#ifdef USE_OMP
+    /* Set the number of running threads to the number of Cores sharing the memory */
+    n_threads = hwloc_get_nbobjs_inside_cpuset_by_type(topology,memory->cpuset, HWLOC_OBJ_CORE);
+#else
+    /* If the run isn't parallel, n_threads is one */
+    n_threads=1; k=0;
+#endif
+    
+    
+    /* set legend to append to results */
     memset(info,0,sizeof(info));
     memset(progress_info,0,sizeof(progress_info));
-
     if(type==ROOFLINE_LOAD)  snprintf(info, sizeof(info),"%5s", "LOAD");
     if(type==ROOFLINE_STORE) snprintf(info, sizeof(info),"%5s", "STORE");
-    bench = roofline_oi_bench(oi,type);
-
     nc = hwloc_obj_type_snprintf(progress_info,sizeof(progress_info),memory, 0);
     nc += snprintf(progress_info+nc, sizeof(progress_info)-nc, ":%d %s", memory->logical_index, info);
 
-    /* bind */
+    /* various initializations */
+    roofline_output_clear(&best);
+    best_n_threads = 1; best_sd = 0;
+    bench = roofline_oi_bench(oi,type);
+    /* bind memory */
     roofline_hwloc_membind(memory);
 
-    /* Get lower memory size as a start or the minimum size if memory is the deepest one */
-    lower_bound_size = 4*roofline_hwloc_get_memory_size(roofline_hwloc_get_previous_memory(memory));
+    /* Set lower bound size as 4 times the sum of under memories size */
+    child  = roofline_hwloc_get_previous_memory(memory);
+    if(child != NULL){
+	n_child = hwloc_get_nbobjs_inside_cpuset_by_depth(topology, memory->cpuset, child->depth);
+	lower_bound_size = 4*n_child*roofline_hwloc_get_memory_size(child);
+    }
+    else
+	lower_bound_size = 1024;
+
+    /* Set upper bound size as memory size or 32 times LLC_size */
     upper_bound_size = roofline_hwloc_get_memory_size(memory);
-    lower_bound_size  = roofline_MAX(1024,lower_bound_size);
+    upper_bound_size = roofline_MIN(upper_bound_size,LLC_size*32);
 
-    upper_bound_size  = roofline_MIN(upper_bound_size,LLC_size*32);
-    if(lower_bound_size > upper_bound_size)
-	return;
+    /*Initialize input stream */
+    alloc_chunk_aligned(&in.stream, upper_bound_size);
 
-    /* Set the number of running threads to the number of Cores sharing the memory */
-#ifdef USE_OMP
-    omp_set_num_threads(hwloc_get_nbobjs_inside_cpuset_by_type(topology,memory->cpuset, HWLOC_OBJ_CORE));
-#endif
- 
     /* get array of input sizes */
     n_sizes  = ROOFLINE_N_SAMPLES;
     sizes = roofline_log_array(lower_bound_size, upper_bound_size, &n_sizes);
- 
+    progress_high = n_sizes*n_threads; progress_current = 0;
+
     /* Initialize array of results [{sequential,parallel}, {n_sample}, {pointer}]*/
-    roofline_alloc(results,sizeof(*results)*n_sizes);
+    roofline_alloc(currents,sizeof(*currents)*n_sizes);
 
-    /*Initialize sample input */
-    alloc_chunk_aligned(&in.stream, upper_bound_size);
+#ifdef USE_OMP
+    for(k=0;k<n_threads;k++){
+	omp_set_num_threads(k+1);
+#endif
 
-    /* Iterate roofline among sizes */
-    for(i=0;i<n_sizes;i++){
-    /*Inform user of the progress */
-    roofline_progress_set(&progress_bar, progress_info, 0, i, n_sizes);
+	/* Iterate roofline among sizes */
+	for(i=0;i<n_sizes;i++){
 
-    /* Prepare input / output */
-    in.stream_size = alloc_chunk_aligned(NULL,sizes[i]);
-    roofline_autoset_loop_repeat(bench, &in, BENCHMARK_MIN_DUR);
-    result.bytes = 0;
-    result.flops = 0;
-    result.instructions = 0;
-    result.ts_start = 0;
-    result.ts_end = 0;
+	    /*Inform user of the progress */
+	    roofline_progress_set(&progress_bar, progress_info, 0, progress_current++, progress_high);
 
-    /* benchmark */
-    roofline_repeat_bench(bench,&in,&result, roofline_output_median);
-    results[i] = result;
+	    /* Prepare input / output */
+	    in.stream_size = alloc_chunk_aligned(NULL,sizes[i]);
+	    roofline_autoset_loop_repeat(bench, &in, BENCHMARK_MIN_DUR);
+	    roofline_output_clear(&current);
+
+	    /* benchmark */
+	    roofline_repeat_bench(bench,&in,&current, roofline_output_median);
+	    currents[i] = current;
+	
+	}
+
+	/* sort results */
+	median = currents[roofline_output_median(currents, n_sizes)];
+	sd = roofline_output_sd(currents, n_sizes); 
+	if(comp_roofline_throughput(&median, &best)>0){
+	    best = median;
+	    best_sd = sd;
+	    best_n_threads = k+1;
+	}
+#ifdef USE_OMP
     }
-    
-    /* sort results */
-    median = roofline_output_median(results, n_sizes);
-    sd = roofline_output_sd(results, n_sizes);
-    out = results[median];
-    /*Inform user of the progress */
-    roofline_progress_set(&progress_bar, progress_info, 0, i, n_sizes);
-	
-    /* End progress bar */
-    roofline_progress_clean();
-	
-    /* print output */
-    roofline_print_sample(output, memory, &out, sd, info);
+#endif
 
     /* Cleanup */
-    free(results);
+    free(currents);
     free(in.stream);
+    free(sizes);
+
+    /*Inform user of the progress */
+    roofline_progress_set(&progress_bar, progress_info, 0, progress_high, progress_high);
+    
+    /* End progress bar */
+    roofline_progress_clean();
+    /* print output */
+    roofline_print_sample(output, memory, &best, best_sd, best_n_threads, info);    
 }
 
 inline void roofline_bandwidth(FILE * output, hwloc_obj_t mem, int type){
