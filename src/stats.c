@@ -42,6 +42,14 @@ int roofline_output_median(struct roofline_sample_out * samples, size_t n){
     return (int)(n/2);
 }
 
+float roofline_output_mean(struct roofline_sample_out * samples, size_t n){
+    float sum = 0;
+    size_t i = n;
+    while(i--)
+	sum+=( (float)(samples[i].instructions) / (float)(samples[i].ts_end-samples[i].ts_start) );
+    return sum/n;
+}
+
 int roofline_output_max(struct roofline_sample_out * samples, size_t n){
     int ret;
     struct roofline_sample_out max;
