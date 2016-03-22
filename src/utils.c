@@ -2,33 +2,41 @@
 #include <omp.h>
 #endif
 #include "roofline.h"
+#include "MSC/MSC.h"
 #include <math.h>
 
 size_t * roofline_log_array(size_t start, size_t end, int * n){
-    size_t * sizes;
+    size_t * sizes, size;
     double multiplier, val;
     int i;
 
-    if(*n == 0)
+    if(*n <= 0)
 	*n = ROOFLINE_N_SAMPLES;
-    sizes = NULL; roofline_alloc(sizes,sizeof(*sizes)* (*n));
-    sizes[0] = start; if(*n==1) return sizes;
+    roofline_alloc(sizes,sizeof(*sizes)* (*n));
+    size = alloc_chunk_aligned(NULL,start);
+    
     multiplier = 1;
     val = (double)start;
     if(start > 0){
 	multiplier = pow((double)end/(double)start,1.0/(double)(*n));
-	val = ((double)sizes[0]*multiplier);
+	val = ((double)start*multiplier);
     }
     else{
 	val = multiplier = pow((double)end,1.0/(double)(*n));
     }
 
-    for(i=1; i<*n-1;i++){
-	sizes[i] = (size_t)val;
+    i=0;
+    while(size<=end && i<*n){
+	sizes[i] = size;
 	val*=multiplier;
-	if(sizes[i] == sizes[i-1]){i--; *n = *n-1;}
+	size = alloc_chunk_aligned(NULL,(size_t)val);
+	i++;
     }
-    sizes[*n-1] = end;
+
+    if(i==0){
+	*n=0; free(sizes); return NULL;
+    }
+    *n=i;
     return sizes;
 }
 
