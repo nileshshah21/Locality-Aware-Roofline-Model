@@ -15,18 +15,20 @@ static void run_bench(hwloc_obj_t memory){
     size_t min, max;
     struct roofline_sample_in  input;
     struct roofline_sample_out output;
+    double * stream;
     int i, n_sizes;
     size_t * sizes;
     double sd;
-    unsigned n_threads, tid;
+    unsigned tid;
     hwloc_obj_t child;
     
     roofline_hwloc_membind(memory);
 
 #ifdef USE_OMP
+    unsigned n_threads;
     n_threads = hwloc_get_nbobjs_inside_cpuset_by_type(topology,memory->cpuset, HWLOC_OBJ_CORE);
 #else
-    tid = 1; n_threads = 1;
+    tid = 1;
 #endif
 
     /* Set lower bound size as 4 times the sum of under memories size */
@@ -38,29 +40,41 @@ static void run_bench(hwloc_obj_t memory){
     else
 	min = 1024;
     max = roofline_MIN(LLC_size*16, roofline_hwloc_get_memory_size(memory));
+    alloc_chunk_aligned(&stream, max);
 
-
-    alloc_chunk_aligned(&input.stream, max);
     n_sizes = BENCHMARK_N_SAMPLE;
-    sizes = roofline_log_array(min, max, &n_sizes);
 #ifdef USE_OMP
     for(tid=1; tid<=n_threads; tid++){ 
 	omp_set_num_threads(tid);
 #endif
+	sizes = roofline_log_array(min/tid, max/tid, &n_sizes);
 	for(i=0;i<n_sizes;i++){ 
 	    roofline_output_clear(&output);
-	    input.stream_size = alloc_chunk_aligned(NULL,sizes[i]);
+	    input.stream_size = sizes[i];
+	    input.stream = stream;
 	    roofline_autoset_loop_repeat(bandwidth_bench, &input, BENCHMARK_MIN_DUR);
+#ifdef USE_OMP
+#pragma omp parallel firstprivate(input)
+	    {
+		struct roofline_sample_out shared;
+		off_t offset = (omp_get_thread_num()*input.stream_size);
+		input.stream = &(stream[offset/sizeof(*stream)]);
+		roofline_output_clear(&shared);
+		sd = roofline_repeat_bench(bandwidth_bench, &input, &shared, roofline_output_median);
+		roofline_output_accumulate(&output, &shared);
+	    }
+#else
 	    sd = roofline_repeat_bench(bandwidth_bench, &input, &output, roofline_output_median);
+#endif
 	    memset(info, 0, sizeof(info));
 	    snprintf(info,sizeof(info),"%10zu", sizes[i]);
 	    roofline_print_sample(OUTPUT, memory, &output, sd, tid, info);
 	}
+	free(sizes);
 #ifdef USE_OMP
     }
 #endif
-    free(input.stream);
-    free(sizes);
+    free(stream);
 }
 
 void usage(char * argv0){
