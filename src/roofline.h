@@ -14,8 +14,8 @@ void roofline_lib_finalize(void);
 struct roofline_sample_in{
     /* All sample type specific data */
     long loop_repeat;    /* Make the roofline longer if you use an external tool to sample */
-    double * stream;          /* The buffer to stream */
-    size_t stream_size;       /* The total size to stream */
+    double * stream;     /* The buffer to stream */
+    size_t stream_size;  /* The total size to stream */
 };
 
 void print_roofline_sample_input(struct roofline_sample_in * in);
