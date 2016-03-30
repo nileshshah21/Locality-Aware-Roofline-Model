@@ -6,22 +6,22 @@ HWLOC_FLAG=-lhwloc
 
 #Vectorisation type among {AVX512, AVX, SSE, SSE2, DBL}
 SIMD=AVX
-#Duration time of each sample (millisecond)
-DUR=1
+#Duration time of each sample (millisecond) 0
+DUR=10
 #Type of parallelisme among {SEQ, OMP}
 PAR=OMP
-#Machinde specific code implementing MSC/MSC.h
-MSC=MSC/intel.c
+#Machinde specific code implementing MSC/MSC.h {generic, intel}
+MSC=intel
 
 DEFINES=-DUSE_$(SIMD) -DBENCHMARK_MIN_DUR=$(DUR) -DUSE_$(PAR) -DCC=$(CC)
 
 all: main
 
-MSC.o: $(MSC)
-	$(CC) -O0 $(OPTIONS) $(DEFINES) -c -o $@ $^ -ldl $(OMP_FLAG)
+MSC.o: MSC/$(MSC).c
+	$(CC) -O8 -march=native $(OPTIONS) $(DEFINES) -c -o $@ $^ -ldl $(OMP_FLAG)
 
-MSC.s: $(MSC)
-	$(CC) -O0 $(OPTIONS) $(DEFINES) -S -o $@ $^ -ldl $(OMP_FLAG)
+MSC.s: MSC/$(MSC).c
+	$(CC) -O8 -march=native $(OPTIONS) $(DEFINES) -S -o $@ $^ -ldl $(OMP_FLAG)
 
 roofline.o: roofline.c
 	$(CC) $(OPTIONS) -pedantic-errors $(DEFINES) -c -o $@ $^ $(OMP_FLAG)
