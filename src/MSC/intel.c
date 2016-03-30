@@ -599,10 +599,10 @@ void (* roofline_oi_bench(double oi, int type))(struct roofline_sample_in * in, 
     /* Compile the roofline function */
     close(fd); 
     roofline_compile_lib(c_path, so_path);
-    /* unlink(c_path); */ free(c_path);
+    unlink(c_path); free(c_path);
     /* Load the roofline function */
     benchmark = roofline_load_lib(so_path, benchname);
-    /* unlink(so_path); */ free(so_path);
+    unlink(so_path); free(so_path);
     return benchmark;
 }
 
