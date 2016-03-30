@@ -13,7 +13,7 @@ size_t * roofline_log_array(size_t start, size_t end, int * n){
     if(*n <= 0)
 	*n = ROOFLINE_N_SAMPLES;
     roofline_alloc(sizes,sizeof(*sizes)* (*n));
-    size = alloc_chunk_aligned(NULL,start);
+    size = start;
     
     multiplier = 1;
     val = (double)start;
@@ -29,7 +29,7 @@ size_t * roofline_log_array(size_t start, size_t end, int * n){
     while(size<=end && i<*n){
 	sizes[i] = size;
 	val*=multiplier;
-	size = alloc_chunk_aligned(NULL,(size_t)val);
+	size = (size_t)val;
 	i++;
     }
 
@@ -71,7 +71,7 @@ void roofline_print_sample(FILE * output, hwloc_obj_t obj, struct roofline_sampl
 #ifdef USE_OMP
 #pragma omp critical
 #endif
-    fprintf(output, "%12s %16lu %16lu %16lu %10.3f %10.3f %10.3f %10.3f %10.6f %10u %s\n",
+    fprintf(output, "%12s %16lu %16lu %16lu %10.6f %10.6f %10.3f %10.3f %10.6f %10u %s\n",
 	    obj_str, 
 	    sample_out->ts_start, 
 	    sample_out->ts_end, 
@@ -95,27 +95,27 @@ int roofline_hwloc_obj_snprintf(hwloc_obj_t obj, char * info_in, size_t n){
     return nc;
 }
 
-int roofline_hwloc_check_cpu_bind(hwloc_cpuset_t cpuset, int print){
+int roofline_hwloc_check_cpubind(hwloc_cpuset_t cpuset, int print){
     int ret;
     hwloc_bitmap_t checkset = hwloc_bitmap_alloc();
-    if(hwloc_get_cpubind(topology, checkset, HWLOC_CPUBIND_PROCESS) == -1){
+    if(hwloc_get_cpubind(topology, checkset, HWLOC_CPUBIND_THREAD) == -1){
 	perror("get_cpubind");
 	hwloc_bitmap_free(checkset);  
 	return 0; 
     }
     if(print){
-	hwloc_obj_t cpu_obj = hwloc_get_first_largest_obj_inside_cpuset(topology, checkset);
-	printf("cpubind=%s:%d\n",hwloc_obj_type_string(cpu_obj->type),cpu_obj->logical_index);
+	hwloc_obj_t bound = hwloc_get_first_largest_obj_inside_cpuset(topology, checkset);
+	hwloc_obj_t bind = hwloc_get_first_largest_obj_inside_cpuset(topology, cpuset);
+	printf("bind=%s:%d, bound %s:%d\n",
+	       hwloc_obj_type_string(bind->type),bind->logical_index,
+	       hwloc_obj_type_string(bound->type),bound->logical_index);
     }
-    
-    if(cpuset == NULL)
-	return 0;
     ret = hwloc_bitmap_isequal(cpuset,checkset);
     hwloc_bitmap_free(checkset);  
     return ret;
 }
 
-int roofline_hwloc_check_mem_bind(hwloc_cpuset_t nodeset, int print){
+int roofline_hwloc_check_membind(hwloc_cpuset_t nodeset, int print){
     hwloc_membind_policy_t policy;
     hwloc_bitmap_t checkset;
     int ret; 
@@ -206,11 +206,16 @@ hwloc_obj_t roofline_hwloc_parse_obj(char* arg){
 }
 
 int roofline_hwloc_cpubind(hwloc_cpuset_t cpuset){
-    if(hwloc_set_cpubind(topology,cpuset, HWLOC_CPUBIND_PROCESS|HWLOC_CPUBIND_STRICT|HWLOC_CPUBIND_NOMEMBIND) == -1){
+    if(hwloc_set_cpubind(topology,cpuset, HWLOC_CPUBIND_THREAD|HWLOC_CPUBIND_STRICT|HWLOC_CPUBIND_NOMEMBIND) == -1){
 	perror("cpubind");
 	return 0;
     }
-    return roofline_hwloc_check_cpu_bind(cpuset,0);
+    if(!roofline_hwloc_check_cpubind(cpuset,0)){
+	fprintf(stderr, "Binding error: ");
+	roofline_hwloc_check_cpubind(cpuset,1);
+	exit(EXIT_FAILURE);
+    }
+    return 1;
 }
 
 int roofline_hwloc_membind(hwloc_obj_t obj){
@@ -232,7 +237,7 @@ int roofline_hwloc_membind(hwloc_obj_t obj){
 	perror("membind");
 	return 0;
     }
-    return roofline_hwloc_check_mem_bind(parent_node->cpuset,0);
+    return roofline_hwloc_check_membind(parent_node->cpuset,0);
 }
 
 int roofline_hwloc_obj_is_memory(hwloc_obj_t obj){
