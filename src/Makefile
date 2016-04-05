@@ -24,10 +24,10 @@ MSC.s: MSC/$(MSC).c
 	$(CC) -O8 -march=native $(OPTIONS) $(DEFINES) -S -o $@ $^ -ldl $(OMP_FLAG)
 
 roofline.o: roofline.c
-	$(CC) $(OPTIONS) -pedantic-errors $(DEFINES) -c -o $@ $^ $(OMP_FLAG)
+	$(CC) $(OPTIONS) -pedantic-errors $(DEFINES) -c -o $@ $^ $(OMP_FLAG) 
 
 utils.o: utils.c
-	$(CC) $(OPTIONS) -pedantic-errors -c -o $@ $^ -lm $(HWLOC_FLAG)
+	$(CC) $(OPTIONS) -pedantic-errors $(DEFINES) -c -o $@ $^ -lm $(HWLOC_FLAG) $(OMP_FLAG)
 
 stats.o: stats.c
 	$(CC) $(OPTIONS) -pedantic-errors -c -o $@ $^
