@@ -177,12 +177,9 @@ size_t alloc_chunk_aligned(double ** data, size_t size){
     return size;
 }
 
+#ifdef USE_OMP
 #define bandwidth_bench_run(c_low, c_high, c_low1, c_high1, stream, size, repeat, id_str, macro_bench) \
 	__asm__ __volatile__ (						\
-			      "CPUID\n\t"				\
-			      "RDTSC\n\t"				\
-			      "mov %%rdx, %0\n\t"			\
-			      "mov %%rax, %1\n\t"			\
 			      "loop_"id_str"_repeat:\n\t"		\
 			      "mov %5, %%r11\n\t"			\
 			      "mov %6, %%r12\n\t"			\
@@ -193,16 +190,10 @@ size_t alloc_chunk_aligned(double ** data, size_t size){
 			      "jnz buffer_"id_str"_increment\n\t"	\
 			      "sub $1, %4\n\t"				\
 			      "jnz loop_"id_str"_repeat\n\t"		\
-			      "CPUID\n\t"				\
-			      "RDTSC\n\t"				\
-			      "movq %%rdx, %2\n\t"			\
-			      "movq %%rax, %3\n\t"			\
 			      : "=&r" (c_high), "=&r" (c_low), "=&r" (c_high1), "=&r" (c_low1) \
 			      : "r" (repeat), "r" (stream), "r" (size)	\
-			      : "%rax", "%rbx", "%rcx", "%rdx", "%r11", "%r12", SIMD_CLOBBERED_REGS, "memory")
+			      : "%r11", "%r12", SIMD_CLOBBERED_REGS, "memory")
 
-
-#ifdef USE_OMP
 extern int omp_get_thread_num(); 
 extern int omp_get_num_threads(); 
 
@@ -230,7 +221,7 @@ void load_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sample
 	    roofline_rdtsc(c_high1, c_low1);
 	    out->ts_start = roofline_rdtsc_diff(c_high, c_low);
 	    out->ts_end = roofline_rdtsc_diff(c_high1, c_low1);
-	    out->bytes = n_threads*size*repeat;
+	    out->bytes = n_threads*size*in->loop_repeat;
 	    out->instructions = out->bytes/SIMD_REG_SIZE;
 	}
     }
@@ -261,12 +252,36 @@ void store_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sampl
 	    roofline_rdtsc(c_high1, c_low1);
 	    out->ts_start = roofline_rdtsc_diff(c_high, c_low);
 	    out->ts_end = roofline_rdtsc_diff(c_high1, c_low1);
-	    out->bytes = n_threads*size*repeat;
+	    out->bytes = n_threads*size*in->loop_repeat;
 	    out->instructions = out->bytes/SIMD_REG_SIZE;
 	}
     }
 }
 #else
+#define bandwidth_bench_run(c_low, c_high, c_low1, c_high1, stream, size, repeat, id_str, macro_bench) \
+	__asm__ __volatile__ (						\
+			      "CPUID\n\t"				\
+			      "RDTSC\n\t"				\
+			      "mov %%rdx, %0\n\t"			\
+			      "mov %%rax, %1\n\t"			\
+			      "loop_"id_str"_repeat:\n\t"		\
+			      "mov %5, %%r11\n\t"			\
+			      "mov %6, %%r12\n\t"			\
+			      "buffer_"id_str"_increment:\n\t"		\
+			      simd_mov(macro_bench,"%%r11")		\
+			      "add $"roofline_macro_xstr(SIMD_CHUNK_SIZE)", %%r11\n\t" \
+			      "sub $"roofline_macro_xstr(SIMD_CHUNK_SIZE)", %%r12\n\t" \
+			      "jnz buffer_"id_str"_increment\n\t"	\
+			      "sub $1, %4\n\t"				\
+			      "jnz loop_"id_str"_repeat\n\t"		\
+			      "CPUID\n\t"				\
+			      "RDTSC\n\t"				\
+			      "movq %%rdx, %2\n\t"			\
+			      "movq %%rax, %3\n\t"			\
+			      : "=&r" (c_high), "=&r" (c_low), "=&r" (c_high1), "=&r" (c_low1) \
+			      : "r" (repeat), "r" (stream), "r" (size)	\
+			      : "%rax", "%rbx", "%rcx", "%rdx", "%r11", "%r12", SIMD_CLOBBERED_REGS, "memory")
+
 void load_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sample_out * out){
     volatile uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0;
     bandwidth_bench_run(c_low, c_high, c_low1, c_high1, in->stream, in->stream_size, in->loop_repeat, "load", roofline_load_ins);
