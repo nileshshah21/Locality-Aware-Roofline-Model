@@ -217,7 +217,7 @@ void load_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sample
 	ROOFLINE_STREAM_TYPE * stream = NULL;
 	unsigned n_threads= omp_get_num_threads();
 	unsigned long repeat = in->loop_repeat;
-	size_t size = in->stream_size/n_threads; size -= size%chunk_size;
+	size_t size = in->stream_size/n_threads;
 	roofline_hwloc_cpubind(hwloc_get_obj_by_type(topology, HWLOC_OBJ_CORE, omp_get_thread_num())->cpuset);
 	stream = in->stream + omp_get_thread_num()*size/sizeof(*stream);
 
@@ -249,7 +249,7 @@ void store_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sampl
 	ROOFLINE_STREAM_TYPE * stream = NULL;
 	unsigned n_threads= omp_get_num_threads();
 	unsigned long repeat = in->loop_repeat;
-	size_t size = in->stream_size/n_threads; size -= size%chunk_size;
+	size_t size = in->stream_size/n_threads; 
 	roofline_hwloc_cpubind(hwloc_get_obj_by_type(topology, HWLOC_OBJ_CORE, omp_get_thread_num())->cpuset);
 	stream = in->stream + omp_get_thread_num()*size/sizeof(*stream);
     
@@ -411,7 +411,6 @@ static void  dprint_header(int fd) {
     dprintf(fd, "#include <omp.h>\n");
 #endif
     dprintf(fd, "#include \"roofline.h\"\n\n");
-
     dprintf(fd, "#define rdtsc(high,low) __asm__ __volatile__ (\"CPUID\\n\\tRDTSC\\n\\tmovq %%%%rdx, %%0\\n\\tmovq %%%%rax, %%1\\n\\t\" :\"=r\" (high), \"=r\" (low)::\"%%rax\", \"%%rbx\", \"%%rcx\", \"%%rdx\")\n\n");
 }
  
@@ -421,10 +420,10 @@ static void dprint_oi_bench_begin(int fd, const char * id, const char * name){
     dprintf(fd, "ROOFLINE_STREAM_TYPE * stream = in->stream;\n");
     dprintf(fd, "size_t size = in->stream_size;\n");
 #ifdef USE_OMP
-    dprintf(fd,"#pragma omp parallel\n{");
+    dprintf(fd,"#pragma omp parallel firstprivate(size, stream)\n{");
     dprintf(fd,"unsigned n_threads=omp_get_num_threads();\n");
-    dprintf(fd,"size/=n_threads;\n");
-    dprintf(fd,"stream = in->stream + omp_get_thread_num()*size/sizeof(*stream);\n");
+    dprintf(fd,"size /= n_threads;\n");
+    dprintf(fd,"stream += omp_get_thread_num()*size/sizeof(*stream);\n");
     dprintf(fd,"#pragma omp barrier\n");
     dprintf(fd,"#pragma omp master\n");
 #endif
@@ -443,7 +442,7 @@ static void dprint_oi_bench_end(int fd, const char * id, off_t offset){
     dprintf(fd,"\"sub $1, %%0\\n\\t\"\\\n");
     dprintf(fd,"\"jnz loop_%s_repeat\\n\\t\"\\\n", id);
     dprintf(fd,":: \"g\" (in->loop_repeat), \"o\" (stream), \"g\" (size)\\\n");
-    dprintf(fd,": \"%%r8\", \"%%r9\", \"%%r10\", \"%%r11\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"memory\" );\n", SIMD_CLOBBERED_REGS);
+    dprintf(fd,": \"%%r10\", \"%%r11\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"memory\" );\n", SIMD_CLOBBERED_REGS);
 #ifdef USE_OMP
     dprintf(fd,"#pragma omp barrier\n");
     dprintf(fd,"#pragma omp master\n");
@@ -599,10 +598,10 @@ void (* roofline_oi_bench(double oi, int type))(struct roofline_sample_in * in, 
     /* Compile the roofline function */
     close(fd); 
     roofline_compile_lib(c_path, so_path);
-    unlink(c_path); free(c_path);
+    unlink(c_path);free(c_path);
     /* Load the roofline function */
     benchmark = roofline_load_lib(so_path, benchname);
-    unlink(so_path); free(so_path);
+    unlink(so_path);free(so_path);
     return benchmark;
 }
 
