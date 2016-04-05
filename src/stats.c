@@ -81,7 +81,7 @@ int roofline_output_min(struct roofline_sample_out * samples, size_t n){
     return ret;
 }
 
-long roofline_autoset_loop_repeat(void (* bench_fun)(struct roofline_sample_in *, struct roofline_sample_out *), struct roofline_sample_in * in, long ms_dur, long min_rep){
+long roofline_autoset_loop_repeat(void (* bench_fun)(struct roofline_sample_in *, struct roofline_sample_out *), struct roofline_sample_in * in, long ms_dur, unsigned long min_rep){
     float mul;
     long tv_ms;
     struct roofline_sample_out out;
@@ -93,13 +93,13 @@ long roofline_autoset_loop_repeat(void (* bench_fun)(struct roofline_sample_in *
 	roofline_output_clear(&out);
 	bench_fun(in,&out);
 	tv_ms = (out.ts_end-out.ts_start)*1e3/cpu_freq;
-	mul = (float)ms_dur/(float)tv_ms;
 	if(tv_ms==0){
 	    in->loop_repeat *= 2;
 	}
 
 	else if( tv_ms < ms_dur ){
-	    if(in->loop_repeat == (long)(in->loop_repeat * mul))
+	    mul = (float)ms_dur/(float)tv_ms;
+	    if((long)mul <= 1)
 		in->loop_repeat += 1;
 	    else
 		in->loop_repeat *= mul;
