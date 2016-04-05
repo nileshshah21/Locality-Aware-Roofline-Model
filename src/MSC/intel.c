@@ -218,7 +218,7 @@ void load_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sample
 	unsigned n_threads= omp_get_num_threads();
 	unsigned long repeat = in->loop_repeat;
 	size_t size = in->stream_size/n_threads;
-	roofline_hwloc_cpubind(hwloc_get_obj_by_type(topology, HWLOC_OBJ_CORE, omp_get_thread_num())->cpuset);
+	roofline_hwloc_cpubind();
 	stream = in->stream + omp_get_thread_num()*size/sizeof(*stream);
 
 #pragma omp barrier
@@ -250,7 +250,7 @@ void store_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sampl
 	unsigned n_threads= omp_get_num_threads();
 	unsigned long repeat = in->loop_repeat;
 	size_t size = in->stream_size/n_threads; 
-	roofline_hwloc_cpubind(hwloc_get_obj_by_type(topology, HWLOC_OBJ_CORE, omp_get_thread_num())->cpuset);
+	roofline_hwloc_cpubind();
 	stream = in->stream + omp_get_thread_num()*size/sizeof(*stream);
     
 #pragma omp barrier
@@ -304,15 +304,12 @@ void fpeak_bench(struct roofline_sample_in * in, struct roofline_sample_out * ou
      
 #pragma omp parallel
     {
-	unsigned n_threads= omp_get_num_threads();
-	hwloc_obj_t cpubind = hwloc_get_obj_by_type(topology, HWLOC_OBJ_PU, omp_get_thread_num());
-	roofline_hwloc_cpubind(cpubind->cpuset);
+	roofline_hwloc_cpubind();
 
 #pragma omp barrier
 #pragma omp master 
 	roofline_rdtsc(c_high, c_low);
 	__asm__ __volatile__ (						\
-			      "mov %0, %%r8\n\t"			\
 			      "loop_flops_repeat:\n\t"			\
 			      simd_fp(SIMD_ADD, "0")			\
 			      simd_fp(SIMD_MUL, "1")			\
@@ -330,18 +327,17 @@ void fpeak_bench(struct roofline_sample_in * in, struct roofline_sample_out * ou
 			      simd_fp(SIMD_MUL, "13")			\
 			      simd_fp(SIMD_ADD, "14")			\
 			      simd_fp(SIMD_MUL, "15")			\
-			      "sub $1, %%r8\n\t"			\
+			      "sub $1, %0\n\t"				\
 			      "jnz loop_flops_repeat\n\t"		\
-			      :						\
-			      : "r" (in->loop_repeat)			\
-			      : "%r8", SIMD_CLOBBERED_REGS, "memory");
+			      :: "r" (in->loop_repeat)			\
+			      : SIMD_CLOBBERED_REGS);
 #pragma omp barrier
 #pragma omp master 
 	{
 	    roofline_rdtsc(c_high1, c_low1);
 	    out->ts_start = roofline_rdtsc_diff(c_high, c_low);
 	    out->ts_end = roofline_rdtsc_diff(c_high1, c_low1);
-	    out->instructions = n_threads*16*in->loop_repeat;
+	    out->instructions = omp_get_num_threads()*16*in->loop_repeat;
 	    out->flops = out->instructions * SIMD_REG_DOUBLE;
 	}
     }
@@ -349,8 +345,8 @@ void fpeak_bench(struct roofline_sample_in * in, struct roofline_sample_out * ou
 #else
 void fpeak_bench(struct roofline_sample_in * in, struct roofline_sample_out * out){
     uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0;
+    roofline_hwloc_cpubind();
     __asm__ __volatile__ (						\
-			  "mov %4, %%r8\n\t"				\
 			  "CPUID\n\t"					\
 			  "RDTSC\n\t"					\
 			  "mov %%rdx, %0\n\t"				\
@@ -372,15 +368,15 @@ void fpeak_bench(struct roofline_sample_in * in, struct roofline_sample_out * ou
 			  simd_fp(SIMD_MUL, "13")			\
 			  simd_fp(SIMD_ADD, "14")			\
 			  simd_fp(SIMD_MUL, "15")			\
-			  "sub $1, %%r8\n\t"				\
+			  "sub $1, %4\n\t"				\
 			  "jnz loop_flops_repeat\n\t"			\
 			  "CPUID\n\t"					\
 			  "RDTSC\n\t"					\
 			  "movq %%rdx, %2\n\t"				\
 			  "movq %%rax, %3\n\t"				\
 			  : "=r" (c_high), "=r" (c_low), "=r" (c_high1), "=r" (c_low1) \
-			  : "r" (in->loop_repeat)			\
-			  : "%rax", "%rbx", "%rcx", "%r8", SIMD_CLOBBERED_REGS, "memory");
+			  : "r" (in->loop_repeat)				\
+			  : "%rax", "%rbx", "%rcx", "%rdx", SIMD_CLOBBERED_REGS);
     out->ts_start = roofline_rdtsc_diff(c_high, c_low);
     out->ts_end = roofline_rdtsc_diff(c_high1, c_low1);
     out->instructions = 16*in->loop_repeat;
