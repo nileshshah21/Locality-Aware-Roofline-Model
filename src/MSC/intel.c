@@ -179,30 +179,27 @@ size_t alloc_chunk_aligned(double ** data, size_t size){
 
 #define bandwidth_bench_run(c_low, c_high, c_low1, c_high1, stream, size, repeat, id_str, macro_bench) \
 	__asm__ __volatile__ (						\
-			      "mov %4, %%r8\n\t"			\
-			      "mov %5, %%r9\n\t"			\
-			      "mov %6, %%r10\n\t"			\
 			      "CPUID\n\t"				\
 			      "RDTSC\n\t"				\
 			      "mov %%rdx, %0\n\t"			\
 			      "mov %%rax, %1\n\t"			\
 			      "loop_"id_str"_repeat:\n\t"		\
-			      "mov %%r9, %%r11\n\t"			\
-			      "mov %%r10, %%r12\n\t"			\
+			      "mov %5, %%r11\n\t"			\
+			      "mov %6, %%r12\n\t"			\
 			      "buffer_"id_str"_increment:\n\t"		\
-			      simd_mov(macro_bench,"%%r11")	\
+			      simd_mov(macro_bench,"%%r11")		\
 			      "add $"roofline_macro_xstr(SIMD_CHUNK_SIZE)", %%r11\n\t" \
 			      "sub $"roofline_macro_xstr(SIMD_CHUNK_SIZE)", %%r12\n\t" \
 			      "jnz buffer_"id_str"_increment\n\t"	\
-			      "sub $1, %%r8\n\t"			\
+			      "sub $1, %4\n\t"				\
 			      "jnz loop_"id_str"_repeat\n\t"		\
 			      "CPUID\n\t"				\
 			      "RDTSC\n\t"				\
 			      "movq %%rdx, %2\n\t"			\
 			      "movq %%rax, %3\n\t"			\
-			      : "=r" (c_high), "=r" (c_low), "=r" (c_high1), "=r" (c_low1) \
-			      : "g" (repeat), "o" (stream), "g" (size)	\
-			      : "%rax", "%rbx", "%rcx", "%rdx", "%r8", "%r9", "%r10", "%r11", "%r12", SIMD_CLOBBERED_REGS, "memory")
+			      : "=&r" (c_high), "=&r" (c_low), "=&r" (c_high1), "=&r" (c_low1) \
+			      : "r" (repeat), "r" (stream), "r" (size)	\
+			      : "%rax", "%rbx", "%rcx", "%rdx", "%r11", "%r12", SIMD_CLOBBERED_REGS, "memory")
 
 
 #ifdef USE_OMP
@@ -214,18 +211,16 @@ void load_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sample
     volatile uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0, tmp;
 #pragma omp parallel
     {
+	roofline_hwloc_cpubind();
 	ROOFLINE_STREAM_TYPE * stream = NULL;
 	unsigned n_threads= omp_get_num_threads();
 	unsigned long repeat = in->loop_repeat;
 	size_t size = in->stream_size/n_threads;
-	roofline_hwloc_cpubind();
 	stream = in->stream + omp_get_thread_num()*size/sizeof(*stream);
 
 #pragma omp barrier
 #pragma omp master 
-	{
-	    roofline_rdtsc(c_high, c_low);
-	}
+	roofline_rdtsc(c_high, c_low);
 
 	bandwidth_bench_run(tmp, tmp, tmp, tmp, stream, size, repeat, "load", roofline_load_ins);
 
@@ -374,7 +369,7 @@ void fpeak_bench(struct roofline_sample_in * in, struct roofline_sample_out * ou
 			  "RDTSC\n\t"					\
 			  "movq %%rdx, %2\n\t"				\
 			  "movq %%rax, %3\n\t"				\
-			  : "=r" (c_high), "=r" (c_low), "=r" (c_high1), "=r" (c_low1) \
+			  : "=&r" (c_high), "=&r" (c_low), "=&r" (c_high1), "=&r" (c_low1) \
 			  : "r" (in->loop_repeat)				\
 			  : "%rax", "%rbx", "%rcx", "%rdx", SIMD_CLOBBERED_REGS);
     out->ts_start = roofline_rdtsc_diff(c_high, c_low);
@@ -437,7 +432,7 @@ static void dprint_oi_bench_end(int fd, const char * id, off_t offset){
     dprintf(fd,"\"jnz buffer_%s_increment\\n\\t\"\\\n", id);
     dprintf(fd,"\"sub $1, %%0\\n\\t\"\\\n");
     dprintf(fd,"\"jnz loop_%s_repeat\\n\\t\"\\\n", id);
-    dprintf(fd,":: \"g\" (in->loop_repeat), \"o\" (stream), \"g\" (size)\\\n");
+    dprintf(fd,":: \"r\" (in->loop_repeat), \"r\" (stream), \"r\" (size)\\\n");
     dprintf(fd,": \"%%r10\", \"%%r11\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"memory\" );\n", SIMD_CLOBBERED_REGS);
 #ifdef USE_OMP
     dprintf(fd,"#pragma omp barrier\n");
