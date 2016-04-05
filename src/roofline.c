@@ -144,7 +144,6 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int ty
     struct roofline_sample_in in;
     struct roofline_sample_out * samples, median;
     double sd;
-    double * stream;
     unsigned n_threads;
     hwloc_obj_t child;
 
@@ -181,17 +180,13 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int ty
     upper_bound_size = roofline_MAX(upper_bound_size,lower_bound_size);
     upper_bound_size = roofline_MIN(upper_bound_size,LLC_size*16);
 
-
-    /*Initialize input stream */
-    alloc_chunk_aligned(&stream, upper_bound_size);
-
     /* get array of input sizes */
     n_sizes  = ROOFLINE_N_SAMPLES;
     sizes = roofline_log_array(lower_bound_size, upper_bound_size, &n_sizes);
+    /*Initialize input stream */
+    alloc_chunk_aligned(&(in.stream), n_threads*alloc_chunk_aligned(NULL,sizes[n_sizes-1]));
     roofline_alloc(samples, sizeof(*samples)*n_sizes);
 
-    /* Prepare input / output */
-    in.stream = stream;
     for(s=0;s<n_sizes;s++){
 	roofline_progress_set(&progress_bar, "",0,s,n_sizes);
 	in.stream_size = n_threads*alloc_chunk_aligned(NULL,sizes[s]);
