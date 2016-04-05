@@ -16,9 +16,9 @@ void roofline_lib_finalize(void);
 #endif
 struct roofline_sample_in{
     /* All sample type specific data */
-    long loop_repeat;    /* Make the roofline longer if you use an external tool to sample */
-    ROOFLINE_STREAM_TYPE * stream;     /* The buffer to stream */
-    size_t stream_size;  /* The total size to stream */
+    unsigned long loop_repeat;     /* Make the roofline longer if you use an external tool to sample */
+    ROOFLINE_STREAM_TYPE * stream; /* The buffer to stream */
+    size_t stream_size;            /* The total size to stream */
 };
 
 void print_roofline_sample_input(struct roofline_sample_in * in);
@@ -72,7 +72,7 @@ int    roofline_output_median(struct roofline_sample_out * samples, size_t n);
 double roofline_output_sd(struct roofline_sample_out * samples, unsigned n);
 double roofline_repeat_bench(void (* bench_fun)(struct roofline_sample_in *, struct roofline_sample_out *), struct roofline_sample_in * in, struct roofline_sample_out * out, int (* bench_stat)(struct roofline_sample_out * , size_t));
 
-long roofline_autoset_loop_repeat(void (* bench_fun)(struct roofline_sample_in *, struct roofline_sample_out *), struct roofline_sample_in * in, long ms_dur, long min_rep);
+long roofline_autoset_loop_repeat(void (* bench_fun)(struct roofline_sample_in *, struct roofline_sample_out *), struct roofline_sample_in * in, long ms_dur, unsigned long min_rep);
 
 /******************************************* Hardware locality ***********************************/
 extern hwloc_topology_t topology; /* The current machine topology */
@@ -82,10 +82,8 @@ extern float  cpu_freq;           /* The cpu frequency defined by BENCHMARK_CPU_
 
 int         roofline_hwloc_objtype_is_cache(hwloc_obj_type_t type);
 int         roofline_hwloc_obj_snprintf(hwloc_obj_t obj, char * info_in, size_t n);
-int         roofline_hwloc_check_cpubind(hwloc_cpuset_t cpuset, int print);
-int         roofline_hwloc_check_membind(hwloc_cpuset_t nodeset, int print);
 hwloc_obj_t roofline_hwloc_parse_obj(char*);
-int         roofline_hwloc_cpubind(hwloc_cpuset_t);
+int         roofline_hwloc_cpubind();
 int         roofline_hwloc_membind(hwloc_obj_t);
 size_t      roofline_hwloc_get_memory_size(hwloc_obj_t obj);
 hwloc_obj_t roofline_hwloc_get_next_memory(hwloc_obj_t obj);
