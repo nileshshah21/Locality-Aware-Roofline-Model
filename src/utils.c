@@ -205,7 +205,21 @@ hwloc_obj_t roofline_hwloc_parse_obj(char* arg){
     return hwloc_get_obj_by_depth(topology,depth,logical_index);
 }
 
-int roofline_hwloc_cpubind(hwloc_cpuset_t cpuset){
+int roofline_hwloc_cpubind(){
+    hwloc_cpuset_t cpuset;
+#ifdef USE_OMP
+    hwloc_obj_t core, PU;
+    unsigned n_core;
+    unsigned tid;
+    tid = omp_get_thread_num();
+    n_core = hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_CORE);
+    core = hwloc_get_obj_by_type(topology, HWLOC_OBJ_CORE, tid%n_core);
+    PU = hwloc_get_obj_inside_cpuset_by_type(topology, core->cpuset, HWLOC_OBJ_PU, tid/n_core);
+#pragma omp critical
+    cpuset = PU->cpuset;
+#else
+    cpuset = hwloc_get_obj_by_type(topology,HWLOC_OBJ_PU, 0)->cpuset;
+#endif
     if(hwloc_set_cpubind(topology,cpuset, HWLOC_CPUBIND_THREAD|HWLOC_CPUBIND_STRICT|HWLOC_CPUBIND_NOMEMBIND) == -1){
 	perror("cpubind");
 	return 0;
