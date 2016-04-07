@@ -79,11 +79,10 @@ int main(int argc, char * argv[]){
     char info[128];
 
     memset(info,0,sizeof(info));
+    parse_args(argc,argv);
 
     if(roofline_lib_init(hyperthreading)==-1)
 	errEXIT("roofline library init failure");
-
-    parse_args(argc,argv);
     
     out = open_output(output);
     if(out==NULL) out = stdout;
