@@ -205,14 +205,15 @@ hwloc_obj_t roofline_hwloc_parse_obj(char* arg){
     return hwloc_get_obj_by_depth(topology,depth,logical_index);
 }
 
+extern hwloc_obj_t first_node;          /* The first node where to bind threads */
 int roofline_hwloc_cpubind(){
     hwloc_cpuset_t cpuset;
 #ifdef USE_OMP
-    hwloc_obj_t core, PU;
+    hwloc_obj_t PU, core;
     unsigned n_core;
     unsigned tid;
     tid = omp_get_thread_num();
-    n_core = hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_CORE);
+    n_core = hwloc_get_nbobjs_inside_cpuset_by_type(topology, first_node->cpuset, HWLOC_OBJ_CORE);
     core = hwloc_get_obj_by_type(topology, HWLOC_OBJ_CORE, tid%n_core);
     PU = hwloc_get_obj_inside_cpuset_by_type(topology, core->cpuset, HWLOC_OBJ_PU, tid/n_core);
 #pragma omp critical
