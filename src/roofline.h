@@ -5,7 +5,12 @@
 #include <stdlib.h>
 #include <hwloc.h>
 
-int  roofline_lib_init(void);
+
+extern hwloc_topology_t topology; /* Current machine topology */
+extern float    cpu_freq;         /* In Hz */
+extern unsigned n_threads;        /* The number of threads for benchmark */
+
+int  roofline_lib_init(int with_hyperthreading);
 void roofline_lib_finalize(void);
 
 /************************************ Benchmark memory and fpu  **********************************/
@@ -42,9 +47,9 @@ void print_roofline_sample_output(struct roofline_sample_out * out);
 #define ROOFLINE_STORE 1
 #define ROOFLINE_N_SAMPLES 8
 
-void roofline_fpeak    (FILE * output, int use_hyperthreading);
-void roofline_bandwidth(FILE * output, hwloc_obj_t memory, int type, int use_hyperthreading);
-void roofline_oi       (FILE * output, hwloc_obj_t memory, int type, double oi, int use_hyperthreading);
+void roofline_fpeak    (FILE * output);
+void roofline_bandwidth(FILE * output, hwloc_obj_t memory, int type);
+void roofline_oi       (FILE * output, hwloc_obj_t memory, int type, double oi);
 
 /******************************************** Progress Bar ***************************************/
 struct roofline_progress_bar{

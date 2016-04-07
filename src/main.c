@@ -58,18 +58,18 @@ void roofline_mem_bench(FILE * out, hwloc_obj_t memory){
     oi = 0;
     /* Benchmark load */
     if(load){
-	roofline_bandwidth(out, memory, ROOFLINE_LOAD, hyperthreading);
+	roofline_bandwidth(out, memory, ROOFLINE_LOAD);
 	if(validate)
 	    for(oi = pow(2,-12); oi < pow(2,6); oi*=2){
-		roofline_oi(out, memory, ROOFLINE_LOAD, oi, hyperthreading);
+		roofline_oi(out, memory, ROOFLINE_LOAD, oi);
 	    }
     }
     /* Benchmark store */
     if(store){
-	roofline_bandwidth(out, memory, ROOFLINE_STORE, hyperthreading);
+	roofline_bandwidth(out, memory, ROOFLINE_STORE);
 	if(validate)
 	    for(oi = pow(2,-12); oi < pow(2,6); oi*=2){
-		roofline_oi(out, memory, ROOFLINE_STORE, oi, hyperthreading);
+		roofline_oi(out, memory, ROOFLINE_STORE, oi);
 	    }
     }
 }
@@ -80,7 +80,7 @@ int main(int argc, char * argv[]){
 
     memset(info,0,sizeof(info));
 
-    if(roofline_lib_init()==-1)
+    if(roofline_lib_init(hyperthreading)==-1)
 	errEXIT("roofline library init failure");
 
     parse_args(argc,argv);
@@ -93,7 +93,7 @@ int main(int argc, char * argv[]){
     roofline_print_header(out, info);
 
     /* roofline for flops */
-    roofline_fpeak(out, hyperthreading);
+    roofline_fpeak(out);
     
     /* roofline every memory obj */
     if(mem == NULL){
