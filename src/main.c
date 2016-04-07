@@ -86,7 +86,9 @@ int main(int argc, char * argv[]){
 	errEXIT("roofline library init failure");
 
     mem = roofline_hwloc_parse_obj(mem_str);
-    
+    if(!roofline_hwloc_obj_is_memory(mem))
+	mem = roofline_hwloc_get_previous_memory(mem);
+
     out = open_output(output);
     if(out==NULL) out = stdout;
 

@@ -164,6 +164,8 @@ void roofline_fpeak(FILE * output)
     /* get array of input sizes */
     n_sizes  = ROOFLINE_N_SAMPLES;
     sizes = roofline_log_array(lower_bound_size, upper_bound_size, &n_sizes);
+    if(sizes==NULL)
+	return;
     /*Initialize input stream */
     alloc_chunk_aligned(&(in.stream), n_threads*alloc_chunk_aligned(NULL,sizes[n_sizes-1]));
     roofline_alloc(samples, sizeof(*samples)*n_sizes);

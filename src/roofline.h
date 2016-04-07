@@ -88,9 +88,10 @@ int         roofline_hwloc_obj_snprintf(hwloc_obj_t obj, char * info_in, size_t 
 hwloc_obj_t roofline_hwloc_parse_obj(char*);
 int         roofline_hwloc_cpubind();
 int         roofline_hwloc_membind(hwloc_obj_t);
-size_t      roofline_hwloc_get_memory_size(hwloc_obj_t obj);
-hwloc_obj_t roofline_hwloc_get_next_memory(hwloc_obj_t obj);
-hwloc_obj_t roofline_hwloc_get_previous_memory(hwloc_obj_t obj);
+int         roofline_hwloc_obj_is_memory(hwloc_obj_t);
+size_t      roofline_hwloc_get_memory_size(hwloc_obj_t);
+hwloc_obj_t roofline_hwloc_get_next_memory(hwloc_obj_t);
+hwloc_obj_t roofline_hwloc_get_previous_memory(hwloc_obj_t);
 hwloc_obj_t roofline_hwloc_get_instruction_cache(void);
 size_t      roofline_hwloc_get_instruction_cache_size(void);
 

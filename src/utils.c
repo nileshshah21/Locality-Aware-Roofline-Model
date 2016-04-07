@@ -10,13 +10,17 @@ size_t * roofline_log_array(size_t start, size_t end, int * n){
     double multiplier, val;
     int i;
 
+    if(end<start)
+	return NULL;
+
     if(*n <= 0)
 	*n = ROOFLINE_N_SAMPLES;
+
     roofline_alloc(sizes,sizeof(*sizes)* (*n));
-    size = start;
-    
+    size = start;    
     multiplier = 1;
     val = (double)start;
+
     if(start > 0){
 	multiplier = pow((double)end/(double)start,1.0/(double)(*n));
 	val = ((double)start*multiplier);
@@ -171,9 +175,8 @@ inline int roofline_hwloc_objtype_is_cache(hwloc_obj_type_t type){
 
 hwloc_obj_t roofline_hwloc_parse_obj(char* arg){
     hwloc_obj_type_t type; 
-    struct hwloc_cache_attr_s cache_attr;
     char * name;
-    int depth; 
+    int err, depth; 
     char * idx;
     int logical_index;
 
@@ -182,19 +185,16 @@ hwloc_obj_t roofline_hwloc_parse_obj(char* arg){
     if(name==NULL)
 	return NULL;
     
-    depth = hwloc_type_sscanf_as_depth(name, &type, topology, &depth);
-
-    if(roofline_hwloc_objtype_is_cache(type)){
-	depth = hwloc_get_cache_type_depth(topology,cache_attr.depth,cache_attr.type);
-	if(depth == HWLOC_TYPE_DEPTH_UNKNOWN){
-	    fprintf(stderr,"type %s cannot be found, level=%d\n",name,depth);
-	    return NULL;
-	}
-	if(depth == HWLOC_TYPE_DEPTH_MULTIPLE){
+    err = hwloc_type_sscanf_as_depth(name, &type, topology, &depth);
+    if(err == HWLOC_TYPE_DEPTH_UNKNOWN){
+	fprintf(stderr,"type %s cannot be found, level=%d\n",name,depth);
+	return NULL;
+    }
+    if(depth == HWLOC_TYPE_DEPTH_MULTIPLE){
 	    fprintf(stderr,"type %s multiple caches match for\n",name);
 	    return NULL;
-	}
     }
+
     idx = strtok(NULL,":");
     logical_index = 0;
     if(idx!=NULL)
@@ -300,18 +300,13 @@ inline size_t roofline_hwloc_get_instruction_cache_size(void){
 
 
 hwloc_obj_t roofline_hwloc_get_previous_memory(hwloc_obj_t obj){
-    unsigned depth;
     hwloc_obj_t child;
-
     if(obj==NULL)
 	return NULL;
-    child = obj;
-    depth = hwloc_topology_get_depth(topology)-1;
-    do{
-	child = hwloc_get_obj_by_depth(topology,child->depth+1,0);
-    } while(child != NULL && child->depth<depth && !roofline_hwloc_obj_is_memory(child));
-    if(!roofline_hwloc_obj_is_memory(child))
-	return NULL;
+    child = obj->first_child;
+    while(child != NULL && !roofline_hwloc_obj_is_memory(child)){
+	child = hwloc_get_obj_inside_cpuset_by_depth(topology,child->cpuset, child->depth+1,0);
+    };
     return child;
 }
 
