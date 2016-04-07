@@ -51,6 +51,8 @@ Here you are ready to play
 
 * Running benchmark: `./main`
 
+* Running benchmark using hyperthreading: `./main -ht`
+
 * Running benchmark with validation `./main -v`
 Validation consists in writing a list of load/store operations, interleaved with mul/add operations depending on the required operational intensity,
 compile and run each benchmark.
