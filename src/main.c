@@ -6,10 +6,12 @@ char * output = NULL;
 int validate = 0;
 hwloc_obj_t mem = NULL;
 int load = 0, store = 0;
+int hyperthreading = 0;
 
 void usage(char * argv0){
-    printf("%s -h  -v -l -s -m <hwloc_ibj:idx> -o <output>\n", argv0);
-    printf("%s --help --validate --load --store --memory <hwloc_obj:idx> --output <output>\n", argv0);
+    printf("%s -h  -v -l -s -m <hwloc_ibj:idx> -o <output> -ht\n", argv0);
+    printf("%s --help --validate --load --store --memory <hwloc_obj:idx> --output <output> --with-hyperthreading\n", argv0);
+    
     exit(EXIT_SUCCESS);
 }
 
@@ -26,6 +28,8 @@ void parse_args(int argc, char ** argv){
 	    load = 1;
 	else if(!strcmp(argv[i],"--store") || !strcmp(argv[i],"-s"))
 	    store = 1;
+	else if(!strcmp(argv[i],"--with-hyperthreading") || !strcmp(argv[i],"-ht"))
+	    hyperthreading = 1;
 	else if(!strcmp(argv[i],"--memory") || !strcmp(argv[i],"-m")){
 	    mem = roofline_hwloc_parse_obj(argv[++i]);
 	}
@@ -54,18 +58,18 @@ void roofline_mem_bench(FILE * out, hwloc_obj_t memory){
     oi = 0;
     /* Benchmark load */
     if(load){
-	roofline_bandwidth(out, memory, ROOFLINE_LOAD);
+	roofline_bandwidth(out, memory, ROOFLINE_LOAD, hyperthreading);
 	if(validate)
 	    for(oi = pow(2,-12); oi < pow(2,6); oi*=2){
-		roofline_oi(out, memory, ROOFLINE_LOAD, oi);
+		roofline_oi(out, memory, ROOFLINE_LOAD, oi, hyperthreading);
 	    }
     }
     /* Benchmark store */
     if(store){
-	roofline_bandwidth(out, memory, ROOFLINE_STORE);
+	roofline_bandwidth(out, memory, ROOFLINE_STORE, hyperthreading);
 	if(validate)
 	    for(oi = pow(2,-12); oi < pow(2,6); oi*=2){
-		roofline_oi(out, memory, ROOFLINE_STORE, oi);
+		roofline_oi(out, memory, ROOFLINE_STORE, oi, hyperthreading);
 	    }
     }
 }
@@ -89,7 +93,7 @@ int main(int argc, char * argv[]){
     roofline_print_header(out, info);
 
     /* roofline for flops */
-    roofline_fpeak(out);
+    roofline_fpeak(out, hyperthreading);
     
     /* roofline every memory obj */
     if(mem == NULL){
