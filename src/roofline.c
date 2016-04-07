@@ -100,22 +100,6 @@ void roofline_output_clear(struct roofline_sample_out * out){
     out->instructions = 0;
 }
 
-void roofline_output_accumulate(struct roofline_sample_out * a, struct roofline_sample_out * b){
-#ifdef USE_OMP
-#pragma omp critical
-    {
-#endif
-    uint64_t cyc_a = a->ts_end-a->ts_start;
-    uint64_t cyc_b = b->ts_end-b->ts_start;
-    a->ts_end = roofline_MAX(cyc_a, cyc_b);
-    a->flops = a->flops + b->flops;
-    a->bytes = a->bytes + b->bytes;
-    a->instructions = a->instructions + b->instructions;
-#ifdef USE_OMP
-}
-#endif
-}
-
 inline void print_roofline_sample_output(struct roofline_sample_out * out){
     printf("%20lu %20lu %20lu %20lu %20lu\n", 
 	   out->ts_start, out->ts_end, out->instructions, out->bytes, out->flops);
@@ -133,9 +117,9 @@ void roofline_fpeak(FILE * output)
     roofline_autoset_loop_repeat(fpeak_bench, &in, BENCHMARK_MIN_DUR, 10000);
     sd = roofline_repeat_bench(fpeak_bench,&in,&result, roofline_output_median);    
 #ifdef USE_OMP
-    roofline_print_sample(output, first_node, &result, sd, n_threads, info);
+    roofline_print_sample(output, first_node, &result, sd, info);
 #else
-    roofline_print_sample(output, hwloc_get_obj_by_type(topology, HWLOC_OBJ_PU, 0), &result,sd, n_threads, info);
+    roofline_print_sample(output, hwloc_get_obj_by_type(topology, HWLOC_OBJ_PU, 0), &result, sd, info);
 #endif
 }
 
@@ -196,7 +180,7 @@ void roofline_fpeak(FILE * output)
     median = samples[roofline_output_median(samples,n_sizes)];
     sd = roofline_output_sd(samples, n_sizes);
     roofline_progress_clean();    
-    roofline_print_sample(output, memory, &median, sd, n_threads, info);    
+    roofline_print_sample(output, memory, &median, sd, info);    
     
     /* Cleanup */
     free(samples);
