@@ -4,7 +4,7 @@
 /* options */
 char * output = NULL;
 int validate = 0;
-char * mem_str;
+char * mem_str = NULL;
 hwloc_obj_t mem = NULL;
 int load = 0, store = 0;
 int hyperthreading = 0;
@@ -85,9 +85,13 @@ int main(int argc, char * argv[]){
     if(roofline_lib_init(hyperthreading)==-1)
 	errEXIT("roofline library init failure");
 
-    mem = roofline_hwloc_parse_obj(mem_str);
-    if(!roofline_hwloc_obj_is_memory(mem))
+    if(mem_str != NULL){
+	mem = roofline_hwloc_parse_obj(mem_str);
+	if(mem == NULL)
+	errEXIT("Unrecognized object");
+	if(!roofline_hwloc_obj_is_memory(mem))
 	mem = roofline_hwloc_get_previous_memory(mem);
+    }
 
     out = open_output(output);
     if(out==NULL) out = stdout;
