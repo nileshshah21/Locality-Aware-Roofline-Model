@@ -42,9 +42,9 @@ void print_roofline_sample_output(struct roofline_sample_out * out);
 #define ROOFLINE_STORE 1
 #define ROOFLINE_N_SAMPLES 8
 
-void roofline_fpeak    (FILE * output);
-void roofline_bandwidth(FILE * output, hwloc_obj_t memory, int type);
-void roofline_oi       (FILE * output, hwloc_obj_t memory, int type, double oi);
+void roofline_fpeak    (FILE * output, int use_hyperthreading);
+void roofline_bandwidth(FILE * output, hwloc_obj_t memory, int type, int use_hyperthreading);
+void roofline_oi       (FILE * output, hwloc_obj_t memory, int type, double oi, int use_hyperthreading);
 
 /******************************************** Progress Bar ***************************************/
 struct roofline_progress_bar{
