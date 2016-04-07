@@ -59,8 +59,7 @@ inline void roofline_print_header(FILE * output, const char * append){
 	    "Obj", "start", "end", "Instructions", "Throughput", "SDev", "GByte/s", "GFlop/s", "Flops/Byte", "n_threads", append);
 }
 
-void roofline_print_sample(FILE * output, hwloc_obj_t obj, struct roofline_sample_out * sample_out, double sd, unsigned n_threads,
-			   const char * append)
+void roofline_print_sample(FILE * output, hwloc_obj_t obj, struct roofline_sample_out * sample_out, double sd, const char * append)
 {
     long cyc;
     char obj_str[12];

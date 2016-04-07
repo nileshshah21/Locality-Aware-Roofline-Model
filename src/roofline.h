@@ -39,7 +39,6 @@ struct roofline_sample_out{
 };
 
 void roofline_output_clear(struct roofline_sample_out * out);
-void roofline_output_accumulate(struct roofline_sample_out *, struct roofline_sample_out *);
 void print_roofline_sample_output(struct roofline_sample_out * out);
 
 /***********************************  BENCHMARK FUNCTIONS ****************************************/
@@ -114,7 +113,7 @@ size_t      roofline_hwloc_get_instruction_cache_size(void);
 
 const char * roofline_type_str(int type);
 void   roofline_print_header(FILE * output, const char * append);
-void   roofline_print_sample(FILE * output, hwloc_obj_t obj, struct roofline_sample_out * sample_out, double sd, unsigned n_threads, const char * append);
+void   roofline_print_sample(FILE * output, hwloc_obj_t obj, struct roofline_sample_out * sample_out, double sd, const char * append);
 
 /**
  * Compute a logarithmic array of sizes
