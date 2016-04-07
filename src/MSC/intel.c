@@ -355,6 +355,7 @@ void fpeak_bench(struct roofline_sample_in * in, struct roofline_sample_out * ou
 #else
 void fpeak_bench(struct roofline_sample_in * in, struct roofline_sample_out * out){
     uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0;
+    long repeat = in->loop_repeat;
     roofline_hwloc_cpubind();
     __asm__ __volatile__ (						\
 			  "CPUID\n\t"					\
@@ -385,7 +386,7 @@ void fpeak_bench(struct roofline_sample_in * in, struct roofline_sample_out * ou
 			  "movq %%rdx, %2\n\t"				\
 			  "movq %%rax, %3\n\t"				\
 			  : "=&r" (c_high), "=&r" (c_low), "=&r" (c_high1), "=&r" (c_low1) \
-			  : "r" (in->loop_repeat)				\
+			  : "r" (repeat)				\
 			  : "%rax", "%rbx", "%rcx", "%rdx", SIMD_CLOBBERED_REGS);
     out->ts_start = roofline_rdtsc_diff(c_high, c_low);
     out->ts_end = roofline_rdtsc_diff(c_high1, c_low1);
