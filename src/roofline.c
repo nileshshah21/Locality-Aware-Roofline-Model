@@ -8,10 +8,16 @@ hwloc_topology_t topology = NULL;            /* Current machine topology  */
 size_t           alignement = 0;             /* Level 1 cache line size */
 size_t           LLC_size = 0;               /* Last Level Cache size */
 float            cpu_freq = 0;               /* In Hz */
-char *           compiler = NULL;              /* The compiler name to compile the roofline validation. */
+char *           compiler = NULL;            /* The compiler name to compile the roofline validation. */
+hwloc_obj_t      first_node = NULL;          /* The first node where to bind threads */
+unsigned         n_threads = 1;              /* The number of threads for benchmark */
 struct roofline_progress_bar progress_bar;   /* Global progress bar of the benchmark */
 
-int roofline_lib_init(void)
+#ifdef USE_OMP
+int roofline_lib_init(int with_hyperthreading)
+#else
+    int roofline_lib_init(__attribute__ ((unused)) int with_hyperthreading)
+#endif
 {
     hwloc_obj_t L1, LLC;
     char * cpu_freq_str;
@@ -27,8 +33,15 @@ int roofline_lib_init(void)
 	return -1;
     }
 
-    /* Bind to PU:0 */
-    roofline_hwloc_cpubind(hwloc_get_obj_by_type(topology,HWLOC_OBJ_PU,0)->cpuset);
+    /* Get first node and number of threads */
+    first_node = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NODE, 0);
+#ifdef USE_OMP
+    if(with_hyperthreading)
+	n_threads = hwloc_get_nbobjs_inside_cpuset_by_type(topology, first_node->cpuset, HWLOC_OBJ_PU);
+    else
+	n_threads = hwloc_get_nbobjs_inside_cpuset_by_type(topology, first_node->cpuset, HWLOC_OBJ_CORE);	
+    omp_set_num_threads(n_threads);
+#endif
 
     /* get first cache linesize */
     L1 = roofline_hwloc_get_next_memory(NULL);
@@ -108,44 +121,25 @@ inline void print_roofline_sample_output(struct roofline_sample_out * out){
 	   out->ts_start, out->ts_end, out->instructions, out->bytes, out->flops);
 }
 
-#ifdef USE_OMP
-void roofline_fpeak(FILE * output, int use_hyperthreading)
-#else
-void roofline_fpeak(FILE * output, __attribute__ ((unused)) int use_hyperthreading)
-#endif
+void roofline_fpeak(FILE * output)
 {
     char info[128];
-    unsigned n_threads;
     struct roofline_sample_out result;
     struct roofline_sample_in in = {1,NULL,0};  
     double sd = 0;
-    hwloc_obj_t obj;
 
     snprintf(info, sizeof(info), "%5s","FLOPS");
     roofline_output_clear(&result);
-
-#ifdef USE_OMP
-    obj = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NODE, 0);
-    if(use_hyperthreading)
-	n_threads = hwloc_get_nbobjs_inside_cpuset_by_type(topology, obj->cpuset, HWLOC_OBJ_PU);
-    else
-	n_threads = hwloc_get_nbobjs_inside_cpuset_by_type(topology, obj->cpuset, HWLOC_OBJ_CORE);	
-    omp_set_num_threads(n_threads);
-#else
-    n_threads = 1;
-    obj = hwloc_get_obj_by_type(topology, HWLOC_OBJ_PU, 0);
-#endif
-
     roofline_autoset_loop_repeat(fpeak_bench, &in, BENCHMARK_MIN_DUR, 10000);
     sd = roofline_repeat_bench(fpeak_bench,&in,&result, roofline_output_median);    
-    roofline_print_sample(output, obj, &result, sd, n_threads, info);
+#ifdef USE_OMP
+    roofline_print_sample(output, first_node, &result, sd, n_threads, info);
+#else
+    roofline_print_sample(output, hwloc_get_obj_by_type(topology, HWLOC_OBJ_PU, 0), &result,sd, n_threads, info);
+#endif
 }
 
-#ifdef USE_OMP
-static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int type, int use_hyperthreading){
-#else
-    static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int type, __attribute__ ((unused)) int use_hyperthreading){
-#endif
+    static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int type){
     char info[128];
     char progress_info[128];
     void (* bench) (struct roofline_sample_in * in, struct roofline_sample_out * out);    
@@ -155,7 +149,6 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int ty
     struct roofline_sample_in in;
     struct roofline_sample_out * samples, median;
     double sd;
-    unsigned n_threads;
     hwloc_obj_t child;
 
     /* set legend to append to results */
@@ -168,17 +161,7 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int ty
 
     /* various initializations */
     bench = roofline_oi_bench(oi,type);
-    n_threads=1;
 
-#ifdef USE_OMP
-    /* Set the number of running threads to the number of Cores sharing the memory */
-    if(use_hyperthreading)
-	n_threads =  hwloc_get_nbobjs_inside_cpuset_by_type(topology,memory->cpuset, HWLOC_OBJ_PU);
-    else
-	n_threads =  hwloc_get_nbobjs_inside_cpuset_by_type(topology,memory->cpuset, HWLOC_OBJ_CORE);
-    omp_set_num_threads(n_threads);
-#endif    
-    
     /* bind memory */
     roofline_hwloc_membind(memory);
 
@@ -220,10 +203,10 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int ty
     free(in.stream);
 }
 
-void roofline_bandwidth(FILE * output, hwloc_obj_t mem, int type, int use_hyperthreading){
-    roofline_memory(output,mem,0,type, use_hyperthreading);
+void roofline_bandwidth(FILE * output, hwloc_obj_t mem, int type){
+    roofline_memory(output,mem,0,type);
 }
 
-inline void roofline_oi(FILE * output, hwloc_obj_t mem, int type, double oi, int use_hyperthreading){
-    roofline_memory(output,mem,oi,type, use_hyperthreading);
+inline void roofline_oi(FILE * output, hwloc_obj_t mem, int type, double oi){
+    roofline_memory(output,mem,oi,type);
 }
