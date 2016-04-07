@@ -106,8 +106,8 @@ int roofline_hwloc_check_cpubind(hwloc_cpuset_t cpuset, int print){
 	hwloc_obj_t bound = hwloc_get_first_largest_obj_inside_cpuset(topology, checkset);
 	hwloc_obj_t bind = hwloc_get_first_largest_obj_inside_cpuset(topology, cpuset);
 	printf("bind=%s:%d, bound %s:%d\n",
-	       hwloc_obj_type_string(bind->type),bind->logical_index,
-	       hwloc_obj_type_string(bound->type),bound->logical_index);
+	       hwloc_type_name(bind->type),bind->logical_index,
+	       hwloc_type_name(bound->type),bound->logical_index);
     }
     ret = hwloc_bitmap_isequal(cpuset,checkset);
     hwloc_bitmap_free(checkset);  
@@ -157,7 +157,7 @@ int roofline_hwloc_check_membind(hwloc_cpuset_t nodeset, int print){
 	    break;
 	}
         mem_obj = hwloc_get_first_largest_obj_inside_cpuset(topology, checkset);
-	printf("membind(%s)=%s:%d\n",policy_name,hwloc_obj_type_string(mem_obj->type),mem_obj->logical_index);
+	printf("membind(%s)=%s:%d\n",policy_name,hwloc_type_name(mem_obj->type),mem_obj->logical_index);
     }
 
     ret = hwloc_bitmap_isequal(nodeset,checkset);
@@ -181,11 +181,9 @@ hwloc_obj_t roofline_hwloc_parse_obj(char* arg){
 
     if(name==NULL)
 	return NULL;
-    if(hwloc_obj_type_sscanf(name,&type,(union hwloc_obj_attr_u *) (&cache_attr),sizeof(cache_attr))==-1){
-	fprintf(stderr,"type \"%s\" was not recognized\n",name);
-	return NULL;
-    }
-    depth = hwloc_get_type_depth(topology,type);
+    
+    depth = hwloc_type_sscanf_as_depth(name, &type, topology, &depth);
+
     if(roofline_hwloc_objtype_is_cache(type)){
 	depth = hwloc_get_cache_type_depth(topology,cache_attr.depth,cache_attr.type);
 	if(depth == HWLOC_TYPE_DEPTH_UNKNOWN){
@@ -247,7 +245,7 @@ int roofline_hwloc_membind(hwloc_obj_t obj){
 	fprintf(stderr, "This cpuset has no ancestor Node\n");
 	return 0;
     }
-    if(hwloc_set_membind_nodeset(topology,parent_node->nodeset,HWLOC_MEMBIND_BIND,0) == -1){
+    if(hwloc_set_membind(topology,parent_node->nodeset,HWLOC_MEMBIND_BIND|HWLOC_MEMBIND_BYNODESET,0) == -1){
 	perror("membind");
 	return 0;
     }
