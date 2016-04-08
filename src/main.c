@@ -32,7 +32,7 @@ void parse_args(int argc, char ** argv){
 	else if(!strcmp(argv[i],"--with-hyperthreading") || !strcmp(argv[i],"-ht"))
 	    hyperthreading = 1;
 	else if(!strcmp(argv[i],"--memory") || !strcmp(argv[i],"-m")){
-	    mem_str = argv[i++];
+	    mem_str = argv[++i];
 	}
 	else if(!strcmp(argv[i],"--output") || !strcmp(argv[i],"-o")){
 	    output = argv[++i];
@@ -86,6 +86,7 @@ int main(int argc, char * argv[]){
 	errEXIT("roofline library init failure");
 
     mem = roofline_hwloc_parse_obj(mem_str);
+    
     out = open_output(output);
     if(out==NULL) out = stdout;
 
