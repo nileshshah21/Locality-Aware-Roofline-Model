@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <hwloc.h>
 
-
 extern hwloc_topology_t topology; /* Current machine topology */
 extern float    cpu_freq;         /* In Hz */
 extern unsigned n_threads;        /* The number of threads for benchmark */
