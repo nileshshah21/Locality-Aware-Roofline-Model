@@ -1,4 +1,5 @@
 #include <sys/time.h>
+#include <math.h>
 #include "roofline.h"
 
 unsigned roofline_PGCD(unsigned a, unsigned b){
@@ -25,7 +26,7 @@ double roofline_output_sd(struct roofline_sample_out * out, unsigned n){
     if(n < 2)
         return 0;
     else
-        return M2 / (n-1);
+        return sqrt(M2 / (n-1));
 }
 
 int comp_roofline_throughput(void * a, void * b){
