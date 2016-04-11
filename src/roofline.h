@@ -74,6 +74,8 @@ int    roofline_output_max(struct roofline_sample_out * samples, size_t n);
 int    roofline_output_median(struct roofline_sample_out * samples, size_t n);
 double roofline_output_sd(struct roofline_sample_out * samples, unsigned n);
 double roofline_repeat_bench(void (* bench_fun)(struct roofline_sample_in *, struct roofline_sample_out *), struct roofline_sample_in * in, struct roofline_sample_out * out, int (* bench_stat)(struct roofline_sample_out * , size_t));
+unsigned roofline_PGCD(unsigned, unsigned);
+unsigned roofline_PPCM(unsigned, unsigned);
 
 long roofline_autoset_loop_repeat(void (* bench_fun)(struct roofline_sample_in *, struct roofline_sample_out *), struct roofline_sample_in * in, long ms_dur, unsigned long min_rep);
 

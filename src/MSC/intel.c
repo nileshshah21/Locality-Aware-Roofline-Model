@@ -40,18 +40,6 @@
 #define SIMD_MOV           "movsd"
 #endif
 
-static unsigned roofline_PGCD(unsigned a, unsigned b){
-    unsigned max,min, r;
-    max = roofline_MAX(a,b);
-    min = roofline_MIN(a,b);
-    while((r=max%min)!=0){max = min; min = r;}
-    return min;
-}
-
-static unsigned roofline_PPCM(unsigned a, unsigned b){
-    return a*b/roofline_PGCD(a,b);
-}
-
 #define roofline_load_ins(stride,srcreg, regnum) SIMD_MOV " "stride"("srcreg"),%%" SIMD_REG regnum"\n\t"
 #define roofline_store_ins(stride,dstreg, regnum) SIMD_MOV " %%" SIMD_REG  regnum ", " stride "("dstreg")\n\t"
 

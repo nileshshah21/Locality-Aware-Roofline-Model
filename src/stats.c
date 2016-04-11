@@ -1,6 +1,18 @@
 #include <sys/time.h>
 #include "roofline.h"
 
+unsigned roofline_PGCD(unsigned a, unsigned b){
+    unsigned max,min, r;
+    max = roofline_MAX(a,b);
+    min = roofline_MIN(a,b);
+    while((r=max%min)!=0){max = min; min = r;}
+    return min;
+}
+
+unsigned roofline_PPCM(unsigned a, unsigned b){
+    return a*b/roofline_PGCD(a,b);
+}
+
 double roofline_output_sd(struct roofline_sample_out * out, unsigned n){
     unsigned i;
     double mean = 0, M2 = 0, delta = 0, throughput;
