@@ -245,7 +245,7 @@ int roofline_hwloc_membind(hwloc_obj_t obj){
 	fprintf(stderr, "This cpuset has no ancestor Node\n");
 	return 0;
     }
-    if(hwloc_set_membind(topology,parent_node->nodeset,HWLOC_MEMBIND_BIND|HWLOC_MEMBIND_BYNODESET,0) == -1){
+    if(hwloc_set_membind(topology,parent_node->nodeset,HWLOC_MEMBIND_BIND|HWLOC_MEMBIND_BYNODESET,HWLOC_MEMBIND_PROCESS) == -1){
 	perror("membind");
 	return 0;
     }
@@ -304,6 +304,11 @@ hwloc_obj_t roofline_hwloc_get_previous_memory(hwloc_obj_t obj){
     if(obj==NULL)
 	return NULL;
     child = obj->first_child;
+    /* Handle memory without child case */
+    if(child == NULL && obj->type == HWLOC_OBJ_NODE){
+	while(child == NULL && (obj = obj->prev_sibling) != NULL)
+	    child = obj->first_child;
+    }
     while(child != NULL && !roofline_hwloc_obj_is_memory(child)){
 	child = hwloc_get_obj_inside_cpuset_by_depth(topology,child->cpuset, child->depth+1,0);
     };
