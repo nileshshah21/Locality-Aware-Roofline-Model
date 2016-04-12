@@ -123,14 +123,10 @@ void roofline_fpeak(FILE * output)
 #endif
 }
 
-/**
- * Compute and allocate aligned data of size size greater than the provided size which fits a chunk size.
- * @param data: A pointer to the data to be allocated. If NULL nothing is allocated.
- * @param size: A reference size to allocate.
- * @return The size of allocated chunk.
- *
- **/
-size_t alloc_chunk_aligned(double ** data, size_t size){
+#define resize_splitable_chunk(size, overflow) \
+    (overflow ? (size - size%(chunk_size*n_threads)+chunk_size*n_threads) : size - size%(chunk_size*n_threads))
+
+static size_t roofline_memalign(double ** data, size_t size){
     int err;
     size_t modulo = chunk_size*n_threads;
     size -= size%modulo;
@@ -187,19 +183,18 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int ty
     /* Set lower bound size as 4 times under memories size to be sure it won't hold in lower memories whatever the number of threads */
     child  = roofline_hwloc_get_previous_memory(memory);
     if(child != NULL)
-	lower_bound_size = 4*roofline_hwloc_get_memory_size(child);
+	lower_bound_size = roofline_MAX(4*roofline_hwloc_get_memory_size(child), n_threads*roofline_hwloc_get_memory_size(child));
     else
 	lower_bound_size = 1024;
 
     /* Set upper bound size as memory size or 16 times LLC_size */
     upper_bound_size = roofline_hwloc_get_memory_size(memory);
     upper_bound_size = roofline_MIN(upper_bound_size,LLC_size*64);
-    upper_bound_size /= hwloc_bitmap_weight(memory->cpuset);
     if(upper_bound_size<lower_bound_size){
-	fprintf(stderr, "%s(%f MB) under %s(%f MB) can't be split into 4*%u\n", 
-		hwloc_type_name(child->type), roofline_hwloc_get_memory_size(child)/1e6, 
+	fprintf(stderr, "%s(%f MB) above %s(%f MB) is not large enough to be split into 4*%u\n", 
 		hwloc_type_name(memory->type), roofline_hwloc_get_memory_size(memory)/1e6, 
-		hwloc_bitmap_weight(child->cpuset));
+		hwloc_type_name(child->type), roofline_hwloc_get_memory_size(child)/1e6, 
+		n_threads);
 	return;
     }
 
@@ -209,12 +204,12 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int ty
     if(sizes==NULL)
 	return;
     /*Initialize input stream */
-    alloc_chunk_aligned(&(in.stream), alloc_chunk_aligned(NULL,sizes[n_sizes-1]));
+    roofline_memalign(&(in.stream), upper_bound_size);
     roofline_alloc(samples, sizeof(*samples)*n_sizes);
 
     for(s=0;s<n_sizes;s++){
 	roofline_progress_set(&progress_bar, "",0,s,n_sizes);
-	in.stream_size = alloc_chunk_aligned(NULL,sizes[s]);
+	in.stream_size = resize_splitable_chunk(sizes[s],0);
 	roofline_autoset_loop_repeat(bench, &in, BENCHMARK_MIN_DUR,4);
 	roofline_output_clear(&(samples[s]));
 	roofline_repeat_bench(bench, &in, &(samples[s]), roofline_output_median);
