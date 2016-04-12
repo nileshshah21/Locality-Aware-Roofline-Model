@@ -1,13 +1,6 @@
 #include "../roofline.h"
 
-/**
- * Compute and allocate aligned data of size size greater than the provided size which fits a chunk size.
- * @param data: A pointer to the data to be allocated. If NULL nothing is allocated.
- * @param size: A reference size to allocate.
- * @return The size of allocated chunk.
- *
- **/
-size_t alloc_chunk_aligned(double ** data, size_t size);
+extern size_t chunk_size;
 void fpeak_bench(struct roofline_sample_in * in, struct roofline_sample_out * out);
 
 /**
