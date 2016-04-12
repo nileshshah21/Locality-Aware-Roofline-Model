@@ -185,7 +185,7 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int ty
     if(child != NULL)
 	lower_bound_size = roofline_MAX(4*roofline_hwloc_get_memory_size(child), n_threads*roofline_hwloc_get_memory_size(child));
     else
-	lower_bound_size = 1024;
+	lower_bound_size = chunk_size*n_threads;
 
     /* Set upper bound size as memory size or 16 times LLC_size */
     upper_bound_size = roofline_hwloc_get_memory_size(memory);
