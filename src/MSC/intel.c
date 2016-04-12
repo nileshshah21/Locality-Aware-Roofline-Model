@@ -138,32 +138,6 @@
 #endif /* USE_AVX */
 
 size_t chunk_size = SIMD_CHUNK_SIZE;
-size_t alloc_chunk_aligned(double ** data, size_t size){
-    int err;
-    size -= size%chunk_size;
-    size += chunk_size;
-
-    if(data != NULL){
-	err = posix_memalign((void**)data, alignement, size);
-	switch(err){
-	case 0:
-	    break;
-	case EINVAL:
-	    fprintf(stderr,"The alignment argument was not a power of two, or was not a multiple of sizeof(void *).\n");
-	    break;
-	case ENOMEM:
-	    fprintf(stderr,"There was insufficient memory to fulfill the allocation request.\n");
-	}
-	if(*data == NULL)
-	    fprintf(stderr,"Chunk is NULL\n");
-	if(err || *data == NULL)
-	    errEXIT("");
-
-    	memset(*data,0,size);
-    }
-
-    return size;
-}
 
 #ifdef USE_OMP
 #define bandwidth_bench_run(c_low, c_high, c_low1, c_high1, stream, size, repeat, id_str, macro_bench) \
