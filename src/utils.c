@@ -245,7 +245,7 @@ int roofline_hwloc_membind(hwloc_obj_t obj){
 	fprintf(stderr, "This cpuset has no ancestor Node\n");
 	return 0;
     }
-    if(hwloc_set_membind(topology,parent_node->nodeset,HWLOC_MEMBIND_BIND|HWLOC_MEMBIND_BYNODESET,HWLOC_MEMBIND_PROCESS) == -1){
+    if(hwloc_set_membind(topology,parent_node->nodeset,HWLOC_MEMBIND_BIND,HWLOC_MEMBIND_BYNODESET) == -1){
 	perror("membind");
 	return 0;
     }
