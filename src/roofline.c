@@ -124,7 +124,7 @@ void roofline_fpeak(FILE * output)
 }
 
 #define resize_splitable_chunk(size, overflow) \
-    (overflow ? (size - size%(chunk_size*n_threads)+chunk_size*n_threads) : size - size%(chunk_size*n_threads))
+    (size%chunk_size*n_threads ? (overflow ? (size - size%(chunk_size*n_threads)+chunk_size*n_threads) : size - size%(chunk_size*n_threads)) : size)
 
 static size_t roofline_memalign(double ** data, size_t size){
     int err;
@@ -182,19 +182,27 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int ty
 
     /* Set lower bound size as 4 times under memories size to be sure it won't hold in lower memories whatever the number of threads */
     child  = roofline_hwloc_get_previous_memory(memory);
-    if(child != NULL)
-	lower_bound_size = roofline_MAX(4*roofline_hwloc_get_memory_size(child), n_threads*roofline_hwloc_get_memory_size(child));
-    else
+    if(child == NULL)
 	lower_bound_size = chunk_size*n_threads;
+    else{
+	lower_bound_size = 4*roofline_hwloc_get_memory_size(child);
+	if(n_threads > 1){
+	    lower_bound_size = lower_bound_size*n_threads/hwloc_bitmap_weight(child->cpuset);
+	}
+    }
 
     /* Set upper bound size as memory size or 16 times LLC_size */
     upper_bound_size = roofline_hwloc_get_memory_size(memory);
     upper_bound_size = roofline_MIN(upper_bound_size,LLC_size*16);
+    if(n_threads > 1){
+	upper_bound_size = upper_bound_size*n_threads/hwloc_bitmap_weight(memory->cpuset);
+    }
+
     if(upper_bound_size<lower_bound_size){
 	fprintf(stderr, "%s(%f MB) above %s(%f MB) is not large enough to be split into 4*%u\n", 
 		hwloc_type_name(memory->type), roofline_hwloc_get_memory_size(memory)/1e6, 
 		hwloc_type_name(child->type), roofline_hwloc_get_memory_size(child)/1e6, 
-		n_threads);
+		n_threads/hwloc_bitmap_weight(child->cpuset));
 	return;
     }
 
