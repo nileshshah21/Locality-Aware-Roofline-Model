@@ -189,7 +189,7 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int ty
 
     /* Set upper bound size as memory size or 16 times LLC_size */
     upper_bound_size = roofline_hwloc_get_memory_size(memory);
-    upper_bound_size = roofline_MIN(upper_bound_size,LLC_size*64);
+    upper_bound_size = roofline_MIN(upper_bound_size,LLC_size*16);
     if(upper_bound_size<lower_bound_size){
 	fprintf(stderr, "%s(%f MB) above %s(%f MB) is not large enough to be split into 4*%u\n", 
 		hwloc_type_name(memory->type), roofline_hwloc_get_memory_size(memory)/1e6, 
