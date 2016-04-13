@@ -14,17 +14,8 @@
 #define SIMD_N_REGS        32
 #define SIMD_BYTES         64
 #define SIMD_FLOPS         8
-#define SIMD_STORE         "vmovntpd"
-#define SIMD_LOAD          "vmovntdqa"
-#define SIMD_MUL           "vmulpd"
-#define SIMD_ADD           "vaddpd"
-#elif defined (__AVX2__)
-#define SIMD_REG           "ymm"
-#define SIMD_N_REGS        16
-#define SIMD_BYTES         32
-#define SIMD_FLOPS         4
-#define SIMD_STORE         "vmovntpd"
-#define SIMD_LOAD          "vmovntdqa"
+#define SIMD_STORE         "vmovapd"
+#define SIMD_LOAD          "vmovapd"
 #define SIMD_MUL           "vmulpd"
 #define SIMD_ADD           "vaddpd"
 #elif defined (__AVX__)
@@ -32,7 +23,7 @@
 #define SIMD_N_REGS        16
 #define SIMD_BYTES         32
 #define SIMD_FLOPS         4
-#define SIMD_STORE         "vmovntpd"
+#define SIMD_STORE         "vmovapd"
 #define SIMD_LOAD          "vmovapd"
 #define SIMD_MUL           "vmulpd"
 #define SIMD_ADD           "vaddpd"
@@ -280,7 +271,7 @@ void store_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sampl
 #endif
 
 
-#if defined __AVX__ || defined __AVX2__ || defined __AVX512__
+#if defined __AVX__ || defined __AVX512__
 #define fpeak_instructions			\
     simd_fp(SIMD_ADD, "0", "1", "2")		\
     simd_fp(SIMD_MUL, "3", "4", "5")		\
