@@ -280,7 +280,7 @@ void store_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sampl
 #endif
 
 
-#if defined USE_AVX  || defined USE_AVX512
+#if defined __AVX__ || defined __AVX2__ || defined __AVX512__
 #define fpeak_instructions			\
     simd_fp(SIMD_ADD, "0", "1", "2")		\
     simd_fp(SIMD_MUL, "3", "4", "5")		\
@@ -325,7 +325,7 @@ void store_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sampl
     simd_fp(SIMD_ADD, "8", "9")			\
     simd_fp(SIMD_MUL, "10", "11")		\
     simd_fp(SIMD_ADD, "12", "13")		\
-    simd_fp(SIMD_MUL, "14", "15")
+    simd_fp(SIMD_MUL, "14", "15")		\
     simd_fp(SIMD_ADD, "0", "1")			\
     simd_fp(SIMD_MUL, "2", "3")			\
     simd_fp(SIMD_ADD, "4", "5")			\
