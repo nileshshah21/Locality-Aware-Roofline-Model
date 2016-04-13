@@ -273,40 +273,22 @@ void store_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sampl
 
 #if defined __AVX__ || defined __AVX512__
 #define fpeak_instructions			\
-    simd_fp(SIMD_ADD, "0", "1", "2")		\
-    simd_fp(SIMD_MUL, "3", "4", "5")		\
-    simd_fp(SIMD_ADD, "6", "7", "8")		\
-    simd_fp(SIMD_MUL, "9", "10", "11")		\
-    simd_fp(SIMD_ADD, "12", "13", "14")		\
-    simd_fp(SIMD_MUL, "15", "0", "1")		\
-    simd_fp(SIMD_ADD, "2", "2", "4")		\
-    simd_fp(SIMD_MUL, "5", "6", "7")            \
-    simd_fp(SIMD_ADD, "8", "9", "10")		\
-    simd_fp(SIMD_MUL, "11", "12", "13")		\
-    simd_fp(SIMD_ADD, "14", "15", "0")		\
-    simd_fp(SIMD_MUL, "1", "2", "3")            \
-    simd_fp(SIMD_ADD, "4", "5", "6")            \
-    simd_fp(SIMD_MUL, "7", "8", "9")		\
-    simd_fp(SIMD_ADD, "10", "11", "12")		\
-    simd_fp(SIMD_MUL, "13", "14", "15")
-#elif defined (__FMA__)
-#define fpeak_instructions			\
-    simd_fp(SIMD_FMA, "0", "1", "2")		\
-    simd_fp(SIMD_FMA, "3", "4", "5")		\
-    simd_fp(SIMD_FMA, "6", "7", "8")		\
-    simd_fp(SIMD_FMA, "9", "10", "11")		\
-    simd_fp(SIMD_FMA, "12", "13", "14")		\
-    simd_fp(SIMD_FMA, "15", "0", "1")		\
-    simd_fp(SIMD_FMA, "2", "2", "4")		\
-    simd_fp(SIMD_FMA, "5", "6", "7")            \
-    simd_fp(SIMD_FMA, "8", "9", "10")		\
-    simd_fp(SIMD_FMA, "11", "12", "13")		\
-    simd_fp(SIMD_FMA, "14", "15", "0")		\
-    simd_fp(SIMD_FMA, "1", "2", "3")            \
-    simd_fp(SIMD_FMA, "4", "5", "6")            \
-    simd_fp(SIMD_FMA, "7", "8", "9")		\
-    simd_fp(SIMD_FMA, "10", "11", "12")		\
-    simd_fp(SIMD_FMA, "13", "14", "15")
+    simd_fp(SIMD_ADD, "0", "1", "1")		\
+    simd_fp(SIMD_MUL, "2", "3", "3")		\
+    simd_fp(SIMD_ADD, "4", "5", "5")		\
+    simd_fp(SIMD_MUL, "6", "7", "7")		\
+    simd_fp(SIMD_ADD, "8", "9", "9")		\
+    simd_fp(SIMD_MUL, "10", "11", "11")		\
+    simd_fp(SIMD_ADD, "12", "13", "13")		\
+    simd_fp(SIMD_MUL, "14", "15", "15")		\
+    simd_fp(SIMD_ADD, "0", "1", "1")		\
+    simd_fp(SIMD_MUL, "2", "3", "3")		\
+    simd_fp(SIMD_ADD, "4", "5", "5")		\
+    simd_fp(SIMD_MUL, "6", "7", "7")		\
+    simd_fp(SIMD_ADD, "8", "9", "9")		\
+    simd_fp(SIMD_MUL, "10", "11", "11")		\
+    simd_fp(SIMD_ADD, "12", "13", "13")		\
+    simd_fp(SIMD_MUL, "14", "15", "15")
 #else
 #define fpeak_instructions			\
     simd_fp(SIMD_ADD, "0", "1")			\
@@ -386,11 +368,11 @@ void fpeak_bench(struct roofline_sample_in * in, struct roofline_sample_out * ou
 
 /***************************************** OI BENCHMARKS GENERATION ******************************************/
 
-#if defined (__AVX__)  || defined (__AVX512__) || defined FMA
+#if defined (__AVX__)  || defined (__AVX512__)
 static void dprint_FUOP(int fd, const char * op, unsigned * regnum){
     dprintf(fd, "\"%s %%%%%s%d, %%%%%s%d, %%%%%s%d\\n\\t\"\\\n",
-	    op, SIMD_REG, *regnum, SIMD_REG, (*regnum+1)%SIMD_N_REGS, SIMD_REG, (*regnum+2)%SIMD_N_REGS);
-    *regnum = (*regnum+3)%SIMD_N_REGS;
+	    op, SIMD_REG, *regnum, SIMD_REG, (*regnum+1)%SIMD_N_REGS, SIMD_REG, (*regnum+1)%SIMD_N_REGS);
+    *regnum = (*regnum+2)%SIMD_N_REGS;
 }
 #else 
 static void dprint_FUOP(int fd, const char * op, unsigned * regnum){
@@ -525,12 +507,8 @@ static off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int ty
     if(mop_per_fop == 1){
 	for(i=0;i<SIMD_N_REGS;i++){
 	    dprint_MUOP(fd, type, &offset, &regnum, "r10");
-#if !defined (__AVX512__) && defined (__FMA__)
-	    dprint_FUOP(fd, SIMD_FMA, &regnum);
-#else
 	    if(i%2==0){dprint_FUOP(fd, SIMD_MUL, &regnum);}
 	    if(i%2==1){dprint_FUOP(fd, SIMD_ADD, &regnum);}
-#endif
 	}
 	mem_instructions = fop_instructions = SIMD_N_REGS;
     }
@@ -540,12 +518,8 @@ static off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int ty
 	    dprint_MUOP(fd, type, &offset, &regnum, "r10");
 	    if(i%mop_per_fop==0){
 		fop_instructions++;
-#if !defined (__AVX512__) && defined (__FMA__)
-	    dprint_FUOP(fd, SIMD_FMA, &regnum);
-#else
 	    if(i%2==0){dprint_FUOP(fd, SIMD_MUL, &regnum);}
 	    if(i%2==1){dprint_FUOP(fd, SIMD_ADD, &regnum);}
-#endif
 	    }
 	}
     }
@@ -556,12 +530,8 @@ static off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int ty
 		dprint_MUOP(fd, type, &offset, &regnum, "r10");
 		mem_instructions++;
 	    }
-#if !defined (__AVX512__) && defined (__FMA__)
-	    dprint_FUOP(fd, SIMD_FMA, &regnum);
-#else
 	    if(i%2==0){dprint_FUOP(fd, SIMD_MUL, &regnum);}
 	    if(i%2==1){dprint_FUOP(fd, SIMD_ADD, &regnum);}
-#endif
 	}
     }
 
