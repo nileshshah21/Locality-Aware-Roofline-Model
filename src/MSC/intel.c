@@ -487,10 +487,9 @@ static void (* roofline_load_lib(char * lib_path, char * funname)) (struct roofl
 }
 
 
-static off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int type, double oi){
+off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int type, double oi){
     off_t offset;
     unsigned i, regnum, mem_instructions, fop_instructions, fop_per_mop, mop_per_fop;
-
     if(oi<=0)
 	return 0;
     regnum=0;
@@ -500,7 +499,6 @@ static off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int ty
     fop_per_mop = oi * SIMD_BYTES / SIMD_FLOPS;
     mop_per_fop = SIMD_FLOPS / (oi * SIMD_BYTES);
     dprint_oi_bench_begin(fd, roofline_type_str(type), name);
-    
     if(mop_per_fop == 1){
 	for(i=0;i<SIMD_N_REGS;i++){
 	    dprint_MUOP(fd, type, &offset, &regnum, "r10");
@@ -515,7 +513,6 @@ static off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int ty
 	for(i=0;i<mem_instructions;i++){
 	    dprint_MUOP(fd, type, &offset, &regnum, "r10");
 	    if(i%mop_per_fop==0){
-		fop_instructions++;
 		if(i%2==0){dprint_FUOP(fd, SIMD_MUL, &regnum);}
 		if(i%2==1){dprint_FUOP(fd, SIMD_ADD, &regnum);}
 	    }
