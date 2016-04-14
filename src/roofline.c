@@ -123,15 +123,20 @@ void roofline_fpeak(FILE * output)
 #endif
 }
 
-#define resize_splitable_chunk(size, overflow) \
-    (size%chunk_size*n_threads ? (overflow ? (size - size%(chunk_size*n_threads)+chunk_size*n_threads) : size - size%(chunk_size*n_threads)) : size)
+size_t resize_splitable_chunk(size_t size, int overflow){
+    size_t ret, modulo;
+    modulo = chunk_size*n_threads;
+    if(size%modulo == 0)
+	return size;
+    ret = size - size%modulo;
+    if(overflow)
+	ret+=overflow;
+    return ret;
+}
+
 
 static size_t roofline_memalign(double ** data, size_t size){
     int err;
-    size_t modulo = chunk_size*n_threads;
-    size -= size%modulo;
-    size += modulo;
-
     if(data != NULL){
 	err = posix_memalign((void**)data, alignement, size);
 	switch(err){
@@ -199,10 +204,17 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int ty
     }
 
     if(upper_bound_size<lower_bound_size){
+	if(child!=NULL){
 	fprintf(stderr, "%s(%f MB) above %s(%f MB) is not large enough to be split into 4*%u\n", 
 		hwloc_type_name(memory->type), roofline_hwloc_get_memory_size(memory)/1e6, 
 		hwloc_type_name(child->type), roofline_hwloc_get_memory_size(child)/1e6, 
 		n_threads/hwloc_bitmap_weight(child->cpuset));
+	}
+	else{
+	    fprintf(stderr, "%u*chunk_size(%lu B) greater memory %s(%lu B).\n",
+		    n_threads, chunk_size, 
+		    hwloc_type_name(memory->type), roofline_hwloc_get_memory_size(memory));
+	}
 	return;
     }
 
