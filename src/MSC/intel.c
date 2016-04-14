@@ -32,8 +32,8 @@
 #define SIMD_N_REGS        16
 #define SIMD_BYTES         16
 #define SIMD_FLOPS         2
-#define SIMD_STORE         "movntpd"
-#define SIMD_LOAD          "movntqda"
+#define SIMD_STORE         "movapd"
+#define SIMD_LOAD          "movapd"
 #define SIMD_MUL           "mulpd"
 #define SIMD_ADD           "addpd"
 #elif defined (__SSE2__)
@@ -41,7 +41,7 @@
 #define SIMD_N_REGS        16
 #define SIMD_BYTES         16
 #define SIMD_FLOPS         2
-#define SIMD_STORE         "movntpd"
+#define SIMD_STORE         "movapd"
 #define SIMD_LOAD          "movapd"
 #define SIMD_MUL           "mulpd"
 #define SIMD_ADD           "addpd"
@@ -50,7 +50,7 @@
 #define SIMD_N_REGS        16
 #define SIMD_BYTES         16
 #define SIMD_FLOPS         4
-#define SIMD_STORE         "movntps"
+#define SIMD_STORE         "movaps"
 #define SIMD_LOAD          "movaps"
 #define SIMD_MUL           "mulps"
 #define SIMD_ADD           "addps"
@@ -147,19 +147,19 @@
 size_t chunk_size = SIMD_CHUNK_SIZE;
 
 #ifdef USE_OMP
-#define bandwidth_bench_run(c_low, c_high, c_low1, c_high1, stream, size, repeat, id_str, macro_bench) \
+#define bandwidth_bench_run(stream, size, repeat, id_str, macro_bench) \
 	__asm__ __volatile__ (						\
 			      "loop_"id_str"_repeat:\n\t"		\
-			      "mov %5, %%r11\n\t"			\
-			      "mov %6, %%r12\n\t"			\
+			      "mov %1, %%r11\n\t"			\
+			      "mov %2, %%r12\n\t"			\
 			      "buffer_"id_str"_increment:\n\t"		\
 			      simd_mov(macro_bench,"%%r11")		\
 			      "add $"roofline_macro_xstr(SIMD_CHUNK_SIZE)", %%r11\n\t" \
 			      "sub $"roofline_macro_xstr(SIMD_CHUNK_SIZE)", %%r12\n\t" \
 			      "jnz buffer_"id_str"_increment\n\t"	\
-			      "sub $1, %4\n\t"				\
+			      "sub $1, %0\n\t"				\
 			      "jnz loop_"id_str"_repeat\n\t"		\
-			      : "=&r" (c_high), "=&r" (c_low), "=&r" (c_high1), "=&r" (c_low1) \
+			      :						\
 			      : "r" (repeat), "r" (stream), "r" (size)	\
 			      : "%r11", "%r12", SIMD_CLOBBERED_REGS, "memory")
 
@@ -168,12 +168,11 @@ extern int omp_get_num_threads();
 
 void load_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sample_out * out)
 {
-    volatile uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0, tmp;
+    volatile uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0;
 #pragma omp parallel
     {
 	roofline_hwloc_cpubind();
 	ROOFLINE_STREAM_TYPE * stream = NULL;
-	unsigned n_threads= omp_get_num_threads();
 	unsigned long repeat = in->loop_repeat;
 	size_t size = in->stream_size/n_threads;
 	stream = in->stream + omp_get_thread_num()*size/sizeof(*stream);
@@ -182,7 +181,7 @@ void load_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sample
 #pragma omp master 
 	roofline_rdtsc(c_high, c_low);
 
-	bandwidth_bench_run(tmp, tmp, tmp, tmp, stream, size, repeat, "load", roofline_load_ins);
+	bandwidth_bench_run(stream, size, repeat, "load", roofline_load_ins);
 
 #pragma omp barrier
 #pragma omp master 
@@ -198,11 +197,10 @@ void load_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sample
 
 void store_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sample_out * out)
 {
-    volatile uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0, tmp;
+    volatile uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0;
 #pragma omp parallel
     {
 	ROOFLINE_STREAM_TYPE * stream = NULL;
-	unsigned n_threads= omp_get_num_threads();
 	unsigned long repeat = in->loop_repeat;
 	size_t size = in->stream_size/n_threads; 
 	roofline_hwloc_cpubind();
@@ -213,7 +211,7 @@ void store_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sampl
 	{
 	    roofline_rdtsc(c_high, c_low);
 	}
-	bandwidth_bench_run(tmp, tmp, tmp, tmp, stream, size, repeat, "store", roofline_store_ins);
+	bandwidth_bench_run(stream, size, repeat, "store", roofline_store_ins);
 
 #pragma omp barrier
 #pragma omp master 
@@ -383,12 +381,12 @@ static void dprint_FUOP(int fd, const char * op, unsigned * regnum){
 #endif
 
 
-static void dprint_MUOP(int fd, int type, off_t * offset, unsigned * simdregnum, const char * datareg){
+static void dprint_MUOP(int fd, int type, off_t * offset, unsigned * regnum, const char * datareg){
     if(type == ROOFLINE_LOAD)
-	dprintf(fd, "\"%s %lu(%%%%%s), %%%%%s%d\\n\\t\"\\\n", SIMD_LOAD, *offset, datareg, SIMD_REG, *simdregnum);
+	dprintf(fd, "\"%s %lu(%%%%%s), %%%%%s%d\\n\\t\"\\\n", SIMD_LOAD, *offset, datareg, SIMD_REG, *regnum);
     else if(type == ROOFLINE_STORE)
-	dprintf(fd, "\"%s %%%%%s%d, %lu(%%%%%s)\\n\\t\"\\\n", SIMD_STORE, SIMD_REG, *simdregnum, *offset, datareg);
-    *simdregnum = (*simdregnum+1)%SIMD_N_REGS;
+	dprintf(fd, "\"%s %%%%%s%d, %lu(%%%%%s)\\n\\t\"\\\n", SIMD_STORE, SIMD_REG, *regnum, *offset, datareg);
+    *regnum = (*regnum+1)%SIMD_N_REGS;
     *offset+=SIMD_BYTES;
 }
 
@@ -408,8 +406,7 @@ static void dprint_oi_bench_begin(int fd, const char * id, const char * name){
     dprintf(fd, "size_t size = in->stream_size;\n");
 #ifdef USE_OMP
     dprintf(fd,"#pragma omp parallel firstprivate(size, stream)\n{");
-    dprintf(fd,"unsigned n_threads=omp_get_num_threads();\n");
-    dprintf(fd,"size /= n_threads;\n");
+    dprintf(fd,"size /= omp_get_num_threads();\n");
     dprintf(fd,"stream += omp_get_thread_num()*size/sizeof(*stream);\n");
     dprintf(fd,"#pragma omp barrier\n");
     dprintf(fd,"#pragma omp master\n");
@@ -514,27 +511,27 @@ static off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int ty
     }
     else if(mop_per_fop > 1){
 	mem_instructions = roofline_PPCM(mop_per_fop, SIMD_N_REGS);
+	fop_instructions = mem_instructions / mop_per_fop;
 	for(i=0;i<mem_instructions;i++){
 	    dprint_MUOP(fd, type, &offset, &regnum, "r10");
 	    if(i%mop_per_fop==0){
 		fop_instructions++;
-	    if(i%2==0){dprint_FUOP(fd, SIMD_MUL, &regnum);}
-	    if(i%2==1){dprint_FUOP(fd, SIMD_ADD, &regnum);}
+		if(i%2==0){dprint_FUOP(fd, SIMD_MUL, &regnum);}
+		if(i%2==1){dprint_FUOP(fd, SIMD_ADD, &regnum);}
 	    }
 	}
     }
     else if(fop_per_mop > 1){
         fop_instructions = roofline_PPCM(fop_per_mop, SIMD_N_REGS);
+	mem_instructions = fop_instructions / fop_per_mop;
 	for(i=0;i<fop_instructions;i++){
 	    if(i%fop_per_mop == 0) {
 		dprint_MUOP(fd, type, &offset, &regnum, "r10");
-		mem_instructions++;
 	    }
 	    if(i%2==0){dprint_FUOP(fd, SIMD_MUL, &regnum);}
 	    if(i%2==1){dprint_FUOP(fd, SIMD_ADD, &regnum);}
 	}
     }
-
     dprint_oi_bench_end(fd, roofline_type_str(type), offset);
     dprintf(fd, "out->instructions = in->loop_repeat * %u * in->stream_size / %lu;\n", mem_instructions+fop_instructions, offset);
     dprintf(fd, "out->bytes = in->loop_repeat * in->stream_size;\n");
