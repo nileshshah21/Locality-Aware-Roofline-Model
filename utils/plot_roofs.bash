@@ -8,27 +8,29 @@
 # Version: 0.1                                                                                                                  #
 #################################################################################################################################
 
-FORMATS=("gnuplot" "R")
+METHODS=("gnuplot" "R")
 usage(){
-    printf "plot_roofs.sh -o <output> -f <format> -t <filter(for input info col)> -i <input>\n"; 
-    printf "FORMATS: "; 
-    for format in ${FORMATS[@]}; do
-	printf "$format "
+    printf "plot_roofs.sh -o <output> -m <method> -f <filter(for input info col)> -i <input> -t <title>\n"; 
+    printf "METHODS: "; 
+    for method in ${METHODS[@]}; do
+	printf "$method "
     done
     printf "\n"
     exit
 }
 
 FILTER="STORE|LOAD"
+TITLE="roofline chart"
 
 #################################################################################################################################
 ## Parse options
-while getopts :o:i:t:f:h opt; do
+while getopts :o:i:t:m:f:h opt; do
     case $opt in
 	o) OUTPUT=$OPTARG;;
-	f) FORMAT=$OPTARG;;
+	m) METHOD=$OPTARG;;
 	i) INPUT=$OPTARG;;
-	t) FILTER="$OPTARG";;
+	f) FILTER="$OPTARG";;
+	t) TITLE="$OPTARG";;
 	h) usage;;
 	:) echo "Option -$OPTARG requires an argument."; exit;;
     esac
@@ -39,8 +41,8 @@ if [ -z "$OUTPUT" ]; then
     OUTPUT=$PWD/roofline_chart.pdf
 fi
 
-if [ -z "$FORMAT" ]; then
-    FORMAT=gnuplot
+if [ -z "$METHOD" ]; then
+    METHOD=gnuplot
 fi
 
 if [ -z "$INPUT" ]; then
@@ -62,7 +64,7 @@ output_gnuplot(){
     set terminal pdfcairo enhanced size 10in, 5in
     #roofline function
     roofline(oi,b,f) = (b*oi <= f) ? (b*oi) : f
-    set title 'roofline chart'
+    set title '$TITLE'
     set xlabel 'Flops/Byte'
     set xrange [2**-12:2**6]
     set ylabel 'GFlops/s'
@@ -149,7 +151,7 @@ plot_bandwidths <- function(row) {
   obj = row[obj_id]
   type = row[type_id]
   bandwidth=as.double(row[bandwidth_id])
-  plot(oi, sapply(oi*bandwidth, min, GFlops), lty=1, type="l", log="xy", xlim=xlim, ylim=ylim, axes=FALSE, main="roofline chart", xlab="Flops/Byte", ylab="GFlops/s",  col=color, panel.first=abline(h=yticks, v=xticks,col = "darkgray", lty = 3))
+  plot(oi, sapply(oi*bandwidth, min, GFlops), lty=1, type="l", log="xy", xlim=xlim, ylim=ylim, axes=FALSE, main="$TITLE", xlab="Flops/Byte", ylab="GFlops/s",  col=color, panel.first=abline(h=yticks, v=xticks,col = "darkgray", lty = 3))
   plot_valid(type,obj)
   name = paste(c(as.character(obj),"_",as.character(type)),collapse = '')
   caption <<- c(caption, name)
@@ -179,9 +181,9 @@ EOF
 #################################################################################################################################
 ## output
   
-if [ "$FORMAT" = "gnuplot" ]; then
+if [ "$METHOD" = "gnuplot" ]; then
   output_gnuplot
-elif [ "$FORMAT" = "R" ]; then
+elif [ "$METHOD" = "R" ]; then
   output_R
 fi
 
