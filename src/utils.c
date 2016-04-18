@@ -52,6 +52,9 @@ const char * roofline_type_str(int type){
     case ROOFLINE_STORE:
 	return "STORE";
 	break;
+    case ROOFLINE_COPY:
+	return "COPY";
+	break;
     default:
 	return "UNKNOWN";
 	break;

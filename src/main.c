@@ -6,12 +6,12 @@ char * output = NULL;
 int validate = 0;
 char * mem_str = NULL;
 hwloc_obj_t mem = NULL;
-int load = 0, store = 0;
+int load = 0, store = 0, copy = 0;
 int hyperthreading = 0;
 
 void usage(char * argv0){
-    printf("%s -h  -v -l -s -m <hwloc_ibj:idx> -o <output> -ht\n", argv0);
-    printf("%s --help --validate --load --store --memory <hwloc_obj:idx> --output <output> --with-hyperthreading\n", argv0);
+    printf("%s -h  -v -l -s -c -m <hwloc_ibj:idx> -o <output> -ht\n", argv0);
+    printf("%s --help --validate --load --store --copy --memory <hwloc_obj:idx> --output <output> --with-hyperthreading\n", argv0);
     
     exit(EXIT_SUCCESS);
 }
@@ -29,6 +29,8 @@ void parse_args(int argc, char ** argv){
 	    load = 1;
 	else if(!strcmp(argv[i],"--store") || !strcmp(argv[i],"-s"))
 	    store = 1;
+	else if(!strcmp(argv[i],"--copy") || !strcmp(argv[i],"-c"))
+	    copy = 1;
 	else if(!strcmp(argv[i],"--with-hyperthreading") || !strcmp(argv[i],"-ht"))
 	    hyperthreading = 1;
 	else if(!strcmp(argv[i],"--memory") || !strcmp(argv[i],"-m")){
@@ -38,8 +40,8 @@ void parse_args(int argc, char ** argv){
 	    output = argv[++i];
 	}
     }
-    if(!load && !store){
-	load =1; store=1;
+    if(!load && !store && !copy){
+	load =1; store=1; copy=1;
     }
 }
 
@@ -71,6 +73,13 @@ void roofline_mem_bench(FILE * out, hwloc_obj_t memory){
 	if(validate)
 	    for(oi = pow(2,-12); oi < pow(2,6); oi*=2){
 		roofline_oi(out, memory, ROOFLINE_STORE, oi);
+	    }
+    }
+    if(copy){
+	roofline_bandwidth(out, memory, ROOFLINE_COPY);
+	if(validate)
+	    for(oi = pow(2,-12); oi < pow(2,6); oi*=2){
+		roofline_oi(out, memory, ROOFLINE_COPY, oi);
 	    }
     }
 }

@@ -43,6 +43,7 @@ void print_roofline_sample_output(struct roofline_sample_out * out);
 /***********************************  BENCHMARK FUNCTIONS ****************************************/
 #define ROOFLINE_LOAD 0
 #define ROOFLINE_STORE 1
+#define ROOFLINE_COPY 2
 #define ROOFLINE_N_SAMPLES 8
 
 void roofline_fpeak    (FILE * output);

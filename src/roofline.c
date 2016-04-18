@@ -174,8 +174,8 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int ty
     /* set legend to append to results */
     memset(info,0,sizeof(info));
     memset(progress_info,0,sizeof(progress_info));
-    if(type==ROOFLINE_LOAD)  snprintf(info, sizeof(info),"%5s", "LOAD");
-    if(type==ROOFLINE_STORE) snprintf(info, sizeof(info),"%5s", "STORE");
+    snprintf(info, sizeof(info),"%5s", roofline_type_str(type));
+
     nc = hwloc_obj_type_snprintf(progress_info,sizeof(progress_info),memory, 0);
     nc += snprintf(progress_info+nc, sizeof(progress_info)-nc, ":%d %s", memory->logical_index, info);
 
