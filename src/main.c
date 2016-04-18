@@ -41,7 +41,7 @@ void parse_args(int argc, char ** argv){
 	}
     }
     if(!load && !store && !copy){
-	load =1; store=1; copy=1;
+	load =1; store=1;
     }
 }
 
