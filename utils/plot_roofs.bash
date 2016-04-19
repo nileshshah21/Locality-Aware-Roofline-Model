@@ -10,7 +10,7 @@
 
 METHODS=("gnuplot" "R")
 usage(){
-    printf "plot_roofs.sh -o <output> -m <method> -f <filter(for input info col)> -i <input> -t <title>\n"; 
+    printf "plot_roofs.sh -o <output> -m <method> -f <filter(for input info col)> -i <input> -d <data-file (two columns: flops/byte, Gflop/s)> -t <title>\n"; 
     printf "METHODS: "; 
     for method in ${METHODS[@]}; do
 	printf "$method "
@@ -24,9 +24,10 @@ TITLE="roofline chart"
 
 #################################################################################################################################
 ## Parse options
-while getopts :o:i:t:m:f:h opt; do
+while getopts :o:i:t:d:m:f:h opt; do
     case $opt in
 	o) OUTPUT=$OPTARG;;
+	d) DATA=$OPTARG;;
 	m) METHOD=$OPTARG;;
 	i) INPUT=$OPTARG;;
 	f) FILTER="$OPTARG";;
@@ -50,16 +51,25 @@ if [ -z "$INPUT" ]; then
     usage
 fi
 
+GBYTES_F=$(awk '{for(i=1; i<=NF; i++){if(match(tolower($i),"gbyte")){print i; exit}}}' $INPUT)
+OI_F=$(awk '{for(i=1; i<=NF; i++){if(match(tolower($i),"flops/byte")){print i; exit}}}' $INPUT)
+TYPE_F=$(awk '{for(i=1; i<=NF; i++){if(match(tolower($i),"info")){print i; exit}}}' $INPUT)
+OBJ_F=$(awk '{for(i=1; i<=NF; i++){if(match(tolower($i),"obj")){print i; exit}}}' $INPUT)
+GFLOPS_F=$(awk '{for(i=1; i<=NF; i++){if(match(tolower($i),"gflop")){print i; exit}}}' $INPUT)
+GFLOPS=$(awk -v f=$GFLOPS_F '{if(NR>1 && $f !=0){print $f; exit}}' $INPUT)
+N_F=$(awk '{print NF; exit}' $INPUT)
+
+if [ ! -z $DATA ]; then
+    TMP=$(mktemp)
+    cat $INPUT > $TMP
+    cat $DATA >> $TMP
+    INPUT=$TMP
+fi
+
 #################################################################################################################################
 ## output methods
 
 output_gnuplot(){
-    GBYTES_F=$(awk '{for(i=1; i<=NF; i++){if(match(tolower($i),"gbyte")){print i; exit}}}' $INPUT)
-    OI_F=$(awk '{for(i=1; i<=NF; i++){if(match(tolower($i),"flops/byte")){print i; exit}}}' $INPUT)
-    TYPE_F=$(awk '{for(i=1; i<=NF; i++){if(match(tolower($i),"info")){print i; exit}}}' $INPUT)
-    OBJ_F=$(awk '{for(i=1; i<=NF; i++){if(match(tolower($i),"obj")){print i; exit}}}' $INPUT)
-    GFLOPS_F=$(awk '{for(i=1; i<=NF; i++){if(match(tolower($i),"gflop")){print i; exit}}}' $INPUT)
-    GFLOPS=$(awk -v f=$GFLOPS_F '{if(NR>1 && $f !=0){print $f; exit}}' $INPUT)
     gnuplot <<EOF
     set terminal pdfcairo enhanced size 10in, 5in
     #roofline function
@@ -185,5 +195,9 @@ if [ "$METHOD" = "gnuplot" ]; then
   output_gnuplot
 elif [ "$METHOD" = "R" ]; then
   output_R
+fi
+
+if [ -z $DATA ]; then
+    rm -r $TMP
 fi
 
