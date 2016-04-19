@@ -74,7 +74,7 @@ PAPI_handle_error(int err)
 
 void roofline_sampling_init(const char * output){
     printf("roofline sampling library initialization...\n");
-    PAPI_call_check(roofline_lib_init(0),-1, "roofline library initialization failed\n");
+    PAPI_call_check(roofline_lib_init(0),0, "roofline library initialization failed\n");
     out = fopen("HPCCG.out","a+");
     if(out == NULL){
 	perror("fopen");
@@ -86,7 +86,7 @@ void roofline_sampling_init(const char * output){
     printf("Powered by PAPI\n");
     PAPI_call_check(PAPI_create_eventset(&eventset), PAPI_OK, "PAPI eventset initialization failed\n");
     PAPI_call_check(PAPI_add_named_event(eventset, "MEM_UOPS_RETIRED:ALL_LOADS"), PAPI_OK,  "PAPI add named event %s failed\n", "MEM_UOPS_RETIRED:ALL_LOADS");
-    PAPI_call_check(PAPI_add_named_event(eventset, "PAPI_DP_OPS"), PAPI_OK, "PAPI add named event %s failed\n", "PAPI_DP_OPS");
+    //PAPI_call_check(PAPI_add_named_event(eventset, "PAPI_DP_OPS"), PAPI_OK, "PAPI add named event %s failed\n", "PAPI_DP_OPS");
     PAPI_call_check(PAPI_add_named_event(eventset, "PAPI_TOT_INS"), PAPI_OK, "PAPI add named event %s failed\n", "PAPI_TOT_INS");
     printf("Consider each event MEM_UOPS_RETIRED:ALL_LOADS as a vectorized load micro-operation of %d bytes\n", SIMD_BYTES);
     printf("Trust in PAPI_DP_OPS for flops\n");
@@ -117,10 +117,10 @@ void roofline_sampling_stop(){
     hwloc_bitmap_t nodeset = hwloc_bitmap_alloc();
     if(hwloc_get_membind(topology, nodeset, 0, HWLOC_MEMBIND_BYNODESET|HWLOC_MEMBIND_PROCESS) == -1){
 	perror("get_membind");
+	membind = hwloc_get_obj_by_type(topology,HWLOC_OBJ_NODE,0);
     }
     else{
 	PAPI_call_check(hwloc_get_largest_objs_inside_cpuset(topology,nodeset,&membind, 1), -1, "hwloc_get_largest_objs_inside_cpuset");
-	membind = NULL;
     }
     hwloc_bitmap_free(nodeset);
     roofline_print_sample(out, membind, &out_s, 0, NULL);
