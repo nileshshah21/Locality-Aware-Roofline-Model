@@ -75,7 +75,7 @@ PAPI_handle_error(int err)
 void roofline_sampling_init(const char * output){
     printf("roofline sampling library initialization...\n");
     PAPI_call_check(roofline_lib_init(0),0, "roofline library initialization failed\n");
-    out = fopen("HPCCG.out","a+");
+    out = fopen(output,"a+");
     if(out == NULL){
 	perror("fopen");
 	exit(EXIT_FAILURE);
