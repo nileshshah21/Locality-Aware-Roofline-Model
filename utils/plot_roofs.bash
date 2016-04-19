@@ -64,7 +64,9 @@ if [ ! -z $DATA ]; then
     cat $INPUT > $TMP
     cat $DATA >> $TMP
     INPUT=$TMP
-    FILTER="$FILTER|MISC"
+    if [ $METHOD = "gnuplot" ]; then
+	FILTER="$FILTER|MISC"
+    fi
 fi
 
 #################################################################################################################################
@@ -150,7 +152,7 @@ yticks = lseq(ymin, ymax, log10(ymax/ymin))
 ylabels = sapply(yticks, function(i) as.expression(bquote(10^ .(round(log10(i))))))
 
 #plot points for bandwidth validation
-plot_valid <- function(type, obj){
+plot_valid <- function(obj, type){
   valid = d[d[,obj_id] == obj & d[,type_id] == type & d[,flops_id] !=0, ]
   points(valid[,oi_id], valid[,flops_id], asp=1, pch=color, col=color)
   par(new=TRUE, ann=FALSE)
@@ -163,7 +165,7 @@ plot_bandwidths <- function(row) {
   type = row[type_id]
   bandwidth=as.double(row[bandwidth_id])
   plot(oi, sapply(oi*bandwidth, min, GFlops), lty=1, type="l", log="xy", xlim=xlim, ylim=ylim, axes=FALSE, main="$TITLE", xlab="Flops/Byte", ylab="GFlops/s",  col=color, panel.first=abline(h=yticks, v=xticks,col = "darkgray", lty = 3))
-  plot_valid(type,obj)
+  plot_valid(obj, type)
   name = paste(c(as.character(obj),"_",as.character(type)),collapse = '')
   caption <<- c(caption, name)
   par(new=TRUE, ann=FALSE)
@@ -175,13 +177,17 @@ caption=c()
 color=0
 pdf("$OUTPUT", family = "Helvetica", title="roofline chart", width=10, height=5)
 invisible(apply(bandwidth_rows, 1, plot_bandwidths))
-  
+#plot MISC points
+color <<- color+1
+invisible(sapply(d[d[,type_id]=="MISC",obj_id], type="MISC", plot_valid))
+caption <<- c(caption, "MISC")
+
 #draw axes
 axis(1, at=xticks, labels=xlabels)
 axis(2, at=yticks, labels=ylabels)
 box()
 #draw legend
-legend("bottomright", caption, cex=.7, lty=1, col=1:color)
+legend("bottomright", caption, cex=.7, lty=1, pch=1:color, col=1:color)
 
 #output
 graphics.off()
