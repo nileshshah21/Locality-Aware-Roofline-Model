@@ -116,7 +116,6 @@ void roofline_sampling_stop(){
     hwloc_obj_t membind=NULL;
     hwloc_bitmap_t nodeset = hwloc_bitmap_alloc();
     if(hwloc_get_membind(topology, nodeset, 0, HWLOC_MEMBIND_BYNODESET|HWLOC_MEMBIND_PROCESS) == -1){
-	perror("get_membind");
 	membind = hwloc_get_obj_by_type(topology,HWLOC_OBJ_NODE,0);
     }
     else{
