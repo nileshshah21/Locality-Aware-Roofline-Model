@@ -86,7 +86,7 @@ void roofline_sampling_init(const char * output){
     printf("Powered by PAPI\n");
     PAPI_call_check(PAPI_create_eventset(&eventset), PAPI_OK, "PAPI eventset initialization failed\n");
     PAPI_call_check(PAPI_add_named_event(eventset, "MEM_UOPS_RETIRED:ALL_LOADS"), PAPI_OK,  "PAPI add named event %s failed\n", "MEM_UOPS_RETIRED:ALL_LOADS");
-    //PAPI_call_check(PAPI_add_named_event(eventset, "PAPI_DP_OPS"), PAPI_OK, "PAPI add named event %s failed\n", "PAPI_DP_OPS");
+    PAPI_call_check(PAPI_add_named_event(eventset, "PAPI_DP_OPS"), PAPI_OK, "PAPI add named event %s failed\n", "PAPI_DP_OPS");
     PAPI_call_check(PAPI_add_named_event(eventset, "PAPI_TOT_INS"), PAPI_OK, "PAPI add named event %s failed\n", "PAPI_TOT_INS");
     printf("Consider each event MEM_UOPS_RETIRED:ALL_LOADS as a vectorized load micro-operation of %d bytes\n", SIMD_BYTES);
     printf("Trust in PAPI_DP_OPS for flops\n");
