@@ -122,6 +122,6 @@ void roofline_sampling_stop(){
 	PAPI_call_check(hwloc_get_largest_objs_inside_cpuset(topology,nodeset,&membind, 1), -1, "hwloc_get_largest_objs_inside_cpuset");
     }
     hwloc_bitmap_free(nodeset);
-    roofline_print_sample(out, membind, &out_s, 0, NULL);
+    roofline_print_sample(out, membind, &out_s, 0, "MISC");
 }
 
