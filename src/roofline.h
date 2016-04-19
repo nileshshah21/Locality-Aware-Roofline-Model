@@ -63,7 +63,7 @@ void roofline_progress_set  (struct roofline_progress_bar * bar, char * info, si
 void roofline_progress_print(struct roofline_progress_bar * bar);
 void roofline_progress_clean(void);
 
-/*************************************  Statistical sampling *************************************/
+/****************************************    Statistics    ****************************************/
 #define BENCHMARK_REPEAT 8
 #ifndef BENCHMARK_MIN_DUR
 #define BENCHMARK_MIN_DUR 10 /* milliseconds */
@@ -126,5 +126,14 @@ void   roofline_print_sample(FILE * output, hwloc_obj_t obj, struct roofline_sam
  * @return A logarithmic array of sizes starting with start. Sizes are truncated to the closest integer value.
  **/
 size_t * roofline_log_array(size_t start, size_t end, int * n);
+
+
+/***************************************     PAPI sampling   *************************************/
+#ifdef USE_PAPI
+void roofline_sampling_init(const char * output);
+void roofline_sampling_fini();
+void roofline_sampling_start();
+void roofline_sampling_stop();
+#endif
 
 #endif /* BENCHMARK_H */
