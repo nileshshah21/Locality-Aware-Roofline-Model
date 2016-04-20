@@ -75,7 +75,7 @@ PAPI_handle_error(int err)
 void roofline_sampling_init(const char * output){
     printf("roofline sampling library initialization...\n");
     PAPI_call_check(roofline_lib_init(0),0, "roofline library initialization failed\n");
-    out = fopen(output,"a+");
+    out = fopen(output,"w+");
     if(out == NULL){
 	perror("fopen");
 	exit(EXIT_FAILURE);
@@ -90,6 +90,7 @@ void roofline_sampling_init(const char * output){
     PAPI_call_check(PAPI_add_named_event(eventset, "PAPI_TOT_INS"), PAPI_OK, "PAPI add named event %s failed\n", "PAPI_TOT_INS");
     printf("Consider each event MEM_UOPS_RETIRED:ALL_LOADS as a vectorized load micro-operation of %d bytes\n", SIMD_BYTES);
     printf("Trust in PAPI_DP_OPS for flops\n");
+    roofline_print_header(out, "info");
 }
 
 void roofline_sampling_fini(){
@@ -103,7 +104,7 @@ void roofline_sampling_start(){
     roofline_rdtsc(c_high_s, c_low_s);
 }
 
-void roofline_sampling_stop(){
+void roofline_sampling_stop(const char * info){
     PAPI_stop(eventset,values);
     roofline_rdtsc(c_high_e, c_low_e);
     struct roofline_sample_out out_s = {				\
@@ -122,6 +123,6 @@ void roofline_sampling_stop(){
 	PAPI_call_check(hwloc_get_largest_objs_inside_cpuset(topology,nodeset,&membind, 1), -1, "hwloc_get_largest_objs_inside_cpuset");
     }
     hwloc_bitmap_free(nodeset);
-    roofline_print_sample(out, membind, &out_s, 0, "MISC");
+    roofline_print_sample(out, membind, &out_s, 0, info);
 }
 
