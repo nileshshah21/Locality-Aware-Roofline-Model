@@ -133,7 +133,7 @@ size_t * roofline_log_array(size_t start, size_t end, int * n);
 void roofline_sampling_init(const char * output);
 void roofline_sampling_fini();
 void roofline_sampling_start();
-void roofline_sampling_stop();
+void roofline_sampling_stop(const char * info);
 #endif
 
 #endif /* BENCHMARK_H */
