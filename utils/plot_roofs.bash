@@ -10,7 +10,7 @@
 
 METHODS=("gnuplot" "R")
 usage(){
-    printf "plot_roofs.sh -o <output> -m <method> -f <filter(for input info col)> -i <input> -d <data-file (two columns: flops/byte, Gflop/s)> -t <title>\n"; 
+    printf "plot_roofs.sh -o <output> -m <method> -f <filter(for input info col)> -i <input> -d <data-file> -t <title>\n"; 
     printf "METHODS: "; 
     for method in ${METHODS[@]}; do
 	printf "$method "
@@ -60,13 +60,28 @@ GFLOPS=$(awk -v f=$GFLOPS_F '{if(NR>1 && $f !=0){print $f; exit}}' $INPUT)
 N_F=$(awk '{print NF; exit}' $INPUT)
 
 if [ ! -z $DATA ]; then
-    TMP=$(mktemp)
-    cat $INPUT > $TMP
-    cat $DATA >> $TMP
-    INPUT=$TMP
-    if [ $METHOD = "gnuplot" ]; then
-	FILTER="$FILTER|MISC"
+    if [ "$METHOD" = "gnuplot" ]; then
+	TMP=$(mktemp)
+	cat $INPUT > $TMP
+	cat $DATA >> $TMP
+	INPUT=$TMP
+	#Add value in info field to filter
+	DATA_TOKENS=$(awk -v f=$TYPE_F '
+BEGIN{i=0; info[0]="";}
+{
+for(j=0;j<i;j++){
+  if(match(info[j],$f)){break;}
+}
+if(i==j && NR>1){info[i++] = $f}
+}
+END{
+for(j=0;j<i;j++){printf "|%s", info[j]}
+}' $DATA)
+	echo $DATA_TOKENS
+	FILTER="$FILTER$DATA_TOKENS"
     fi
+else
+    DATA=""
 fi
 
 #################################################################################################################################
@@ -158,14 +173,6 @@ plot_valid <- function(obj, type){
   par(new=TRUE, ann=FALSE)
 }
 
-#plot misc points
-plot_misc <- function(){
-  color <<- color+1
-  caption <<- c(caption, "MISC")
-  misc = subset(d, d[,type_id]=="MISC")
-  points(misc[,oi_id], misc[,flops_id], asp=1, pch=color, col=color)
-}
-
 oi = lseq(xmin,xmax,500)
 plot_bandwidths <- function(row) {
   color <<- color+1
@@ -185,8 +192,17 @@ caption=c()
 color=0
 pdf("$OUTPUT", family = "Helvetica", title="roofline chart", width=10, height=5)
 invisible(apply(bandwidth_rows, 1, plot_bandwidths))
+
 #plot MISC points
-plot_misc()
+if("$DATA" != ""){
+  misc = read.table("$DATA",header=TRUE)
+  for (info in unique(misc[,"info"], incomparables = FALSE)){
+    color <<- color+1
+    caption <<- c(caption, info)
+    sub_misc = subset(misc, misc[,type_id]==info)
+    points(sub_misc[,oi_id], sub_misc[,flops_id], asp=1, pch=color, col=color)    
+  }
+}
 
 #draw axes
 axis(1, at=xticks, labels=xlabels)
