@@ -158,6 +158,14 @@ plot_valid <- function(obj, type){
   par(new=TRUE, ann=FALSE)
 }
 
+#plot misc points
+plot_misc <- function(){
+  color <<- color+1
+  caption <<- c(caption, "MISC")
+  misc = subset(d, d[,type_id]=="MISC")
+  points(misc[,oi_id], misc[,flops_id], asp=1, pch=color, col=color)
+}
+
 oi = lseq(xmin,xmax,500)
 plot_bandwidths <- function(row) {
   color <<- color+1
@@ -178,9 +186,7 @@ color=0
 pdf("$OUTPUT", family = "Helvetica", title="roofline chart", width=10, height=5)
 invisible(apply(bandwidth_rows, 1, plot_bandwidths))
 #plot MISC points
-color <<- color+1
-invisible(sapply(d[d[,type_id]=="MISC",obj_id], type="MISC", plot_valid))
-caption <<- c(caption, "MISC")
+plot_misc()
 
 #draw axes
 axis(1, at=xticks, labels=xlabels)
@@ -204,7 +210,7 @@ elif [ "$METHOD" = "R" ]; then
   output_R
 fi
 
-if [ -z $DATA ]; then
-    rm -r $TMP
+if [ ! -z $DATA ]; then
+    rm -f $TMP
 fi
 
