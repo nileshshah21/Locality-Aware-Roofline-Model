@@ -63,7 +63,7 @@ int roofline_lib_init(int with_hyperthreading)
 	LLC = LLC->first_child;
     if(LLC == NULL)
 	errEXIT("Error: no LLC cache found\n");
-    LLC_size = ((struct hwloc_cache_attr_s *)LLC->attr)->size*4;
+    LLC_size = ((struct hwloc_cache_attr_s *)LLC->attr)->size;
 
     /* Check if cpu frequency has been defined */
 #ifndef BENCHMARK_CPU_FREQ
@@ -200,7 +200,10 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int ty
     upper_bound_size = roofline_hwloc_get_memory_size(memory);
     upper_bound_size = roofline_MIN(upper_bound_size,LLC_size*16);
     if(n_threads > 1){
-	upper_bound_size = upper_bound_size*n_threads/hwloc_bitmap_weight(memory->cpuset);
+	if(child!=NULL)
+	    upper_bound_size = upper_bound_size*n_threads/hwloc_bitmap_weight(child->cpuset);
+	else
+	    upper_bound_size = upper_bound_size*n_threads/hwloc_bitmap_weight(memory->cpuset);
     }
 
     if(upper_bound_size<lower_bound_size){
