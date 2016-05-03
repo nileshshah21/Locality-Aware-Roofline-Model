@@ -1,16 +1,18 @@
 #include "roofline.h"
-#include <papi.h>
 #include <omp.h>
+#include <papi.h>
 
 #define roofline_rdtsc(c_high,c_low) __asm__ __volatile__ ("CPUID\n\tRDTSC\n\tmovq %%rdx, %0\n\tmovq %%rax, %1\n\t" :"=r" (c_high), "=r" (c_low)::"%rax", "%rbx", "%rcx", "%rdx")
 #define roofline_rdtsc_diff(high, low) ((high << 32) | low)
 
 char * output_name;
 FILE * out;
-int eventset = PAPI_NULL;
+
 extern unsigned n_threads;
-#define n_events 5
-long long values[n_events];
+
+int       eventset = PAPI_NULL;
+long long values[5];
+
 uint64_t c_high_s, c_high_e, c_low_s, c_low_e;
 
 #if defined (__AVX512__)
@@ -76,25 +78,39 @@ PAPI_handle_error(int err)
     } while(0)
 
 void roofline_sampling_init(const char * output){
+    int err;
     printf("roofline sampling library initialization...\n");
     PAPI_call_check(roofline_lib_init(0),0, "roofline library initialization failed\n");
-    out = fopen(output,"a+");
-    if(out == NULL){
+    if(output == NULL){
+	out = stdout;
+	output_name = strdup("stdout");
+    }
+    else if((out = fopen(output,"a+")) == NULL){
 	perror("fopen");
 	exit(EXIT_FAILURE);
     }
-    output_name = (char*)output;
+    else
+	output_name = (char*)output;
+
     PAPI_call_check(PAPI_library_init(PAPI_VER_CURRENT), PAPI_VER_CURRENT, "PAPI version mismatch\n");
     PAPI_call_check(PAPI_is_initialized(), PAPI_LOW_LEVEL_INITED, "PAPI initialization failed\n");
     printf("Powered by PAPI\n");
     PAPI_call_check(PAPI_create_eventset(&eventset), PAPI_OK, "PAPI eventset initialization failed\n");
-    PAPI_call_check(PAPI_add_named_event(eventset, "MEM_UOP_RETIRED:ANY_LOADS"), PAPI_OK,  "PAPI add named event %s failed\n", "MEM_UOPS_RETIRED:ALL_LOADS");
-    PAPI_call_check(PAPI_add_named_event(eventset, "FP_COMP_OPS_EXE:SSE_SCALAR_DOUBLE"), PAPI_OK, "PAPI add named event %s failed\n", "PAPI_DP_OPS");
-    PAPI_call_check(PAPI_add_named_event(eventset, "FP_COMP_OPS_EXE:SSE_FP_PACKED_DOUBLE"), PAPI_OK, "PAPI add named event %s failed\n", "PAPI_DP_OPS");
-    PAPI_call_check(PAPI_add_named_event(eventset, "SIMD_FP_256:PACKED_DOUBLE"), PAPI_OK, "PAPI add named event %s failed\n", "PAPI_DP_OPS");
-    PAPI_call_check(PAPI_add_named_event(eventset, "PAPI_TOT_INS"), PAPI_OK, "PAPI add named event %s failed\n", "PAPI_TOT_INS");
-    printf("Consider each event MEM_UOPS_RETIRED:ALL_LOADS as a vectorized load micro-operation of %d bytes\n", SIMD_BYTES);
-    printf("Trust in PAPI_DP_OPS for flops\n");
+
+    
+    PAPI_call_check(PAPI_add_named_event(eventset, "INSTRUCTIONS_RETIRED"), PAPI_OK, "PAPI add named event %s failed\n", "INSTRUCTIONS_RETIRED"); 
+    PAPI_call_check(PAPI_add_named_event(eventset, "MEM_UOPS_RETIRED:ALL_LOADS"), PAPI_OK, "PAPI add named event %s failed\n", "MEM_UOPS_RETIRED:ALL_LOADS"); 
+
+    if(PAPI_add_named_event(eventset, "FP_COMP_OPS_EXE:SSE_SCALAR_DOUBLE") != PAPI_OK)
+	err = PAPI_add_named_event(eventset, "FP_ARITH:SCALAR_DOUBLE");
+    if(PAPI_add_named_event(eventset, "FP_COMP_OPS_EXE:SSE_FP_PACKED_DOUBLE") != PAPI_OK)
+	err = PAPI_add_named_event(eventset, "FP_ARITH:128B_PACKED_DOUBLE");
+    if(PAPI_add_named_event(eventset, "SIMD_FP_256:PACKED_DOUBLE") != PAPI_OK)
+	err = PAPI_add_named_event(eventset, "FP_ARITH:256B_PACKED_DOUBLE");
+    if(err!=PAPI_OK){
+	fprintf(stderr, "No available flops counters\n");
+    }
+
     roofline_print_header(out, "info");
 }
 
@@ -110,10 +126,10 @@ void roofline_sampling_start(){
     roofline_rdtsc(c_high_s, c_low_s);
 }
 
-static void roofline_sampling_print(){
-    int i;
+void roofline_sampling_print(){
+    unsigned i;
     printf("PAPI values: ");
-    for(i=0;i<n_events;i++)
+    for(i=0;i<5;i++)
 	printf("%lld ", values[i]);
     printf("\n");
 }
@@ -125,9 +141,9 @@ void roofline_sampling_stop(const char * info){
     struct roofline_sample_out out_s = {				\
 	roofline_rdtsc_diff(c_high_s, c_low_s),				\
 	roofline_rdtsc_diff(c_high_e, c_low_e),				\
-	values[n_events-1],						\
-	values[0]*SIMD_BYTES,						\
-	values[1]+values[2]*2+values[3]*4				\
+	values[0],							\
+	values[1]*SIMD_BYTES,						\
+	values[2]+values[3]*2+values[4]*4				\
     };
     hwloc_obj_t membind=NULL;
     hwloc_bitmap_t nodeset = hwloc_bitmap_alloc();
