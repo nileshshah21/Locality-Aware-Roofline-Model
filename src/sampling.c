@@ -161,7 +161,7 @@ void roofline_sampling_stop(const char * info){
     if(info && env_info){
 	char * final_info = malloc(strlen(info)+strlen(env_info)+1);
 	memset(final_info,0,strlen(info)+strlen(env_info)+1);
-	sprintf(final_info, "%s%s", info, env_info);
+	sprintf(final_info, "%s_%s", info, env_info);
 	roofline_print_sample(out, membind, &out_s, 0, final_info);
     }
     else if(info)
