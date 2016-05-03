@@ -12,6 +12,27 @@ char *           compiler = NULL;            /* The compiler name to compile the
 hwloc_obj_t      first_node = NULL;          /* The first node where to bind threads */
 unsigned         n_threads = 1;              /* The number of threads for benchmark */
 struct roofline_progress_bar progress_bar;   /* Global progress bar of the benchmark */
+char             vendor[13];                 /* Processor vendor */
+unsigned int     model = 1920;               /* Processor model (initialized with bit 7:4 set to one) */
+unsigned int     family = 30720;             /* Processor family (initialized with bit 11:8 set to one) */
+
+
+static void roofline_get_cpuid_info(){
+    unsigned int index = 0;
+    unsigned int regs[4];
+
+    __asm__ __volatile__("CPUID\n\t" : "=a"(regs[0]), "=b"(regs[1]), "=c"(regs[2]), "=d"(regs[3]): "a"(index)); 
+    snprintf(vendor, sizeof(vendor), "%c%c%c%c%c%c%c%c%c%c%c%c", 
+	     ((char*)regs)[4], ((char*)regs)[5], ((char*)regs)[6], ((char*)regs)[7],
+	     ((char*)regs)[12], ((char*)regs)[13], ((char*)regs)[14], ((char*)regs)[15],
+	     ((char*)regs)[8], ((char*)regs)[9], ((char*)regs)[10], ((char*)regs)[11]);
+    
+    index = 1;
+    __asm__ __volatile__("CPUID\n\t" : "=a"(regs[0]): "a"(index));
+    model = model & regs[0];
+    family = family & regs[0];
+}
+
 
 #ifdef USE_OMP
 int roofline_lib_init(int with_hyperthreading)
@@ -84,6 +105,8 @@ int roofline_lib_init(int with_hyperthreading)
 	errEXIT("Undefined compiler. Please set env CC to your compiler.");
     }
 #endif
+    roofline_get_cpuid_info();
+    printf("%s, model:0x%x, family=:0x%x\n", vendor, model, family);
     return 0;
 }
 
