@@ -97,9 +97,11 @@ void roofline_sampling_init(const char * output){
     printf("Powered by PAPI\n");
     PAPI_call_check(PAPI_create_eventset(&eventset), PAPI_OK, "PAPI eventset initialization failed\n");
 
-    
-    PAPI_call_check(PAPI_add_named_event(eventset, "INSTRUCTIONS_RETIRED"), PAPI_OK, "PAPI add named event %s failed\n", "INSTRUCTIONS_RETIRED"); 
-    PAPI_call_check(PAPI_add_named_event(eventset, "MEM_UOPS_RETIRED:ALL_LOADS"), PAPI_OK, "PAPI add named event %s failed\n", "MEM_UOPS_RETIRED:ALL_LOADS"); 
+    PAPI_call_check(PAPI_add_named_event(eventset, "PAPI_TOT_INS"), PAPI_OK, "Failed to find instructions counter\n"); 
+
+    if(PAPI_add_named_event(eventset, "PAPI_LD_INS") != PAPI_OK){
+	PAPI_call_check(PAPI_add_named_event(eventset, "MEM_UOPS_RETIRED:ALL_LOADS"), PAPI_OK, "Failed to find memory uops counter\n");
+    }
 
     if(PAPI_add_named_event(eventset, "FP_COMP_OPS_EXE:SSE_SCALAR_DOUBLE") != PAPI_OK)
 	err = PAPI_add_named_event(eventset, "FP_ARITH:SCALAR_DOUBLE");
@@ -108,9 +110,9 @@ void roofline_sampling_init(const char * output){
     if(PAPI_add_named_event(eventset, "SIMD_FP_256:PACKED_DOUBLE") != PAPI_OK)
 	err = PAPI_add_named_event(eventset, "FP_ARITH:256B_PACKED_DOUBLE");
     if(err!=PAPI_OK){
-	fprintf(stderr, "No available flops counters\n");
+	fprintf(stderr, "Failed to find flops counters\n");
+	exit(EXIT_SUCCESS);
     }
-
     roofline_print_header(out, "info");
 }
 
