@@ -25,16 +25,10 @@ Their are 3 options which can be appended to `make`:
 
 
 ### Requirements
-This soft requires at least hwloc library to be installed.
 
-For multithread result, it is also required to have a compiler with openmp support.
-It is recomended that you use the script `utils/omp_set_affinity.sh` to properly set GOMP openmp threads binding.
-```
-source utils/omp_set_affinity.sh	
-```
-The benchmark will set the number of threads depending on the memory level to test afterward.
-
-For now, it only works with intel cpus but one can implement the interface MSC.h with other architectures code.
+This soft requires at least a recent enough hwloc library to be installed.
+The library using hardware counters to export results also use papi, but you can disable it by changing `PAPI` value in Makefile.
+For now, it only works with intel processors but one can implement the interface MSC.h with other architectures code.
 
 #### /!\ Important: 
 Generally speaking, if you want to get relevant results on such benchmarks, you have to assert that options like turbo-boost are disabled and
