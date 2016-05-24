@@ -20,8 +20,6 @@ Their are 3 options which can be appended to `make`:
 
 * `PAR=` with values among `{SEQ, OMP}` which compiles whether the sequential version or the parallel (default) version.
 
-* `SIMD=` with values among `{AVX512, AVX, SSE, SSE2, DBL}` which compiles the code with appropriate instructions, for your cpu. DBL option actually compile SSE assembly with the instruction loading the smallest piece of data.
-
 * `DUR=` repeat the benchmark to make it last DUR milliseconds. This is useful in case you want to sample benchmarks performance with external sampling tool.
 
 
