@@ -1,49 +1,50 @@
 #Compilation
-OPTIONS=-g -Wall -Werror -Wextra
 CC=gcc
-OMP_FLAG=-fopenmp
-HWLOC_FLAG=-lhwloc
-PAPI=
+SRC=roofline.c utils.c stats.c progress.c
+OBJ=$(patsubst %.c, %.o, $(SRC)) MSC.o
+LDFLAGS=-lhwloc -fopenmp -ldl
+CFLAGS=-Wall -Werror -Wextra -DBENCHMARK_MIN_DUR=$(DUR) -DUSE_$(PAR) -DCC=$(CC)
 
-#Duration time of each sample (millisecond) 0
+.PHONY: all clean
+
+#Use PAPI and compile tool for code sampling
+PAPI=yes
+
+
+ifeq (yes, $(PAPI))
+SRC+=sampling.c
+LDFLAGS+=-lpapi
+CFLAGS+=-fPIC
+all: roofline libroofline.so
+else
+all: roofline
+endif
+
+#Duration time of each sample (millisecond)
 DUR=10
 #Type of parallelisme among {SEQ, OMP}
 PAR=OMP
-#Machinde specific code implementing MSC/MSC.h {generic, intel}
+#Machine specific code implementing MSC/MSC.h {intel}
 MSC=intel
 
-DEFINES=-DBENCHMARK_MIN_DUR=$(DUR) -DUSE_$(PAR) -DCC=$(CC)
+%.o: %.c
+	$(CC) -O8 -march=native $(CFLAGS) -c -o $@ $^ $(LDFLAGS)
 
-#ifdef $(PAPI)
-all: roofline libroofline.so
-#else
-all: roofline
-#endif
 MSC.o: MSC/$(MSC).c
-	$(CC) -O8 -march=native $(OPTIONS) $(DEFINES) -c -o $@ $^ -ldl $(OMP_FLAG)
+	$(CC) -O8 -march=native $(CFLAGS) -c -o $@ $^ $(LDFLAGS)
 
 MSC.s: MSC/$(MSC).c
-	$(CC) -O8 -march=native $(OPTIONS) $(DEFINES) -S -o $@ $^ -ldl $(OMP_FLAG)
+	$(CC) -O8 -march=native $(CFLAGS) -S -o $@ $^ $(LDFLAGS)
 
-roofline.o: roofline.c
-	$(CC) $(OPTIONS) -pedantic-errors $(DEFINES) -c -o $@ $^ $(OMP_FLAG) 
+roofline: main.c $(OBJ)
+	$(CC) $(CFLAGS) -pedantic-errors $^ -o $@ -lm $(LDFLAGS)
 
-utils.o: utils.c
-	$(CC) $(OPTIONS) -pedantic-errors $(DEFINES) -c -o $@ $^ -lm $(HWLOC_FLAG) $(OMP_FLAG)
+libroofline.so: $(OBJ)
+	$(CC) $(CFLAGS) -fPIC -shared $^ -o $@ -lm -ldl $(OMP_FLAG) $(HWLOC_FLAG) -lpapi
 
-stats.o: stats.c
-	$(CC) $(OPTIONS) -pedantic-errors -c -o $@ $^
-
-progress.o: progress.c
-	$(CC) $(OPTIONS) -pedantic-errors -c -o $@ $^
-
-roofline: main.c roofline.o utils.o progress.o stats.o MSC.o
-	$(CC) $(DEFINES) $(OPTIONS) -pedantic-errors $^ -o $@ -lm -ldl $(OMP_FLAG) $(HWLOC_FLAG)
-
-#ifdef $(PAPI)
-libroofline.so: roofline.c utils.c progress.c stats.c MSC/$(MSC).c sampling.c
-	$(CC) $(DEFINES) $(OPTIONS) -fPIC -shared $^ -o $@ -lm -ldl $(OMP_FLAG) $(HWLOC_FLAG) -lpapi
-#endif
+test: test_sampling.c libroofline.so
+	$(CC) $(CFLAGS) $< -o $@ -lroofline
+	./$@
 
 clean:
 	rm -f *.o *.s *.so roofline
