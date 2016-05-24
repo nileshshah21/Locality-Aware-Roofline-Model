@@ -1,7 +1,6 @@
 #Compilation
 CC=gcc
 SRC=roofline.c utils.c stats.c progress.c
-OBJ=$(patsubst %.c, %.o, $(SRC)) MSC.o
 LDFLAGS=-lhwloc -fopenmp -ldl
 CFLAGS=-Wall -Werror -Wextra -DBENCHMARK_MIN_DUR=$(DUR) -DUSE_$(PAR) -DCC=$(CC)
 
@@ -20,6 +19,7 @@ else
 all: roofline
 endif
 
+OBJ=$(patsubst %.c, %.o, $(SRC)) MSC.o
 #Duration time of each sample (millisecond)
 DUR=10
 #Type of parallelisme among {SEQ, OMP}
