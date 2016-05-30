@@ -94,24 +94,39 @@ void roofline_sampling_init(const char * output){
 
     PAPI_call_check(PAPI_library_init(PAPI_VER_CURRENT), PAPI_VER_CURRENT, "PAPI version mismatch\n");
     PAPI_call_check(PAPI_is_initialized(), PAPI_LOW_LEVEL_INITED, "PAPI initialization failed\n");
-    printf("Powered by PAPI\n");
     PAPI_call_check(PAPI_create_eventset(&eventset), PAPI_OK, "PAPI eventset initialization failed\n");
-
     PAPI_call_check(PAPI_add_named_event(eventset, "PAPI_TOT_INS"), PAPI_OK, "Failed to find instructions counter\n"); 
 
-    if(PAPI_add_named_event(eventset, "PAPI_LD_INS") != PAPI_OK){
-	PAPI_call_check(PAPI_add_named_event(eventset, "MEM_UOPS_RETIRED:ALL_LOADS"), PAPI_OK, "Failed to find memory uops counter\n");
+    printf("Add load instruction event\n");
+    err = PAPI_add_named_event(eventset, "PAPI_LD_INS");
+    if(err != PAPI_OK){
+	PAPI_handle_error(err);
+	printf("PAPI_LD_INS not available\n");
+	err = PAPI_add_named_event(eventset, "MEM_UOPS_RETIRED:ALL_LOADS");
+	if(err != PAPI_OK){
+	    PAPI_handle_error(err);
+	    printf("MEM_UOPS_RETIRED:ALL_LOADS\n");
+	    printf("Cannot count load instructions.\n");
+	    exit(EXIT_FAILURE);
+	}	
     }
 
-    if(PAPI_add_named_event(eventset, "FP_COMP_OPS_EXE:SSE_SCALAR_DOUBLE") != PAPI_OK)
+    printf("Add double instruction event\n");
+    err = PAPI_add_named_event(eventset, "FP_COMP_OPS_EXE:SSE_SCALAR_DOUBLE");
+    if(err != PAPI_OK){
+	PAPI_handle_error(err);
 	err = PAPI_add_named_event(eventset, "FP_ARITH:SCALAR_DOUBLE");
-    if(PAPI_add_named_event(eventset, "FP_COMP_OPS_EXE:SSE_FP_PACKED_DOUBLE") != PAPI_OK)
-	err = PAPI_add_named_event(eventset, "FP_ARITH:128B_PACKED_DOUBLE");
-    if(PAPI_add_named_event(eventset, "SIMD_FP_256:PACKED_DOUBLE") != PAPI_OK)
-	err = PAPI_add_named_event(eventset, "FP_ARITH:256B_PACKED_DOUBLE");
-    if(err!=PAPI_OK){
-	fprintf(stderr, "Failed to find flops counters\n");
-	exit(EXIT_SUCCESS);
+	if(err != PAPI_OK){
+	    PAPI_handle_error(err);
+	    printf("flop events not available\n");
+	    exit(EXIT_FAILURE);
+	}
+	PAPI_call_check(PAPI_add_named_event(eventset, "FP_ARITH:128B_PACKED_DOUBLE"), PAPI_OK, "Failed to find FP_ARITH:128B_PACKED_DOUBLE event\n"); 
+	PAPI_call_check(PAPI_add_named_event(eventset, "FP_ARITH:256B_PACKED_DOUBLE"), PAPI_OK, "Failed to find FP_ARITH:256B_PACKED_DOUBLE event\n"); 
+    }
+    else{
+	PAPI_call_check(PAPI_add_named_event(eventset, "FP_COMP_OPS_EXE:SSE_FP_PACKED_DOUBLE"), PAPI_OK, "Failed to find FP_COMP_OPS_EXE:SSE_FP_PACKED_DOUBLE event\n"); 
+	PAPI_call_check(PAPI_add_named_event(eventset, "SIMD_FP_256:PACKED_DOUBLE"), PAPI_OK, "Failed to find SIMD_FP_256:PACKED_DOUBLE event\n"); 
     }
     roofline_print_header(out, "info");
 }
