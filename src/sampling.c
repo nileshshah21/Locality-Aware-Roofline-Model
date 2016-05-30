@@ -78,7 +78,7 @@ PAPI_handle_error(int err)
     } while(0)
 
 void roofline_sampling_init(const char * output){
-    int err;
+    int err = PAPI_OK;
     printf("roofline sampling library initialization...\n");
     PAPI_call_check(roofline_lib_init(0),0, "roofline library initialization failed\n");
     if(output == NULL){
