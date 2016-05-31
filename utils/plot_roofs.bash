@@ -197,10 +197,12 @@ invisible(apply(bandwidth_rows, 1, plot_bandwidths))
 if("$DATA" != ""){
   misc = read.table("$DATA",header=TRUE)
   for (info in unique(misc[,"info"], incomparables = FALSE)){
-    color <<- color+1
-    caption <<- c(caption, info)
-    sub_misc = subset(misc, misc[,type_id]==info)
-    points(sub_misc[,oi_id], sub_misc[,flops_id], asp=1, pch=color, col=color)    
+    if(grepl("$FILTER",info)){
+      color <<- color+1
+      caption <<- c(caption, info)
+      sub_misc = subset(misc, misc[,type_id]==info)
+      points(sub_misc[,oi_id], sub_misc[,flops_id], asp=1, pch=color, col=color)    
+    }
   }
 }
 
