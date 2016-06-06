@@ -49,6 +49,18 @@ int roofline_lib_init(int with_hyperthreading)
     hwloc_obj_t L1, LLC;
     char * cpu_freq_str;
 
+    /* Check hwloc version */
+#if HWLOC_API_VERSION >= 0x0020000
+    /* Header uptodate for monitor */
+    if(hwloc_get_api_version() < 0x20000){
+	fprintf(stderr, "hwloc version mismatch, required version 0x20000 or later, found %#08x\n", hwloc_get_api_version());
+	return -1;
+    }
+#else
+    fprintf(stderr, "hwloc version too old, required version 0x20000 or later\n");
+    return -1;    
+#endif
+
     /* Initialize topology */
     if(hwloc_topology_init(&topology) ==-1){
 	fprintf(stderr, "hwloc_topology_init failed.\n");
