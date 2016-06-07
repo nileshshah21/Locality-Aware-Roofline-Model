@@ -1,0 +1,209 @@
+*************************            LARM: Locality Aware Roofline Model          *******************************
+[[https://github.com/NicolasDenoyelle/LARM-Locality-Aware-Roofline-Model-][https://github.com/NicolasDenoyelle/LARM-Locality-Aware-Roofline-Model-]]
+
+* Abstract
+  TODO
+
+* Introduction
+  Building large and fast systems requires tremendous effort to break the memory wall.
+  
+  Emerging memory technologies (e.g non-volatile memory, heterogeneous memory architectures, on-package 
+  memory), will help us going forward to the exascale era at the cost of a growing hardware complexity, digging
+  the gap with users skills to use it.
+  The next generation Xeon Phi processor will embed on-package memory, configurable as a hardware cache, or as 
+  an a memory or both. This managable cache-memory, will also increase the complexitiy of data placement. 
+  Some workloads will require a larger amount of memory, and benefit from the additional
+  space of near memory, whereas others will require lots of data movement between near memory and far memory.
+  The latter is not suitable for the painful page migration mechanism, and will benefit from hardware cache 
+  efficiency.
+  The former will also benefit from a smart data allocation, to avoid page migrations, and increase temporal 
+  locality.
+
+  SMP systems with several memory nodes presents similar caracteristics.
+  They are used for workloads requiring a large flat memory.
+  Those system are known to suffer from bandwiwdth weaknesses[8] into the switch connecting each SMP node and 
+  exhibit non uniform memory accesses.
+  Data locality, can be a dominant criterion for one application performance, depending whether an application 
+  exhibit a great page exclusivity[6] (e.g the degree of data sharing across the whole application),
+  or contention on memory and cache subsystems[7].
+
+  Several author, use the roofline model as a legit witness for software optimization.
+  In this paper, we argue that the model also suits NUMA memory and next generation on package memories, 
+  and thus will also give insights for data locality optimizations.
+  The roofline model[4] is a 2 dimensional insightful representation of two major hardware
+  bounds (e.g the bandwidth and the peak performance), empowering developpers able to measure data transfert
+  from memory and floating point operation to see how close their software performs to the machine bounds.
+  Several work on the model intend to deliver better interpretations of the original one.
+  The Cache Aware Roofline Model[5], adds cache bandwidth representation and changing interpretation of the 
+  operational intensity (Flops/Bytes). It means that the transfered bytes accounted should not only be counted 
+  from the DRAM to the chip but instead from the chip to the core. This method reflects the algorithmic 
+  operational intensity and is none sensitive to optimizations targetting temporal locality and reducing DRAM 
+  data transferts.
+  A DyRM[9] is a dynamic representation of the roofline model, meant to catch operational intensity variations of 
+  large codes. We do not exploit this method, considering that usually optimization are performed on hot spots 
+  composed of locally homogeneous workload such as linear algebra subroutines. 
+  
+  In our work we propose an an extended interpretation of the Roofline Model.
+  We base our methodology on the Cache Aware Roofline Model to model the whole memory hierarchy including NUMA 
+  memory and on chip-memory. We also extend the interpretation to the comparison between the single threaded 
+  representation studied in previous works, and the whole chip bounds.
+  To the best of our knowledge those two points have not been explored yet in scientific publications, 
+  and are necessary when studying workload performances in a system including several memory technologies
+  and trades off. 
+  
+* Methodology
+  Our benchmarks consists in several hand written micro code to maximize the throughput of floating point, 
+  load and store instructions. 
+  Each measure is taken 16 time and we retain the median instruction 
+  throughput result to filter unexpected behaviours.
+  We take care of using every available register for each kernel, and minimize the reuse of each, to 
+  minimize dependencies. Each benchmark has a loop structure allowing to run it arbitrarily long to drown the
+  measure overhead and allow sampling of each single benchmark. 
+  This allows to match hardware counters gathered with some external sampling tool, with the counted values.
+
+  Each benchmark uses intel best SIMD instructions available at compile time.
+  Therefore the benchmark can only work (for now) on intel compatible cpus.
+  Instruction count is known at runtime, as well as the bytes transfered and flops performed for each instruction.
+  Hence the only thing to measure, in order to get performance and bandwidth, are the cycles elapsed.
+
+  Timestamps are taken with the pair CPUID/RDTSC instructions[1],
+  then time is computed using the set cpu frequency.  
+  The timestamp instruction are direcly written in the assembly benchmark in sequential code to avoid that the
+  compiler insert more instructions in between timestamps and benchmark. 
+  Parallel code cannot use the same technique because we read timestamp counter before the start barrier 
+  and after the end barrier to assert simultaneous start and total completion when taking timestamp. 
+  Hence an openmp runtime overhead is applied, but before the proximity of results between parallel and 
+  sequential code, we avoided heavy overhead measures.
+  
+  The floating point benchmark basically interleave SIMD multiplications and additions.
+  This achieves better performance than only additions or only multiplications because those to kind of operation
+  can often be performed simultaneously.
+
+  The bandwidth benchmark serializes SIMD load or store instruction, but never make use of the data. 
+  This is because we aim to get the machine very top upper bound, instead of getting upper bound with realistic 
+  code, matching even assembly level optimizations.
+  (We started to develop a generic benchmark written in realistic C code already. Maybe released later, and 
+  result maybe here also later).
+  For this benchmark we allocate once a buffer of 16 times the Last Level Cache (LLC) size.
+  For each memory in the hierarchy (including caches) we cut it into 4*N (N is the number of threads) times the 
+  above memory size, to the current memory size. 
+  Each buffer slice we bench, is both a multiple of N to be split among all threads and a multiple of the 
+  minimum chunk size to be used for the bandwidth benchmark kernel (one of the reasons lie into vector
+  sizes which impose a minimum block size). 
+  Each thread chunk of data cannot fit above memory.
+  Each then load its chunk of data using different sizes, for each memory level and each memory node (NUMA)
+  as detected by hwloc. For a given memory (level or node) we keep one sample among of all benchmark samples
+  which is again the median instruction throughput value, and the standard deviation of it.
+  When the data chunk is greater than LLC size, we use non-temporal store instructions better suited for 
+  streaming workloads, by-passing the caches and avoiding a read for ownership.
+
+  The validation kernels are dynamically written, compiled and run, depending on input operational intensity.
+  They interleave instructions from fpeak and bandwidth benchmarks such that they are uniformly spread 
+  into the loop, and such that each register reuse is minimized. The same method used for bandwidth benchmark is 
+  used to determine buffer size, and benchmark result.
+
+  We use hwloc[2] to gather the necessary machine topology informations.
+  We use openmp runtime to parallelise the benchmark.
+
+  Whether we use hyperthreading or not we set the number of threads to the number of hardware threads(PU) or to 
+  the number of Core under the very first memory node. 
+  Afterward, each thread will bind to the PU/Core corresponding to its openmp thread id.
+
+  The cpu frequency is input by user via environment variable, or taken from /proc/cpuinfo if not.
+  The cpu frequency is actually very hard to measure[3] and we set it manually to get relevant results.
+  Turboboost technology was of course disable for the experiments.
+
+* Load memory bandwidth benchmarks comparison (8 threads, no hyperthreading) 
+  +------------------+--------------------------+---------------------------+-----------------+
+  | Benchmark        |        Sequential        |         Parallel          |   Theoretical   |
+  |                  |    local    |   remote   |    local    |    remote   |      local      |
+  +------------------+--------------------------+---------------------------+-----------------+
+  | [[https://www.cs.virginia.edu/stream/][Stream copy]]      | 5.49 GB/s   | 3.52 GB/s  | 31.56 GB/s  | 12.31 GB/s  |                 |
+  +------------------+--------------------------+---------------------------+                 +
+  | [[https://github.com/awreece/memory-bandwidth-demo][Memory bandwidth]] | 9.53 GiB/s  | 7.59 GiB/s | 35.20 GiB/s | 14.98 GiB/s |     51,2 GB/s   |
+  +------------------+--------------------------+---------------------------+                 +
+  | [[https://github.com/NicolasDenoyelle/LARM-Locality-Aware-Roofline-Model-][LARM]]             | 9.93 GB/s   | 7.59 GB/s  | 37.16 GB/s  | 15.95 GB/s  |                 |
+  +------------------+--------------------------+---------------------------+-----------------+
+  Note that STREAM copy performs both loads and stores whereas Memory bandwidth and LARM only performs loads.
+
+
+* NUMA parallel vs NUMA sequential
+  *parallel
+  +------------+------------+----------+-----------+----------+------+
+  |   location | throughput |     Sdev |      GB/s |  threads |  uop |
+  +------------+------------+----------+-----------+----------+------+
+  |      local |   0.580692 | 0.000000 |    37.164 |        8 | LOAD |
+  +------------+------------+----------+-----------+----------+------+
+  |     remote |   0.249255 | 0.000000 |    15.952 |        8 | LOAD |
+  +------------+------------+----------+-----------+----------+------+
+  *sequential
+  +------------+------------+----------+-----------+----------+------+
+  |   location | throughput |     Sdev |      GB/s |  threads |  uop |
+  +------------+------------+----------+-----------+----------+------+
+  |      local |   0.155105 | 0.000000 |     9.927 |        1 | LOAD |
+  +------------+------------+----------+-----------+----------+------+
+  |     remote |   0.118631 | 0.000000 |     7.592 |        1 | LOAD |
+  +------------+------------+----------+-----------+----------+------+
+
+  Bandwidth bound workload will suffer more NUMA effects on this machine.
+
+* hyperthreading vs no hyperthreading
+  Using hyperthreading decreases bandwidth a little, expecially for L3 cache.
+  *hyperthreading
+  +------------+------------+----------+-----------+----------+------+
+  |        obj | throughput |     Sdev |      GB/s |  threads |  uop |
+  +------------+------------+----------+-----------+----------+------+
+  |      L1d:0 |   7.991473 | 0.000001 |   511.454 |       16 | LOAD |
+  +------------+------------+----------+-----------+----------+------+
+  |       L2:0 |   3.044007 | 0.000621 |   194.816 |       16 | LOAD |
+  +------------+------------+----------+-----------+----------+------+                                                               |
+  |       L3:0 |   1.866045 | 0.040097 |   119.427 |       16 | LOAD |
+  +------------+------------+----------+-----------+----------+------+
+  | NUMANode:0 |   0.557807 | 0.000003 |    35.700 |       16 | LOAD |
+  +------------+------------+----------+-----------+----------+------+
+  | NUMANode:1 |   0.240925 | 0.000000 |    15.419 |       16 | LOAD |
+  +------------+------------+----------+-----------+----------+------+
+  *no hyperthreading
+  +------------+------------+----------+-----------+----------+------+
+  |        obj | throughput |     Sdev |      GB/s |  threads |  uop |
+  +------------+------------+----------+-----------+----------+------+
+  |      L1d:0 |   7.992726 | 0.000001 |   511.534 |        8 | LOAD |
+  +------------+------------+----------+-----------+----------+------+
+  |       L2:0 |   3.417822 | 0.000163 |   218.741 |        8 | LOAD |
+  +------------+------------+----------+-----------+----------+------+                                                               |
+  |       L3:0 |   2.167286 | 0.118349 |   138.706 |        8 | LOAD |
+  +------------+------------+----------+-----------+----------+------+
+  | NUMANode:0 |   0.580692 | 0.000000 |    37.164 |        8 | LOAD |
+  +------------+------------+----------+-----------+----------+------+
+  | NUMANode:1 |   0.249255 | 0.000000 |    15.952 |        8 | LOAD |
+  +------------+------------+----------+-----------+----------+------+
+
+  Avoiding hyperthreading decreases performance.
+                      +------------+----------+-----------+-----------+------+
+                      | throughput |     Sdev |  GFLops/s |  threads  |  uop |
+  +-------------------+------------+----------+-----------+-----------+------+
+  |    hyperthreading |  15.853466 | 0.000344 |   126.334 |        16 | LOAD |
+  +-------------------+------------+----------+-----------+-----------+------+
+  | no hyperthreading |   7.955046 | 0.000112 |    63.393 |         8 | LOAD |
+  +-------------------+------------+----------+-----------+-----------+------+
+  
+  Conclusion, whether the we use hyperthreading or not, changes significantly the machine bounds.
+  Even if the performance scales well the number of threads or hyperthreads, the memory bandwidth isn't as
+  well served, and NUMA bandwidth slow down is exacerbated by simultaneous requests.
+  Therefore if on package memory will bring more bandwidth, a greater increase of the hardware threads count
+  will probably dicrease dramatically per thread bandwidth, and slow down even more bandwidth bound workloads.
+
+
+* Applications proof
+
+
+* Bibliography
+  [1] http://www.intel.com/content/dam/www/public/us/en/documents/white-papers/ia-32-ia-64-benchmark-code-execution-paper.pdf
+  [2] [[https://hal.inria.fr/inria-00429889][hwloc: a Generic Framework for Managing Hardware Affinities in HPC Applications
+  ]][3] https://software.intel.com/fr-fr/forums/intel-isa-extensions/topic/278056
+  [4] Roofline: An Insightful Visual Performance Model for Multicore Architectures
+  [5] Cache-aware Roofline model: Upgrading the loft  
+  [6] Locality vs. Balance: Exploring Data Mapping Policies on NUMA Systems
+  [7] Memory Management in NUMA Multicore Systems: Trapped between Cache Contention and Interconnect Overhead
+  [8] Scheduling Algorithms with Bus Bandwidth Considerations for SMPs   
+  [9] 3DyRM: a dynamic roofline model including memory latency information
