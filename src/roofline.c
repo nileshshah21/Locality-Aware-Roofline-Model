@@ -17,29 +17,6 @@ unsigned int     model = 0;                  /* Processor model (initialized wit
 unsigned int     family = 0;                 /* Processor family (initialized with bit 11:8 set to one) */
 
 
-static void roofline_get_cpuid_info(){
-    unsigned int eax;
-    unsigned int regs[4];
-    unsigned int extended_model = 0, extended_family = 0;
-
-    eax = 0x0;
-    __asm__ __volatile__("CPUID\n\t" : "=a"(regs[0]), "=b"(regs[1]), "=c"(regs[3]), "=d"(regs[2]): "a"(eax)); 
-    memcpy(vendor, &(regs[1]), 3*sizeof(*regs));
-    
-    eax = 0x01;
-    __asm__ __volatile__("CPUID\n\t" : "=a"(eax): "a"(eax));
-    model           = eax & (0xf  << 4);
-    family          = eax & (0xf  << 8);
-    extended_model  = eax & (0xf  << 16);
-    extended_family = eax & (0xff << 20);
-
-    if(family == 0x6 || family == 0xf)
-	model  += (extended_model << 4);
-    if(family == 0x6)
-	family += extended_family;
-}
-
-
 #ifdef USE_OMP
 int roofline_lib_init(int with_hyperthreading)
 #else
@@ -123,8 +100,6 @@ int roofline_lib_init(int with_hyperthreading)
 	errEXIT("Undefined compiler. Please set env CC to your compiler.");
     }
 #endif
-    roofline_get_cpuid_info();
-    printf("%s, model:0x%x, family=:0x%x\n", vendor, model, family);
     return 0;
 }
 
