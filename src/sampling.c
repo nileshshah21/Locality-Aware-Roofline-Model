@@ -148,6 +148,7 @@ void roofline_sampling_fini(){
 /* instructions, load_instructions, double, double[2], double[4]*/
 void roofline_eventset_init(int * eventset){
     int err = PAPI_OK;
+    *eventset = PAPI_NULL;
     PAPI_call_check(PAPI_create_eventset(eventset), PAPI_OK, "PAPI eventset initialization failed\n");
     PAPI_call_check(PAPI_add_named_event(*eventset, "PAPI_TOT_INS"), PAPI_OK, "Failed to find instructions counter\n"); 
     err = PAPI_add_named_event(*eventset, "PAPI_LD_INS");
