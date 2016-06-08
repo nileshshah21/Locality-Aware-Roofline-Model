@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "roofline.h"
+#include <stdint.h>
+#include "sampling.h"
 
 #define SIZE 1000
 
@@ -19,6 +20,8 @@ static void matrix_mul(){
 
 int main(){
     unsigned i;
+    int eventset;
+    struct roofline_sample out;
     long long flops = SIZE * SIZE * SIZE * 2;
     for(i=0;i<SIZE; i++){
 	memset(a[i], 1, SIZE*sizeof(double));
@@ -27,9 +30,12 @@ int main(){
     }
 
     roofline_sampling_init(NULL);
-    roofline_sampling_start();
+    roofline_eventset_init(&eventset);
+    roofline_sampling_start(eventset, &out);
     matrix_mul();
-    roofline_sampling_stop("test");
+    roofline_sampling_stop(eventset, &out);
+    roofline_eventset_destroy(&eventset);
+    roofline_sample_print(&out , "test");
     printf("Theoric flops = %lld\n", flops);
     roofline_sampling_fini();
     return EXIT_SUCCESS;
