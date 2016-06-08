@@ -1,3 +1,5 @@
+#include <stdint.h>
+
 struct roofline_sample{
     /* All sample type specific data */
     uint64_t ts_start;       /* Timestamp in cycles where the roofline started */
