@@ -20,14 +20,16 @@ CFLAGS=-g -Wall -Werror -Wextra
 SRC=roofline.c utils.c stats.c progress.c
 OBJ=$(patsubst %.c, %.o, $(SRC)) MSC.o
 PREFIX=$(HOME)/local
+BIN=roofline
+LIB=librfsampling.so
 
 .PHONY: all install uninstall clean
 
 
 ifeq (yes, $(PAPI))
-all: roofline librfsample.so
+all: $(BIN) $(LIB)
 else
-all: roofline
+all: $(BIN)
 endif
 
 ifeq (yes, $(OPENMP))
@@ -41,23 +43,23 @@ endif
 MSC.o: MSC/$(MSC).c
 	$(CC) -O8 -march=native -DCC=$(CC) $(CFLAGS) -c -o $@ $^ $(LDFLAGS)
 
-roofline: main.c $(OBJ)
+$(BIN): main.c $(OBJ)
 	$(CC) $(CFLAGS) -pedantic-errors $^ -o $@ $(LDFLAGS) -lhwloc -lm
 
-librfsample.so: sampling.c
+$(LIB): sampling.c
 	$(CC) $(CFLAGS) -fPIC -shared $^ -o $@ -lpapi -fopenmp
 
-test: test_sampling.c libroofline.so
-	$(CC) $(CFLAGS) $< -o $@ -lroofline
+test: test_sampling.c $(LIB)
+	$(CC) $(CFLAGS) $< -o $@ -lrfsampling
 	./$@
 
 install:
 	cp sampling.h $(PREFIX)/include/
-	cp librsampling.so $(PREFIX)/lib/
-	cp roofline $(PREFIX)/bin/
+	cp $(LIB) $(PREFIX)/lib/
+	cp $(BIN) $(PREFIX)/bin/
 
 uninstall:
-	rm $(PREFIX)/include/sampling.h $(PREFIX)/lib/librsampling.so $(PREFIX)/bin/roofline
+	rm $(PREFIX)/include/sampling.h $(PREFIX)/lib/$(LIB) $(PREFIX)/bin/$(BIN)
 
 clean:
 	rm -f *.o *.s *.so roofline
