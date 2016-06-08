@@ -125,7 +125,7 @@ void roofline_sampling_init(const char * output){
 #ifndef CPU_FREQ
     freq_str = getenv("CPU_FREQ");
     if(freq_str == NULL){
-	fprintf(stderr,"Please define the machine cpu frequency (in Hertz): set environment CPU_FREQ");
+	fprintf(stderr,"Please define the machine cpu frequency (in Hertz): set environment CPU_FREQ\n");
 	exit(EXIT_FAILURE);
     }
     freq = atol(freq_str);
