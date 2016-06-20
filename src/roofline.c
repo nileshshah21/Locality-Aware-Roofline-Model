@@ -105,13 +105,13 @@ int roofline_lib_init(int with_hyperthreading)
     LLC_size = ((struct hwloc_cache_attr_s *)LLC->attr)->size;
 
     /* Check if cpu frequency has been defined */
-#ifndef BENCHMARK_CPU_FREQ
-    cpu_freq_str = getenv("BENCHMARK_CPU_FREQ");
+#ifndef CPU_FREQ
+    cpu_freq_str = getenv("CPU_FREQ");
     if(cpu_freq_str == NULL)
-	errEXIT("Please define the machine cpu frequency (in Hertz) with build option BENCHMARK_CPU_FREQ or the environement variable of the same name");
+	errEXIT("Please define the machine cpu frequency (in Hertz) with build option CPU_FREQ or the environement variable of the same name");
     cpu_freq = atof(cpu_freq_str);
 #else 
-    cpu_freq = BENCHMARK_CPU_FREQ
+    cpu_freq = CPU_FREQ
 #endif 
 
     /* set compiler */
