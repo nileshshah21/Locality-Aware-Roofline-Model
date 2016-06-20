@@ -5,6 +5,8 @@
 #include "MSC/MSC.h"
 #include <math.h>
 
+extern int per_thread;
+
 size_t * roofline_log_array(size_t start, size_t end, int * n){
     size_t * sizes, size;
     double multiplier, val;
@@ -77,18 +79,34 @@ void roofline_print_sample(FILE * output, hwloc_obj_t obj, struct roofline_sampl
 #ifdef USE_OMP
 #pragma omp critical
 #endif
-    fprintf(output, "%12s %20lu %20lu %16lu %10.6f %10.6f %10.3f %10.3f %10.6f %10u %s\n",
-	    obj_str, 
-	    sample_out->ts_start, 
-	    sample_out->ts_end, 
-	    sample_out->instructions, 
-	    (float)sample_out->instructions / (float) cyc,
-	    sd,
-	    (float)(sample_out->bytes * cpu_freq) / (float)(cyc*1e9), 
-	    (float)(sample_out->flops * cpu_freq) / (float)(1e9*cyc),
-	    (float)(sample_out->flops) / (float)(sample_out->bytes),
-	    n_threads,
-	    append);
+    if(!per_thread){
+	fprintf(output, "%12s %20lu %20lu %16lu %10.6f %10.6f %10.3f %10.3f %10.6f %10u %s\n",
+		obj_str, 
+		sample_out->ts_start, 
+		sample_out->ts_end, 
+		sample_out->instructions, 
+		(float)sample_out->instructions / (float) cyc,
+		sd,
+		(float)(sample_out->bytes * cpu_freq) / (float)(cyc*1e9), 
+		(float)(sample_out->flops * cpu_freq) / (float)(1e9*cyc),
+		(float)(sample_out->flops) / (float)(sample_out->bytes),
+		n_threads,
+		append);
+    }
+    else{
+	fprintf(output, "%12s %20lu %20lu %16lu %10.6f %10.6f %10.3f %10.3f %10.6f %10u %s\n",
+		obj_str, 
+		sample_out->ts_start, 
+		sample_out->ts_end, 
+		sample_out->instructions/n_threads, 
+		(float)sample_out->instructions / (float) (cyc*n_threads),
+		sd,
+		(float)(sample_out->bytes * cpu_freq) / (float)(cyc*1e9*n_threads), 
+		(float)(sample_out->flops * cpu_freq) / (float)(1e9*cyc*n_threads),
+		(float)(sample_out->flops) / (float)(sample_out->bytes*n_threads),
+		n_threads,
+		append);
+    }
     fflush(output);
 }
 

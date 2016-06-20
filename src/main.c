@@ -2,21 +2,22 @@
 #include "roofline.h"
 
 /* options */
-char * output = NULL;
-int validate = 0;
-char * mem_str = NULL;
-hwloc_obj_t mem = NULL;
-int load = 0, store = 0, copy = 0;
-int hyperthreading = 0;
+static char * output = NULL;
+static int validate = 0;
+static char * mem_str = NULL;
+static hwloc_obj_t mem = NULL;
+static int load = 0, store = 0, copy = 0;
+static int hyperthreading = 0;
+int per_thread = 0;
 
-void usage(char * argv0){
+static void usage(char * argv0){
     printf("%s -h  -v -l -s -c -m <hwloc_ibj:idx> -o <output> -ht\n", argv0);
     printf("%s --help --validate --load --store --copy --memory <hwloc_obj:idx> --output <output> --with-hyperthreading\n", argv0);
     
     exit(EXIT_SUCCESS);
 }
 
-void parse_args(int argc, char ** argv){
+static void parse_args(int argc, char ** argv){
     int i;
 
     i= 0;
@@ -33,6 +34,8 @@ void parse_args(int argc, char ** argv){
 	    copy = 1;
 	else if(!strcmp(argv[i],"--with-hyperthreading") || !strcmp(argv[i],"-ht"))
 	    hyperthreading = 1;
+	else if(!strcmp(argv[i],"--per-thread") || !strcmp(argv[i],"-pt"))
+	    per_thread = 1;
 	else if(!strcmp(argv[i],"--memory") || !strcmp(argv[i],"-m")){
 	    mem_str = argv[++i];
 	}
@@ -45,7 +48,7 @@ void parse_args(int argc, char ** argv){
     }
 }
 
-FILE * open_output(char * out){
+static FILE * open_output(char * out){
     FILE * fout;
 
     if(out == NULL)
@@ -55,7 +58,7 @@ FILE * open_output(char * out){
     return fout;
 }
 
-void roofline_mem_bench(FILE * out, hwloc_obj_t memory){
+static void roofline_mem_bench(FILE * out, hwloc_obj_t memory){
     double oi;
 
     oi = 0;
