@@ -1,7 +1,7 @@
 #Compilation
 CC=gcc
 SRC=roofline.c utils.c stats.c progress.c
-LDFLAGS=-l:$(HOME)/local/lib/libhwloc.so -fopenmp -ldl
+LDFLAGS=-lhwloc -fopenmp -ldl
 CFLAGS=-Wall -Werror -Wextra -DBENCHMARK_MIN_DUR=$(DUR) -DUSE_$(PAR) -DCC=$(CC)
 
 .PHONY: all clean
