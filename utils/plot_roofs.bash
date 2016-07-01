@@ -8,14 +8,8 @@
 # Version: 0.1                                                                                                                  #
 #################################################################################################################################
 
-METHODS=("gnuplot" "R")
 usage(){
-    printf "plot_roofs.sh -o <output> -m <method> -f <filter(for input info col)> -i <input> -d <data-file> -t <title>\n"; 
-    printf "METHODS: "; 
-    for method in ${METHODS[@]}; do
-	printf "$method "
-    done
-    printf "\n"
+    printf "plot_roofs.sh -o <output> -f <filter(for input info col)> -i <input> -d <data-file> -t <title>\n"; 
     exit
 }
 
@@ -42,90 +36,10 @@ if [ -z "$OUTPUT" ]; then
     OUTPUT=$PWD/roofline_chart.pdf
 fi
 
-if [ -z "$METHOD" ]; then
-    METHOD=gnuplot
-fi
-
 if [ -z "$INPUT" ]; then
     echo "Input file required"
     usage
 fi
-
-GBYTES_F=$(awk '{for(i=1; i<=NF; i++){if(match(tolower($i),"gbyte")){print i; exit}}}' $INPUT)
-OI_F=$(awk '{for(i=1; i<=NF; i++){if(match(tolower($i),"flops/byte")){print i; exit}}}' $INPUT)
-TYPE_F=$(awk '{for(i=1; i<=NF; i++){if(match(tolower($i),"info")){print i; exit}}}' $INPUT)
-OBJ_F=$(awk '{for(i=1; i<=NF; i++){if(match(tolower($i),"obj")){print i; exit}}}' $INPUT)
-GFLOPS_F=$(awk '{for(i=1; i<=NF; i++){if(match(tolower($i),"gflop")){print i; exit}}}' $INPUT)
-GFLOPS=$(awk -v f=$GFLOPS_F '{if(NR>1 && $f !=0){print $f; exit}}' $INPUT)
-N_F=$(awk '{print NF; exit}' $INPUT)
-
-if [ ! -z $DATA ]; then
-    if [ "$METHOD" = "gnuplot" ]; then
-	TMP=$(mktemp)
-	cat $INPUT > $TMP
-	cat $DATA >> $TMP
-	INPUT=$TMP
-	#Add value in info field to filter
-	DATA_TOKENS=$(awk -v f=$TYPE_F '
-BEGIN{i=0; info[0]="";}
-{
-for(j=0;j<i;j++){
-  if(match(info[j],$f)){break;}
-}
-if(i==j && NR>1){info[i++] = $f}
-}
-END{
-for(j=0;j<i;j++){printf "|%s", info[j]}
-}' $DATA)
-	echo $DATA_TOKENS
-	FILTER="$FILTER$DATA_TOKENS"
-    fi
-else
-    DATA=""
-fi
-
-#################################################################################################################################
-## output methods
-
-output_gnuplot(){
-    gnuplot <<EOF
-    set terminal pdfcairo enhanced size 10in, 5in
-    #roofline function
-    roofline(oi,b,f) = (b*oi <= f) ? (b*oi) : f
-    set title '$TITLE'
-    set xlabel 'Flops/Byte'
-    set xrange [2**-12:2**6]
-    set ylabel 'GFlops/s'
-    set yrange [:$GFLOPS*1.2]
-    set logscale x 2
-    set format x '2^{%L}'
-    set logscale y 10
-    set grid xtics, ytics, mytics
-    set key bottom right
-    set output '$OUTPUT'
-    set autoscale fix
-    plot $(cat $INPUT | grep -E "$FILTER" | awk -v gflops=$GFLOPS -v gf=$GFLOPS_F -v bf=$GBYTES_F -v oif=$OI_F -v of=$OBJ_F -v tf=$TYPE_F -v filter=$FILTER -v q="'" '
-    BEGIN{
-      linetype=0;
-    } 
-    {      
-      if($gf==0 && $bf!=0){ #Its a line 
-        linetype++;
-        title = sprintf("%s\\_%s", $tf, $of);
-        if(linetype == 1){ #first line
-          printf "roofline(x,%.4f,%.4f) t %s%s%s w l lt %d", $bf, gflops, q, title, q, linetype;
-        }
-        else{
-          printf ", roofline(x,%.4f,%.4f) t %s%s%s w l lt %d", $bf, gflops, q, title, q, linetype;
-        }
-      }
-      else if($oif!=0 && $bf!=0){ #Its a point
-        printf ", \"<echo %s%f %f%s\" w p pt %d lt %d notitle", q, $oif, $gf, q, linetype+1 , linetype
-      }
-    }')
-EOF
-}
-
 
 output_R(){
     R --vanilla --silent --slave <<EOF
@@ -221,14 +135,5 @@ EOF
 
 #################################################################################################################################
 ## output
-  
-if [ "$METHOD" = "gnuplot" ]; then
-  output_gnuplot
-elif [ "$METHOD" = "R" ]; then
-  output_R
-fi
-
-if [ ! -z $DATA ]; then
-    rm -f $TMP
-fi
+output_R
 
