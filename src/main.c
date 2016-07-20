@@ -2,19 +2,25 @@
 #include "roofline.h"
 
 /* options */
-static char * output = NULL;
-static int validate = 0;
-static char * mem_str = NULL;
-static hwloc_obj_t mem = NULL;
-static int load = 0, store = 0, copy = 0;
-static int hyperthreading = 0;
-int per_thread = 0;
+static char * output = NULL;            /* Where to print output */
+static int validate = 0;                /* Do we perform validation benchmarks */
+static char * mem_str = NULL;           /* Do we restrict memory to one memory */
+static hwloc_obj_t mem = NULL;          /* Do we restrict memory to one memory */
+static int hyperthreading = 0;          /* If compiled with openmp do we use hyperthreading */
 
 static void usage(char * argv0){
-    printf("%s -h  -v -l -s -c -m <hwloc_ibj:idx> -o <output> -ht\n", argv0);
-    printf("%s --help --validate --load --store --copy --memory <hwloc_obj:idx> --output <output> --with-hyperthreading\n", argv0);
+    printf("%s -h  -v -t <\"LOAD|LOAD_NT|STORE|STORE_NT|MUL|ADD|MAD\"> -m <hwloc_ibj:idx> -o <output> -ht\n", argv0);
+    printf("%s --help --validate --type <\"LOAD|LOAD_NT|STORE|STORE_NT|MUL|ADD|MAD\"> --memory <hwloc_obj:idx> --output <output> --with-hyperthreading\n", argv0);
     
     exit(EXIT_SUCCESS);
+}
+
+static void parse_type(char * type){
+    char * t = strtok(type,"|");
+    while(t!=NULL){
+	roofline_types = (roofline_types | roofline_type_from_str(t));
+	t = strtok(NULL,"|");
+    }
 }
 
 static void parse_args(int argc, char ** argv){
@@ -26,12 +32,9 @@ static void parse_args(int argc, char ** argv){
 	    usage(argv[0]);
 	else if(!strcmp(argv[i],"--validate") || !strcmp(argv[i],"-v"))
 	    validate = 1;
-	else if(!strcmp(argv[i],"--load") || !strcmp(argv[i],"-l"))
-	    load = 1;
-	else if(!strcmp(argv[i],"--store") || !strcmp(argv[i],"-s"))
-	    store = 1;
-	else if(!strcmp(argv[i],"--copy") || !strcmp(argv[i],"-c"))
-	    copy = 1;
+	else if(!strcmp(argv[i],"--type") || !strcmp(argv[i],"-t")){
+	    parse_type(argv[++i]);
+	}
 	else if(!strcmp(argv[i],"--with-hyperthreading") || !strcmp(argv[i],"-ht"))
 	    hyperthreading = 1;
 	else if(!strcmp(argv[i],"--per-thread") || !strcmp(argv[i],"-pt"))
@@ -43,8 +46,8 @@ static void parse_args(int argc, char ** argv){
 	    output = argv[++i];
 	}
     }
-    if(!load && !store && !copy){
-	load =1; store=1;
+    if(roofline_types == 0){
+	roofline_types = ROOFLINE_LOAD|ROOFLINE_STORE|ROOFLINE_MAD;
     }
 }
 
@@ -56,35 +59,6 @@ static FILE * open_output(char * out){
     fout = fopen(out,"w");
     if(fout == NULL) perrEXIT("fopen");
     return fout;
-}
-
-static void roofline_mem_bench(FILE * out, hwloc_obj_t memory){
-    double oi;
-
-    oi = 0;
-    /* Benchmark load */
-    if(load){
-	roofline_bandwidth(out, memory, ROOFLINE_LOAD);
-	if(validate)
-	    for(oi = pow(2,-12); oi < pow(2,6); oi*=2){
-		roofline_oi(out, memory, ROOFLINE_LOAD, oi);
-	    }
-    }
-    /* Benchmark store */
-    if(store){
-	roofline_bandwidth(out, memory, ROOFLINE_STORE);
-	if(validate)
-	    for(oi = pow(2,-12); oi < pow(2,6); oi*=2){
-		roofline_oi(out, memory, ROOFLINE_STORE, oi);
-	    }
-    }
-    if(copy){
-	roofline_bandwidth(out, memory, ROOFLINE_COPY);
-	if(validate)
-	    for(oi = pow(2,-12); oi < pow(2,6); oi*=2){
-		roofline_oi(out, memory, ROOFLINE_COPY, oi);
-	    }
-    }
 }
 
 int main(int argc, char * argv[]){
@@ -113,16 +87,29 @@ int main(int argc, char * argv[]){
     roofline_print_header(out, info);
 
     /* roofline for flops */
-    roofline_fpeak(out);
+    roofline_flops(out, roofline_types);
     
     /* roofline every memory obj */
     if(mem == NULL){
 	while((mem = roofline_hwloc_get_next_memory(mem)) != NULL){
-	    roofline_mem_bench(out, mem);
+	    roofline_bandwidth(out, mem, roofline_types);
+	    if(validate){
+		double oi;
+		for(oi = pow(2,-10); oi < pow(2,6); oi*=2){
+		    roofline_oi(out, mem, roofline_types, oi);
+		}
+	    }
 	}
     }
-    else
-	roofline_mem_bench(out, mem);
+    else{
+	roofline_bandwidth(out, mem, roofline_types);
+	if(validate){
+	    double oi;
+	    for(oi = pow(2,-10); oi < pow(2,6); oi*=2){
+		roofline_oi(out, mem, roofline_types, oi);
+	    }
+	}
+    }
     
     fclose(out);
     roofline_lib_finalize();

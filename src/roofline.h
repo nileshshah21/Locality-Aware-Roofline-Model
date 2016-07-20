@@ -5,9 +5,13 @@
 #include <stdlib.h>
 #include <hwloc.h>
 
-extern hwloc_topology_t topology; /* Current machine topology */
-extern float    cpu_freq;         /* In Hz */
-extern unsigned n_threads;        /* The number of threads for benchmark */
+extern hwloc_topology_t topology;   /* Current machine topology */
+extern float        cpu_freq;       /* In Hz */
+extern unsigned     n_threads;      /* The number of threads for benchmark */
+extern char *       compiler;       /* The compiler name to compile the roofline validation. */
+extern char *       omp_flag;       /* The openmp flag to compile the roofline validation. */
+extern int          per_thread;     /* Should results be printed with per thread value */
+extern unsigned int roofline_types; /* What rooflines do we want in byte array */
 
 int  roofline_lib_init(int with_hyperthreading);
 void roofline_lib_finalize(void);
@@ -41,14 +45,19 @@ void roofline_output_clear(struct roofline_sample_out * out);
 void print_roofline_sample_output(struct roofline_sample_out * out);
 
 /***********************************  BENCHMARK FUNCTIONS ****************************************/
-#define ROOFLINE_LOAD 0
-#define ROOFLINE_STORE 1
-#define ROOFLINE_COPY 2
+#define ROOFLINE_LOAD     1  /* benchmark type */
+#define ROOFLINE_LOAD_NT  2  /* benchmark type */
+#define ROOFLINE_STORE    4  /* benchmark type */
+#define ROOFLINE_STORE_NT 8  /* benchmark type */
+#define ROOFLINE_MUL      16 /* benchmark type */
+#define ROOFLINE_ADD      32 /* benchmark type */
+#define ROOFLINE_MAD      64 /* benchmark type */
+
 #define ROOFLINE_N_SAMPLES 8
 
-void roofline_fpeak    (FILE * output);
-void roofline_bandwidth(FILE * output, hwloc_obj_t memory, int type);
-void roofline_oi       (FILE * output, hwloc_obj_t memory, int type, double oi);
+void roofline_flops    (FILE * output, const int type);
+void roofline_bandwidth(FILE * output, hwloc_obj_t memory, const int type);
+void roofline_oi       (FILE * output, hwloc_obj_t memory, const int type, double oi);
 
 /******************************************** Progress Bar ***************************************/
 struct roofline_progress_bar{
@@ -74,11 +83,15 @@ int    roofline_output_min(struct roofline_sample_out * samples, size_t n);
 int    roofline_output_max(struct roofline_sample_out * samples, size_t n);
 int    roofline_output_median(struct roofline_sample_out * samples, size_t n);
 double roofline_output_sd(struct roofline_sample_out * samples, unsigned n);
-double roofline_repeat_bench(void (* bench_fun)(struct roofline_sample_in *, struct roofline_sample_out *), struct roofline_sample_in * in, struct roofline_sample_out * out, int (* bench_stat)(struct roofline_sample_out * , size_t));
+double roofline_repeat_bench(void (* bench)(const struct roofline_sample_in *, struct roofline_sample_out *, int),
+			     struct roofline_sample_in * in,
+			     struct roofline_sample_out * out,
+			     const int type,
+			     int (* bench_stat)(struct roofline_sample_out * , size_t));
 unsigned roofline_PGCD(unsigned, unsigned);
 unsigned roofline_PPCM(unsigned, unsigned);
 
-long roofline_autoset_loop_repeat(void (* bench_fun)(struct roofline_sample_in *, struct roofline_sample_out *), struct roofline_sample_in * in, long ms_dur, unsigned long min_rep);
+long roofline_autoset_loop_repeat(void (* bench_fun)(const struct roofline_sample_in *, struct roofline_sample_out *, int), struct roofline_sample_in * in, const int type, long ms_dur, unsigned long min_rep);
 
 /******************************************* Hardware locality ***********************************/
 extern hwloc_topology_t topology; /* The current machine topology */
@@ -101,22 +114,16 @@ size_t      roofline_hwloc_get_instruction_cache_size(void);
 /********************************************* Utils ********************************************/
 #define errEXIT(msg) do{fprintf(stderr,msg"\n"); exit(EXIT_FAILURE);} while(0);
 #define perrEXIT(msg) do{perror(msg); exit(EXIT_FAILURE);} while(0);
-#define roofline_macro_str(x) #x
-#define roofline_macro_xstr(x) roofline_macro_str(x)
-#define roofline_ABS(x) ((x)>0 ? (x):-(x))
+#define roofline_str(x) #x
+#define roofline_stringify(x) roofline_str(x)
 #define roofline_MAX(x, y) ((x)>(y) ? (x):(y))
 #define roofline_MIN(x, y) ((x)<(y) ? (x):(y))
-#define roofline_BOUND(a, x, y) (a>x ? (a<y?a:y) : x)
 #define roofline_alloc(ptr,size) do{if(!(ptr=malloc(size))){perrEXIT("malloc");}} while(0)
-#define roofline_realloc(ptr,size,max_size)				\
-    do{									\
-	while(size>=max_size){max_size*=2;}				\
-	if((ptr = realloc(ptr,sizeof(*ptr)*max_size)) == NULL) perrEXIT("realloc"); \
-    } while(0)
 
 const char * roofline_type_str(int type);
-void   roofline_print_header(FILE * output, const char * append);
-void   roofline_print_sample(FILE * output, hwloc_obj_t obj, struct roofline_sample_out * sample_out, double sd, const char * append);
+int          roofline_type_from_str(const char * type);
+void         roofline_print_header(FILE * output, const char * append);
+void         roofline_print_sample(FILE * output, hwloc_obj_t obj, struct roofline_sample_out * sample_out, double sd, const char * append);
 
 /**
  * Compute a logarithmic array of sizes

@@ -43,89 +43,93 @@ fi
 
 output_R(){
     R --vanilla --silent --slave <<EOF
+#Globals
 #Load data
 d = read.table("$INPUT",header=TRUE)
 
-#Retrieve Max Gflops and column specific ids
-for (column in colnames(d)){
-  if(grepl("GFlop",column,ignore.case=TRUE)){
-    GFlops=max(d[,eval(quote(column))],na.rm=TRUE)
-    flops_id = eval(quote(column))
-  }
-  if(grepl("info",column,ignore.case=TRUE)){
-    type_id = eval(quote(column))
-  }
-  if(grepl("GByte",column,ignore.case=TRUE)){
-    bandwidth_id = eval(quote(column))
-  }
-  if(grepl("obj",column,ignore.case=TRUE)){
-    obj_id = eval(quote(column))
-  }
-  if(grepl("flops|byte",column,ignore.case=TRUE)){
-    oi_id = eval(quote(column))
-  }
-}
+#Columns id
+dobj       = 1;    #The obj column id
+dbandwidth = 7;    #The bandwidth column id
+dgflops    = 8;    #The gflop/s column id
+doi        = 9;    #The oi column id
+dinfo      = 11;   #The info column id
 
-#Defining scale
+d = subset(d, grepl("$FILTER",d[,dinfo]))
+
+fpeaks            = d[d[,dbandwidth]==0,] #The peak floating point performance
+fpeak_max         = max(fpeaks[,dgflops]) #the top peak performance
+bandwidths        = d[d[,dgflops]==0,]    #The bandwidths
+
+#Logarithmic sequence of points
 lseq <- function(from=1, to=100000, length.out = 6) {
   exp(seq(log(from), log(to), length.out = length.out))
 }
 
 # axes
-xmin = 2^-12; xmax = 2^6; xlim = c(xmin,xmax)
+xmin = 2^-8; xmax = 2^6; xlim = c(xmin,xmax)
 xticks = lseq(xmin,xmax,log(xmax/xmin,base=2) + 1)
 xlabels = sapply(xticks, function(i) as.expression(bquote(2^ .(round(log(i,base=2))))))
+oi = lseq(xmin,xmax,500)
 
-ymax = 10^ceiling(log10(GFlops)); ymin = ymax/100000; ylim = c(ymin,ymax)
+ymax = 10^ceiling(log10(fpeak_max)); ymin = ymax/10000; ylim = c(ymin,ymax)
 yticks = lseq(ymin, ymax, log10(ymax/ymin))
 ylabels = sapply(yticks, function(i) as.expression(bquote(10^ .(round(log10(i))))))
 
-#plot points for bandwidth validation
-plot_valid <- function(obj, type){
-  valid = d[d[,obj_id] == obj & d[,type_id] == type & d[,flops_id] !=0, ]
-  points(valid[,oi_id], valid[,flops_id], asp=1, pch=color, col=color)
-  par(new=TRUE, ann=FALSE)
-}
-
-oi = lseq(xmin,xmax,500)
-plot_bandwidths <- function(row) {
-  color <<- color+1
-  obj = row[obj_id]
-  type = row[type_id]
-  bandwidth=as.double(row[bandwidth_id])
-  plot(oi, sapply(oi*bandwidth, min, GFlops), lty=1, type="l", log="xy", xlim=xlim, ylim=ylim, axes=FALSE, main="$TITLE", xlab="Flops/Byte", ylab="GFlops/s",  col=color, panel.first=abline(h=yticks, v=xticks,col = "darkgray", lty = 3))
-  plot_valid(obj, type)
-  name = paste(c(as.character(obj),"_",as.character(type)),collapse = '')
-  caption <<- c(caption, name)
-  par(new=TRUE, ann=FALSE)
-}
-
-#plot each bandwidth matching the required type pattern
-bandwidth_rows = subset(d, d[,flops_id]==0 & grepl("$FILTER",d[,type_id]))
-caption=c()
-color=0
 pdf("$OUTPUT", family = "Helvetica", title="roofline chart", width=10, height=5)
-invisible(apply(bandwidth_rows, 1, plot_bandwidths))
+
+#plot bandwidths roofs
+par(ann=FALSE)
+plot_bandwidth <- function(bandwidth, color = 1){
+  gflops = sapply(oi*bandwidth, min, fpeak_max)
+  plot(oi, gflops, lty=1, type="l", log="xy", axes=FALSE, xlim=xlim, ylim=ylim, col=color, panel.first=abline(h=yticks, v=xticks,col = "darkgray", lty = 3))
+  par(new=TRUE);
+}
+for(i in 1:nrow(bandwidths)){
+  bandwidth = bandwidths[i,dbandwidth];
+  plot_bandwidth(bandwidth, i);
+}
+
+#plot fpeak roofs
+abline(h = fpeaks[,dgflops], lty=3, col=1, lwd=2);
+axis(2, labels = fpeaks[,dinfo], at = fpeaks[,dgflops], las=1, tick=FALSE, pos=xmin*2, padj=0, hadj=0)
+
+#plot validation points
+plot_points <- function(df, col_start = 0){
+  points       = subset(df, df[,dgflops]!=0 & df[,dbandwidth]!=0)
+  points_info  = unique(points[,dinfo])
+  points_objs  = unique(points[,dobj])
+
+ for(i in 1:length(points_objs)){
+    obj = points_objs[i]
+    for(j in 1:length(points_info)){
+      type = points_info[j]
+      idx = col_start+(i-1)*length(points_info)+j
+      valid = subset(points, points[,dinfo]==type & points[,dobj]==obj)
+      points(valid[,doi], valid[,dgflops], asp=1, pch=idx, col=idx)
+      par(new=TRUE);
+    }
+  }
+  idx
+}
+plot_points(d)
 
 #plot MISC points
 if("$DATA" != ""){
+  col_start = nrow(bandwidths)
   misc = read.table("$DATA",header=TRUE)
-  for (info in unique(misc[,"info"], incomparables = FALSE)){
-    if(grepl("$FILTER",info)){
-      color <<- color+1
-      caption <<- c(caption, info)
-      sub_misc = subset(misc, misc[,type_id]==info)
-      points(sub_misc[,oi_id], sub_misc[,flops_id], asp=1, pch=color, col=color)    
-    }
-  }
+  misc = subset(misc, grepl("$FILTER",misc[,dinfo]))
+  col_end = plot_points(misc, col_start = col_start)
+  labels = unique(misc[,dinfo])
+  range = col=col_start+1:col_end
+  legend("topright", legend=labels, cex=.7, lty=1, col=range, pch=range)
 }
 
-#draw axes
+#draw axes, title and legend
 axis(1, at=xticks, labels=xlabels)
 axis(2, at=yticks, labels=ylabels)
+title(main = "$TITLE", xlab="Flops/Byte", ylab="GFlops/s")
+legend("bottomright", legend=paste(bandwidths[,dobj], bandwidths[,dinfo], sep=" "), cex=.7, lty=1, col=1:nrow(bandwidths))
 box()
-#draw legend
-legend("bottomright", caption, cex=.7, lty=1, pch=1:color, col=1:color)
 
 #output
 graphics.off()

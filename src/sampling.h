@@ -17,7 +17,7 @@ void roofline_eventset_destroy(int * eventset);
 void roofline_sampling_start(int eventset, struct roofline_sample *);
 void roofline_sampling_stop(int eventset, struct roofline_sample *);
 
-#ifdef USE_OMP
+#ifdef _OPENMP
 #include <omp.h>
 
 struct roofline_sample shared;
@@ -59,5 +59,5 @@ void roofline_sample_accumulate(struct roofline_sample * out, struct roofline_sa
     roofline_sampling_print(&shared, info);				\
     } while(0)
 
-#endif /* USE_OMP */
+#endif /* _OPENMP */
 

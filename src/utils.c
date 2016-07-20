@@ -1,4 +1,4 @@
-#ifdef USE_OMP
+#ifdef _OPENMP
 #include <omp.h>
 #endif
 #include "roofline.h"
@@ -46,21 +46,44 @@ size_t * roofline_log_array(size_t start, size_t end, int * n){
     return sizes;
 }
 
+int roofline_type_from_str(const char * type){
+    if(!strcmp(type, "LOAD") || !strcmp(type, "load")){return ROOFLINE_LOAD;}
+    if(!strcmp(type, "LOAD_NT") || !strcmp(type, "load_nt")){return ROOFLINE_LOAD_NT;}
+    if(!strcmp(type, "STORE") || !strcmp(type, "store")){return ROOFLINE_STORE;}
+    if(!strcmp(type, "STORE_NT") || !strcmp(type, "store_nt")){return ROOFLINE_STORE_NT;}
+    if(!strcmp(type, "ADD") || !strcmp(type, "add")){return ROOFLINE_ADD;}
+    if(!strcmp(type, "MUL") || !strcmp(type, "mul")){return ROOFLINE_MUL;}
+    if(!strcmp(type, "MAD") || !strcmp(type, "mad")){return ROOFLINE_MAD;}
+    return -1;
+}
+
 const char * roofline_type_str(int type){
     switch(type){
     case ROOFLINE_LOAD:
-	return "LOAD";
+	return "load";
+	break;
+    case ROOFLINE_LOAD_NT:
+	return "load_nt";
 	break;
     case ROOFLINE_STORE:
-	return "STORE";
+	return "store";
 	break;
-    case ROOFLINE_COPY:
-	return "COPY";
+    case ROOFLINE_STORE_NT:
+	return "store_nt";
+	break;
+    case ROOFLINE_ADD:
+	return "add";
+	break;
+    case ROOFLINE_MUL:
+	return "mul";
+	break;
+    case ROOFLINE_MAD:
+	return "mad";
 	break;
     default:
-	return "UNKNOWN";
+	return "";
 	break;
-    }    
+    }
 }
 
 inline void roofline_print_header(FILE * output, const char * append){
@@ -76,7 +99,7 @@ void roofline_print_sample(FILE * output, hwloc_obj_t obj, struct roofline_sampl
     hwloc_obj_type_snprintf(obj_str, 10, obj, 0);
     snprintf(obj_str+strlen(obj_str),5,":%d",obj->logical_index);
     cyc = sample_out->ts_end - sample_out->ts_start;
-#ifdef USE_OMP
+#ifdef _OPENMP
 #pragma omp critical
 #endif
     if(!per_thread){
@@ -226,7 +249,7 @@ hwloc_obj_t roofline_hwloc_parse_obj(char* arg){
 extern hwloc_obj_t first_node;          /* The first node where to bind threads */
 int roofline_hwloc_cpubind(){
     hwloc_cpuset_t cpuset;
-#ifdef USE_OMP
+#ifdef _OPENMP
     hwloc_obj_t PU, core;
     unsigned n_core;
     unsigned tid;

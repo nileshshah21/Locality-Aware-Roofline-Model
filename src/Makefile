@@ -3,8 +3,6 @@
 #############################################################################################
 #Duration time of each sample (millisecond)
 LAST=10
-#Type of parallelisme among {SEQ, OMP}
-OPENMP=yes
 #Machine specific code implementing benchmarks: MSC/MSC.h {intel only for now}
 MSC=intel
 #Use PAPI and compile tool for code sampling
@@ -14,9 +12,9 @@ PAPI=yes
 #                                              BUILD                                        #
 #############################################################################################
 CC=gcc
-OMP_FLAG=-fopenmp
+OMP_FLAG= #-fopenmp
 LDFLAGS=-lhwloc -ldl
-CFLAGS=-g -Wall -Werror -Wextra
+CFLAGS=-g -Wall -Werror -Wextra -DCC=$(CC) -DOMP_FLAG=$(OMP_FLAG)
 SRC=roofline.c utils.c stats.c progress.c
 OBJ=$(patsubst %.c, %.o, $(SRC)) MSC.o
 PREFIX=$(HOME)/local
@@ -32,16 +30,11 @@ else
 all: $(BIN)
 endif
 
-ifeq (yes, $(OPENMP))
-CFLAGS+=-DUSE_OMP
-LDFLAGS+=$(OMP_FLAG)
-endif
-
 %.o: %.c
-	$(CC) -O8 -march=native -DBENCHMARK_MIN_DUR=$(LAST) $(CFLAGS) -c -o $@ $^ $(LDFLAGS)
+	$(CC) -march=native -DBENCHMARK_MIN_DUR=$(LAST) $(CFLAGS) -c -o $@ $^ $(LDFLAGS)
 
 MSC.o: MSC/$(MSC).c
-	$(CC) -O8 -march=native -DCC=$(CC) $(CFLAGS) -c -o $@ $^ $(LDFLAGS)
+	$(CC) -march=native -DCC=$(CC) $(CFLAGS) -c -o $@ $^ $(LDFLAGS)
 
 $(BIN): main.c $(OBJ)
 	$(CC) $(CFLAGS) -pedantic-errors $^ -o $@ $(LDFLAGS) -lhwloc -lm

@@ -1,26 +1,32 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <sys/types.h>
+#define _POSIX_C_SOURCE 200809L
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+#include <string.h>
+#include <errno.h>
+#include <unistd.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <dlfcn.h>
 #include "../roofline.h"
 #include "MSC.h"
 
-#define SIMD_CLOBBERED_REG "xmm"
-#define SIMD_CLOBBERED_REGS "%xmm0", "%xmm1", "%xmm2", "%xmm3", "%xmm4", "%xmm5", "%xmm6", "%xmm7", "%xmm8", "%xmm9", "%xmm10", "%xmm11", "%xmm12", "%xmm13", "%xmm14", "%xmm15"
+/************************************************************** MACROS VAR ******************************************************/
+#define SIMD_CLOBBERED_REG "xmm" /* Name of the clobbered registers (asm) */
+#define SIMD_CLOBBERED_REGS "%xmm0", "%xmm1", "%xmm2", "%xmm3", "%xmm4", "%xmm5", "%xmm6", "%xmm7", "%xmm8", "%xmm9", "%xmm10", "%xmm11", "%xmm12", "%xmm13", "%xmm14", "%xmm15" /* Comma separated list of clobbered registers (asm) */
 
 #if defined (__AVX512__)
-#define SIMD_REG           "zmm"
-#define SIMD_N_REGS        32
-#define SIMD_BYTES         64
-#define SIMD_FLOPS         8
-#define SIMD_STORE_NT      "vmovntpd"
-#define SIMD_LOAD_NT       "vmovntdqa"
-#define SIMD_STORE         "vmovapd"
-#define SIMD_LOAD          "vmovapd"
-#define SIMD_MUL           "vmulpd"
-#define SIMD_ADD           "vaddpd"
+#define SIMD_REG           "zmm"       /* Name of the vector(simd) register (asm) */
+#define SIMD_N_REGS        32          /* Number of vector(simd) registers */
+#define SIMD_BYTES         64          /* Number Bytes in the vector register */
+#define SIMD_FLOPS         8           /* Number of double in the vector register */
+#define SIMD_STORE_NT      "vmovntpd"  /* Instruction for non temporal store */
+#define SIMD_LOAD_NT       "vmovntdqa" /* Instruction for non temporal load */
+#define SIMD_STORE         "vmovapd"   /* Instruction for store */
+#define SIMD_LOAD          "vmovapd"   /* Instruction for load */
+#define SIMD_MUL           "vmulpd"    /* Instruction for multiplication */
+#define SIMD_ADD           "vaddpd"    /* Instruction for addition */
 #elif defined (__AVX2__)
 #define SIMD_REG           "ymm"
 #define SIMD_N_REGS        16
@@ -78,338 +84,438 @@
 #define SIMD_ADD           "addps"
 #endif
 #if defined (__FMA__)
-#define SIMD_FMA           "vfmadd132pd"
+#define SIMD_FMA           "vfmadd132pd" /* Fuse multiply add instruction */
 #undef  SIMD_FLOPS
 #define SIMD_FLOPS         8
 #endif
 
+
+/******************************** Flops loop instructions ***************************/
 #if defined (__AVX__)  || defined (__AVX512__) || defined (__FMA__)
+/* asm instruction for flops between operand a & b. Result stored into c*/
 #define simd_fp(op, a, b, c) op " %%" SIMD_REG a ", %%" SIMD_REG b ", %%" SIMD_REG c "\n\t"
-#else 
+#else
+/* asm instruction for flops between operand a & b. Result stored into b*/
 #define simd_fp(op, a, b) op " %%" SIMD_REG a ", %%" SIMD_REG b "\n\t"
 #endif
 
+#if defined __AVX__ || defined __AVX512__
+/* unroll flop instructions */
+#define fadd					\
+    simd_fp(SIMD_ADD, "0", "0", "0")		\
+    simd_fp(SIMD_ADD, "1", "1", "1")		\
+    simd_fp(SIMD_ADD, "2", "2", "2")		\
+    simd_fp(SIMD_ADD, "3", "3", "3")		\
+    simd_fp(SIMD_ADD, "4", "4", "4")		\
+    simd_fp(SIMD_ADD, "5", "5", "5")		\
+    simd_fp(SIMD_ADD, "6", "6", "6")		\
+    simd_fp(SIMD_ADD, "7", "7", "7")		\
+    simd_fp(SIMD_ADD, "8", "8", "8")		\
+    simd_fp(SIMD_ADD, "9", "9", "9")		\
+    simd_fp(SIMD_ADD, "10", "10", "10")		\
+    simd_fp(SIMD_ADD, "11", "11", "11")		\
+    simd_fp(SIMD_ADD, "12", "12", "12")		\
+    simd_fp(SIMD_ADD, "13", "13", "13")		\
+    simd_fp(SIMD_ADD, "14", "14", "14")		\
+    simd_fp(SIMD_ADD, "15", "15", "15")
+
+#define fmul					\
+    simd_fp(SIMD_MUL, "0", "0", "0")		\
+    simd_fp(SIMD_MUL, "1", "1", "1")		\
+    simd_fp(SIMD_MUL, "2", "2", "2")		\
+    simd_fp(SIMD_MUL, "3", "3", "3")		\
+    simd_fp(SIMD_MUL, "4", "4", "4")		\
+    simd_fp(SIMD_MUL, "5", "5", "5")		\
+    simd_fp(SIMD_MUL, "6", "6", "6")		\
+    simd_fp(SIMD_MUL, "7", "7", "7")		\
+    simd_fp(SIMD_MUL, "8", "8", "8")		\
+    simd_fp(SIMD_MUL, "9", "9", "9")		\
+    simd_fp(SIMD_MUL, "10", "10", "10")		\
+    simd_fp(SIMD_MUL, "11", "11", "11")		\
+    simd_fp(SIMD_MUL, "12", "12", "12")		\
+    simd_fp(SIMD_MUL, "13", "13", "13")		\
+    simd_fp(SIMD_MUL, "14", "14", "14")		\
+    simd_fp(SIMD_MUL, "15", "15", "15")
+
+#define fmad					\
+    simd_fp(SIMD_ADD, "0", "0", "0")		\
+    simd_fp(SIMD_MUL, "1", "1", "1")		\
+    simd_fp(SIMD_ADD, "2", "2", "2")		\
+    simd_fp(SIMD_MUL, "3", "3", "3")		\
+    simd_fp(SIMD_ADD, "4", "4", "4")		\
+    simd_fp(SIMD_MUL, "5", "5", "5")		\
+    simd_fp(SIMD_ADD, "6", "6", "6")		\
+    simd_fp(SIMD_MUL, "7", "7", "7")		\
+    simd_fp(SIMD_ADD, "8", "8", "8")		\
+    simd_fp(SIMD_MUL, "9", "9", "9")		\
+    simd_fp(SIMD_ADD, "10", "10", "10")		\
+    simd_fp(SIMD_MUL, "11", "11", "11")		\
+    simd_fp(SIMD_ADD, "12", "12", "12")		\
+    simd_fp(SIMD_MUL, "13", "13", "13")		\
+    simd_fp(SIMD_ADD, "14", "14", "14")		\
+    simd_fp(SIMD_MUL, "15", "15", "15")
+
+#else
+#define fadd					\
+    simd_fp(SIMD_ADD, "0", "0")			\
+    simd_fp(SIMD_ADD, "1", "1")			\
+    simd_fp(SIMD_ADD, "2", "2")			\
+    simd_fp(SIMD_ADD, "3", "3")			\
+    simd_fp(SIMD_ADD, "4", "4")			\
+    simd_fp(SIMD_ADD, "5", "5")			\
+    simd_fp(SIMD_ADD, "6", "6")			\
+    simd_fp(SIMD_ADD, "7", "7")			\
+    simd_fp(SIMD_ADD, "8", "8")			\
+    simd_fp(SIMD_ADD, "9", "9")			\
+    simd_fp(SIMD_ADD, "10", "10")		\
+    simd_fp(SIMD_ADD, "11", "11")		\
+    simd_fp(SIMD_ADD, "12", "12")		\
+    simd_fp(SIMD_ADD, "13", "13")		\
+    simd_fp(SIMD_ADD, "14", "14")		\
+    simd_fp(SIMD_ADD, "15", "15")
+
+#define fmul					\
+    simd_fp(SIMD_MUL, "0", "0")			\
+    simd_fp(SIMD_MUL, "1", "1")			\
+    simd_fp(SIMD_MUL, "2", "2")			\
+    simd_fp(SIMD_MUL, "3", "3")			\
+    simd_fp(SIMD_MUL, "4", "4")			\
+    simd_fp(SIMD_MUL, "5", "5")			\
+    simd_fp(SIMD_MUL, "6", "6")			\
+    simd_fp(SIMD_MUL, "7", "7")			\
+    simd_fp(SIMD_MUL, "8", "8")			\
+    simd_fp(SIMD_MUL, "9", "9")			\
+    simd_fp(SIMD_MUL, "10", "10")		\
+    simd_fp(SIMD_MUL, "11", "11")		\
+    simd_fp(SIMD_MUL, "12", "12")		\
+    simd_fp(SIMD_MUL, "13", "13")		\
+    simd_fp(SIMD_MUL, "14", "14")		\
+    simd_fp(SIMD_MUL, "15", "15")
+
+#define fmad					\
+    simd_fp(SIMD_ADD, "0", "0")			\
+    simd_fp(SIMD_MUL, "1", "1")			\
+    simd_fp(SIMD_ADD, "2", "2")			\
+    simd_fp(SIMD_MUL, "3", "3")			\
+    simd_fp(SIMD_ADD, "4", "4")			\
+    simd_fp(SIMD_MUL, "5", "5")			\
+    simd_fp(SIMD_ADD, "6", "6")			\
+    simd_fp(SIMD_MUL, "7", "7")			\
+    simd_fp(SIMD_ADD, "8", "8")			\
+    simd_fp(SIMD_MUL, "9", "9")			\
+    simd_fp(SIMD_ADD, "10", "10")		\
+    simd_fp(SIMD_MUL, "11", "11")		\
+    simd_fp(SIMD_ADD, "12", "12")		\
+    simd_fp(SIMD_MUL, "13", "13")		\
+    simd_fp(SIMD_ADD, "14", "14")		\
+    simd_fp(SIMD_MUL, "15", "15")
+
+#endif
+
+#ifdef __FMA__
+#undef fmad
+#define fmad					\
+    simd_fp(SIMD_FMA, "0", "1", "1")		\
+    simd_fp(SIMD_FMA, "2", "3", "3")		\
+    simd_fp(SIMD_FMA, "4", "5", "5")		\
+    simd_fp(SIMD_FMA, "6", "7", "7")		\
+    simd_fp(SIMD_FMA, "8", "9", "9")		\
+    simd_fp(SIMD_FMA, "10", "11", "11")		\
+    simd_fp(SIMD_FMA, "12", "13", "13")		\
+    simd_fp(SIMD_FMA, "14", "15", "15")		\
+    simd_fp(SIMD_FMA, "0", "1", "1")		\
+    simd_fp(SIMD_FMA, "2", "3", "3")		\
+    simd_fp(SIMD_FMA, "4", "5", "5")		\
+    simd_fp(SIMD_FMA, "6", "7", "7")		\
+    simd_fp(SIMD_FMA, "8", "9", "9")		\
+    simd_fp(SIMD_FMA, "10", "11", "11")		\
+    simd_fp(SIMD_FMA, "12", "13", "13")		\
+    simd_fp(SIMD_FMA, "14", "15", "15")
+#endif
+
+#ifdef _OPENMP
+
+#define asm_flops_begin(type_str, c_high, c_low) do{			\
+    _Pragma("omp parallel")						\
+    {									\
+    _Pragma("omp barrier")						\
+    _Pragma("omp master")						\
+    roofline_rdtsc(c_high, c_low);					\
+    __asm__ __volatile__ (						\
+    "loop_flops_"type_str"repeat:\n\t"
+
+#define asm_flops_end(in, out, type_str, c_high, c_low, c_high1, c_low1) \
+    "sub $1, %0\n\t"							\
+    "jnz loop_flops_"type_str"_repeat\n\t"				\
+    :: "r" (in->loop_repeat)	: SIMD_CLOBBERED_REGS);			\
+    _Pragma("omp barrier")						\
+    _Pragma("omp master")						\
+    {									\
+	roofline_rdtsc(c_high1, c_low1);				\
+	out->ts_start = roofline_rdtsc_diff(c_high, c_low);		\
+	out->ts_end = roofline_rdtsc_diff(c_high1, c_low1);		\
+	out->instructions = omp_get_num_threads()*16*in->loop_repeat;	\
+	out->flops = out->instructions * SIMD_FLOPS;			\
+    }									\
+}} while(0)
+
+#else
+       
+#define asm_flops_begin(type_str, c_high, c_low) do{			\
+    __asm__ __volatile__ (						\
+    "CPUID\n\t"								\
+    "RDTSC\n\t"								\
+    "mov %%rdx, %0\n\t"							\
+    "mov %%rax, %1\n\t"							\
+    "loop_flops_"type_str"_repeat:\n\t"
+
+#define asm_flops_end(in, out, type_str, c_high, c_low, c_high1, c_low1) \
+    "sub $1, %4\n\t"							\
+    "jnz loop_flops_"type_str"_repeat\n\t"				\
+    "CPUID\n\t"								\
+    "RDTSC\n\t"								\
+    "movq %%rdx, %2\n\t"						\
+    "movq %%rax, %3\n\t"						\
+    : "=&r" (c_high), "=&r" (c_low), "=&r" (c_high1), "=&r" (c_low1)	\
+	: "r" (in->loop_repeat) : "%rax", "%rbx", "%rcx", "%rdx", SIMD_CLOBBERED_REGS); \
+    out->ts_start = roofline_rdtsc_diff(c_high, c_low);			\
+    out->ts_end = roofline_rdtsc_diff(c_high1, c_low1);			\
+    out->instructions = 16*in->loop_repeat;				\
+    out->flops = out->instructions*SIMD_FLOPS;				\
+    } while(0)
+       
+#endif
+
+void fpeak_benchmark(const struct roofline_sample_in * in, struct roofline_sample_out * out, int type){
+    volatile uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0;
+    switch(type){
+    case ROOFLINE_ADD:
+	asm_flops_begin("add", c_high, c_low) fadd asm_flops_end(in, out, "add", c_high, c_low, c_high1, c_low1);
+	break;
+    case ROOFLINE_MUL:
+	asm_flops_begin("mul", c_high, c_low) fmul asm_flops_end(in, out, "mul", c_high, c_low, c_high1, c_low1);
+	break;
+    case ROOFLINE_MAD:
+	asm_flops_begin("mad", c_high, c_low) fmad asm_flops_end(in, out, "mad", c_high, c_low, c_high1, c_low1);
+	break;
+    default:
+	break;
+    }
+}
+
+/******************************** Memory loop instructions ***************************/
+/* memory instructions from/to vector unit to/from dstreg/srcreg + stride */
 #define roofline_load_ins(stride,srcreg, regnum) SIMD_LOAD " "stride"("srcreg"),%%" SIMD_REG regnum"\n\t"
 #define roofline_loadnt_ins(stride,srcreg, regnum) SIMD_LOAD_NT " "stride"("srcreg"),%%" SIMD_REG regnum"\n\t"
 #define roofline_store_ins(stride,dstreg, regnum) SIMD_STORE " %%" SIMD_REG  regnum ", " stride "("dstreg")\n\t"
 #define roofline_storent_ins(stride,dstreg, regnum) SIMD_STORE_NT " %%" SIMD_REG  regnum ", " stride "("dstreg")\n\t"
 
-#define roofline_copy_ins(stride,srcreg, regnum)			\
-    SIMD_LOAD " "stride"("srcreg"),%%" SIMD_REG regnum"\n\t"		\
-    SIMD_STORE " %%" SIMD_REG  regnum ", " stride "("srcreg")\n\t"
-#define roofline_copynt_ins(stride,srcreg, regnum)			\
-    SIMD_LOAD_NT " "stride"("srcreg"),%%" SIMD_REG regnum"\n\t"		\
-    SIMD_STORE_NT " %%" SIMD_REG  regnum ", " stride "("srcreg")\n\t"
-
+/*  unroll several instructions of above roofline_*_ins(parameter mem_uop) macro functions */
 #if defined (__AVX512__)
 #define SIMD_CHUNK_SIZE 2048
-#define simd_mov(macro_bench, datareg)		\
-    macro_bench("0",datareg,"0")		\
-    macro_bench("64",datareg,"1")		\
-    macro_bench("128",datareg,"2")		\
-    macro_bench("192",datareg,"3")		\
-    macro_bench("256",datareg,"4")		\
-    macro_bench("320",datareg,"5")		\
-    macro_bench("384",datareg,"6")		\
-    macro_bench("448",datareg,"7")		\
-    macro_bench("512",datareg,"8")		\
-    macro_bench("576",datareg,"9")		\
-    macro_bench("640",datareg,"10")		\
-    macro_bench("704",datareg,"11")		\
-    macro_bench("768",datareg,"12")		\
-    macro_bench("832",datareg,"13")		\
-    macro_bench("896",datareg,"14")		\
-    macro_bench("960",datareg,"15")		\
-    macro_bench("1024",datareg,"16")		\
-    macro_bench("1088",datareg,"17")		\
-    macro_bench("1152",datareg,"18")		\
-    macro_bench("1216",datareg,"19")		\
-    macro_bench("1280",datareg,"20")		\
-    macro_bench("1344",datareg,"21")		\
-    macro_bench("1408",datareg,"22")		\
-    macro_bench("1472",datareg,"23")		\
-    macro_bench("1536",datareg,"24")		\
-    macro_bench("1600",datareg,"25")		\
-    macro_bench("1664",datareg,"26")		\
-    macro_bench("1728",datareg,"27")		\
-    macro_bench("1792",datareg,"28")		\
-    macro_bench("1856",datareg,"29")		\
-    macro_bench("1920",datareg,"30")		\
-    macro_bench("1984",datareg,"31")
+#define simd_mov(mem_uop, datareg)		\
+    mem_uop("0",datareg,"0")			\
+    mem_uop("64",datareg,"1")			\
+    mem_uop("128",datareg,"2")			\
+    mem_uop("192",datareg,"3")			\
+    mem_uop("256",datareg,"4")			\
+    mem_uop("320",datareg,"5")			\
+    mem_uop("384",datareg,"6")			\
+    mem_uop("448",datareg,"7")			\
+    mem_uop("512",datareg,"8")			\
+    mem_uop("576",datareg,"9")			\
+    mem_uop("640",datareg,"10")			\
+    mem_uop("704",datareg,"11")			\
+    mem_uop("768",datareg,"12")			\
+    mem_uop("832",datareg,"13")			\
+    mem_uop("896",datareg,"14")			\
+    mem_uop("960",datareg,"15")			\
+    mem_uop("1024",datareg,"16")		\
+    mem_uop("1088",datareg,"17")		\
+    mem_uop("1152",datareg,"18")		\
+    mem_uop("1216",datareg,"19")		\
+    mem_uop("1280",datareg,"20")		\
+    mem_uop("1344",datareg,"21")		\
+    mem_uop("1408",datareg,"22")		\
+    mem_uop("1472",datareg,"23")		\
+    mem_uop("1536",datareg,"24")		\
+    mem_uop("1600",datareg,"25")		\
+    mem_uop("1664",datareg,"26")		\
+    mem_uop("1728",datareg,"27")		\
+    mem_uop("1792",datareg,"28")		\
+    mem_uop("1856",datareg,"29")		\
+    mem_uop("1920",datareg,"30")		\
+    mem_uop("1984",datareg,"31")
+
 #elif defined (__AVX__)
 #define SIMD_CHUNK_SIZE 512
-#define simd_mov(macro_bench, datareg)		\
-    macro_bench("0",datareg,"0")		\
-    macro_bench("32",datareg,"1")		\
-    macro_bench("64",datareg,"2")		\
-    macro_bench("96",datareg,"3")		\
-    macro_bench("128",datareg,"4")		\
-    macro_bench("160",datareg,"5")		\
-    macro_bench("192",datareg,"6")		\
-    macro_bench("224",datareg,"7")		\
-    macro_bench("256",datareg,"8")		\
-    macro_bench("288",datareg,"9")		\
-    macro_bench("320",datareg,"10")		\
-    macro_bench("352",datareg,"11")		\
-    macro_bench("384",datareg,"12")		\
-    macro_bench("416",datareg,"13")		\
-    macro_bench("448",datareg,"14")		\
-    macro_bench("480",datareg,"15")
+#define simd_mov(mem_uop, datareg)		\
+    mem_uop("0",datareg,"0")			\
+    mem_uop("32",datareg,"1")			\
+    mem_uop("64",datareg,"2")			\
+    mem_uop("96",datareg,"3")			\
+    mem_uop("128",datareg,"4")			\
+    mem_uop("160",datareg,"5")			\
+    mem_uop("192",datareg,"6")			\
+    mem_uop("224",datareg,"7")			\
+    mem_uop("256",datareg,"8")			\
+    mem_uop("288",datareg,"9")			\
+    mem_uop("320",datareg,"10")			\
+    mem_uop("352",datareg,"11")			\
+    mem_uop("384",datareg,"12")			\
+    mem_uop("416",datareg,"13")			\
+    mem_uop("448",datareg,"14")			\
+    mem_uop("480",datareg,"15")
+
 #elif defined (__SSE__) || defined (__SSE2__) || defined (__SSE4_1__)
 #define SIMD_CHUNK_SIZE 256
-#define simd_mov(macro_bench, datareg)		\
-    macro_bench("0",datareg,"0")		\
-    macro_bench("16",datareg,"1")		\
-    macro_bench("32",datareg,"2")		\
-    macro_bench("48",datareg,"3")		\
-    macro_bench("64",datareg,"4")		\
-    macro_bench("80",datareg,"5")		\
-    macro_bench("96",datareg,"6")		\
-    macro_bench("112",datareg,"7")		\
-    macro_bench("128",datareg,"8")		\
-    macro_bench("144",datareg,"9")		\
-    macro_bench("160",datareg,"10")		\
-    macro_bench("176",datareg,"11")		\
-    macro_bench("192",datareg,"12")		\
-    macro_bench("208",datareg,"13")		\
-    macro_bench("224",datareg,"14")		\
-    macro_bench("240",datareg,"15")
+#define simd_mov(mem_uop, datareg)		\
+    mem_uop("0",datareg,"0")			\
+    mem_uop("16",datareg,"1")			\
+    mem_uop("32",datareg,"2")			\
+    mem_uop("48",datareg,"3")			\
+    mem_uop("64",datareg,"4")			\
+    mem_uop("80",datareg,"5")			\
+    mem_uop("96",datareg,"6")			\
+    mem_uop("112",datareg,"7")			\
+    mem_uop("128",datareg,"8")			\
+    mem_uop("144",datareg,"9")			\
+    mem_uop("160",datareg,"10")			\
+    mem_uop("176",datareg,"11")			\
+    mem_uop("192",datareg,"12")			\
+    mem_uop("208",datareg,"13")			\
+    mem_uop("224",datareg,"14")			\
+    mem_uop("240",datareg,"15")
 #endif
 
-size_t chunk_size = SIMD_CHUNK_SIZE;
+size_t chunk_size = SIMD_CHUNK_SIZE; /* default chunk_size */
+#define roofline_load_ins_loop simd_mov(roofline_load_ins, reg_mv)
+#define roofline_loadnt_ins_loop simd_mov(roofline_loadnt_ins, reg_mv)
+#define roofline_store_ins_loop simd_mov(roofline_store_ins, reg_mv)
+#define roofline_storent_ins_loop simd_mov(roofline_storent_ins, reg_mv)
 
-#ifdef USE_OMP
-extern int omp_get_thread_num(); 
-extern int omp_get_num_threads(); 
-
-#define bandwidth_bench_run(in, out, macro_bench)	do{		\
-    volatile uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0;		\
-    _Pragma("omp parallel")						\
-    {									\
-    roofline_hwloc_cpubind();						\
-    ROOFLINE_STREAM_TYPE * stream = NULL;				\
-    unsigned long repeat = in->loop_repeat;				\
-    size_t size = in->stream_size/n_threads;				\
-    stream = in->stream + omp_get_thread_num()*size/sizeof(*stream);	\
-    _Pragma("omp barrier")						\
-    _Pragma("omp master ")						\
-    roofline_rdtsc(c_high, c_low);					\
+#define reg_mv "%%r11"
+#define bandwidth_asm_begin(type_name)					\
     __asm__ __volatile__ (						\
-			  "loop_"roofline_macro_xstr(macro_bench)"_repeat:\n\t"	\
-			  "mov %1, %%r11\n\t"				\
-			  "mov %2, %%r12\n\t"				\
-			  "buffer_"roofline_macro_xstr(macro_bench)"_increment:\n\t" \
-			  simd_mov(macro_bench,"%%r11")			\
-			  "add $"roofline_macro_xstr(SIMD_CHUNK_SIZE)", %%r11\n\t" \
-			  "sub $"roofline_macro_xstr(SIMD_CHUNK_SIZE)", %%r12\n\t" \
-			  "jnz buffer_"roofline_macro_xstr(macro_bench)"_increment\n\t"	\
-			  "sub $1, %0\n\t"				\
-			  "jnz loop_"roofline_macro_xstr(macro_bench)"_repeat\n\t" \
-			  :						\
-			  : "r" (repeat), "r" (stream), "r" (size)	\
-			  : "%r11", "%r12", SIMD_CLOBBERED_REGS, "memory"); \
-    _Pragma("omp barrier")						\
-    _Pragma("omp master")						\
-	{								\
-	roofline_rdtsc(c_high1, c_low1);				\
-	out->ts_start = roofline_rdtsc_diff(c_high, c_low);		\
-	out->ts_end = roofline_rdtsc_diff(c_high1, c_low1);		\
-	out->bytes = n_threads*size*in->loop_repeat;			\
-	out->instructions = out->bytes/SIMD_BYTES;			\
-    }									\
-    }									\
-    } while(0)
-    
-
-#else
-#define bandwidth_bench_run(in, out, macro_bench) do{			\
-    volatile uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0;		\
-    __asm__ __volatile__ (						\
-			  "CPUID\n\t"					\
-			  "RDTSC\n\t"					\
-			  "mov %%rdx, %0\n\t"				\
-			  "mov %%rax, %1\n\t"				\
-			  "loop_"roofline_macro_xstr(macro_bench)"_repeat:\n\t" \
-			  "mov %5, %%r11\n\t"				\
-			      "mov %6, %%r12\n\t"			\
-			  "buffer_"roofline_macro_xstr(macro_bench)"_increment:\n\t" \
-			  simd_mov(macro_bench,"%%r11")			\
-			  "add $"roofline_macro_xstr(SIMD_CHUNK_SIZE)", %%r11\n\t" \
-			  "sub $"roofline_macro_xstr(SIMD_CHUNK_SIZE)", %%r12\n\t" \
-			      "jnz buffer_"roofline_macro_xstr(macro_bench)"_increment\n\t" \
-			  "sub $1, %4\n\t"				\
-			  "jnz loop_"roofline_macro_xstr(macro_bench)"_repeat\n\t" \
-			  "CPUID\n\t"					\
-			  "RDTSC\n\t"					\
-			  "movq %%rdx, %2\n\t"				\
-			  "movq %%rax, %3\n\t"				\
-			  : "=&r" (c_high), "=&r" (c_low), "=&r" (c_high1), "=&r" (c_low1) \
-			  : "r" (in->loop_repeat), "r" (in->stream), "r" (in->stream_size) \
-			  : "%rax", "%rbx", "%rcx", "%rdx", "%r11", "%r12", SIMD_CLOBBERED_REGS, "memory"); \
-    out->ts_start = roofline_rdtsc_diff(c_high, c_low);			\
-    out->ts_end = roofline_rdtsc_diff(c_high1, c_low1);			\
-    out->instructions = in->stream_size*in->loop_repeat/SIMD_BYTES;	\
-    out->bytes = out->instructions*SIMD_BYTES;				\
-    } while(0)
-#endif
+    "loop_"type_name"_repeat:\n\t"					\
+    "mov %1, "reg_mv"\n\t"						\
+    "mov %2, %%r12\n\t"							\
+    "buffer_"type_name"_increment:\n\t"
 
 
-void load_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sample_out * out){
-    if(in->stream_size > LLC_size)
-	bandwidth_bench_run(in ,out, roofline_loadnt_ins);
-    else
-	bandwidth_bench_run(in ,out, roofline_load_ins);
-}
+#define bandwidth_asm_end(type_name, repeat, stream, size)		\
+    "add $"roofline_stringify(SIMD_CHUNK_SIZE)", "reg_mv"\n\t"		\
+					      "sub $"roofline_stringify(SIMD_CHUNK_SIZE)", %%r12\n\t" \
+											"jnz buffer_"type_name"_increment\n\t" \
+											"sub $1, %0\n\t" \
+											"jnz loop_"type_name"_repeat\n\t" \
+											"CPUID\n\t" \
+											:: "r" (repeat), "r" (stream), "r" (size) \
+	: "%r11", "%r12", SIMD_CLOBBERED_REGS, "memory")
 
-void store_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sample_out * out){
-    if(in->stream_size > LLC_size)
-	bandwidth_bench_run(in ,out, roofline_storent_ins);
-    else
-	bandwidth_bench_run(in ,out, roofline_store_ins);
-}
+/**********************************************************************************************************************************/
 
-void copy_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sample_out * out){
-    if(in->stream_size > LLC_size)
-	bandwidth_bench_run(in ,out, roofline_copynt_ins);
-    else
-	bandwidth_bench_run(in ,out, roofline_copy_ins);
-    out->bytes*=2;
-    out->instructions*=2;
-}
-
-/* void copy_bandwidth_bench(struct roofline_sample_in * in, struct roofline_sample_out * out){ */
-/*     volatile uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0; */
-/*     unsigned int i,j; */
-/*     roofline_rdtsc(c_high,c_low); */
-/*     for(i=0;i<in->loop_repeat;i++){ */
-/* 	for(j=0;j<in->stream_size/sizeof(*in->stream); j++){ */
-/* 	    in->stream[j] = in->stream[j+1]; */
-/* 	} */
-/*     } */
-/*     roofline_rdtsc(c_high1,c_low1); */
-/*     out->ts_start = roofline_rdtsc_diff(c_high,c_low); */
-/*     out->ts_end   = roofline_rdtsc_diff(c_high1,c_low1); */
-/*     out->bytes    = 2*in->stream_size*n_threads*in->loop_repeat; */
-/*     out->instructions = 1; */
-/* } */
-
-
-#if defined __AVX__ || defined __AVX512__
-#define fpeak_instructions			\
-    simd_fp(SIMD_ADD, "0", "1", "1")		\
-    simd_fp(SIMD_MUL, "2", "3", "3")		\
-    simd_fp(SIMD_ADD, "4", "5", "5")		\
-    simd_fp(SIMD_MUL, "6", "7", "7")		\
-    simd_fp(SIMD_ADD, "8", "9", "9")		\
-    simd_fp(SIMD_MUL, "10", "11", "11")		\
-    simd_fp(SIMD_ADD, "12", "13", "13")		\
-    simd_fp(SIMD_MUL, "14", "15", "15")		\
-    simd_fp(SIMD_ADD, "0", "1", "1")		\
-    simd_fp(SIMD_MUL, "2", "3", "3")		\
-    simd_fp(SIMD_ADD, "4", "5", "5")		\
-    simd_fp(SIMD_MUL, "6", "7", "7")		\
-    simd_fp(SIMD_ADD, "8", "9", "9")		\
-    simd_fp(SIMD_MUL, "10", "11", "11")		\
-    simd_fp(SIMD_ADD, "12", "13", "13")		\
-    simd_fp(SIMD_MUL, "14", "15", "15")
-#else
-#define fpeak_instructions			\
-    simd_fp(SIMD_ADD, "0", "1")			\
-    simd_fp(SIMD_MUL, "2", "3")			\
-    simd_fp(SIMD_ADD, "4", "5")			\
-    simd_fp(SIMD_MUL, "6", "7")			\
-    simd_fp(SIMD_ADD, "8", "9")			\
-    simd_fp(SIMD_MUL, "10", "11")		\
-    simd_fp(SIMD_ADD, "12", "13")		\
-    simd_fp(SIMD_MUL, "14", "15")		\
-    simd_fp(SIMD_ADD, "0", "1")			\
-    simd_fp(SIMD_MUL, "2", "3")			\
-    simd_fp(SIMD_ADD, "4", "5")			\
-    simd_fp(SIMD_MUL, "6", "7")			\
-    simd_fp(SIMD_ADD, "8", "9")			\
-    simd_fp(SIMD_MUL, "10", "11")		\
-    simd_fp(SIMD_ADD, "12", "13")		\
-    simd_fp(SIMD_MUL, "14", "15")
-#endif
-
-#ifdef USE_OMP
-void fpeak_bench(struct roofline_sample_in * in, struct roofline_sample_out * out){
-    volatile uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0;
+void bandwidth_benchmark(const struct roofline_sample_in * in, struct roofline_sample_out * out, int type){
+    uint64_t c_low0=0, c_low1=0, c_high0=0, c_high1=0;
+    chunk_size = SIMD_CHUNK_SIZE;
+    ROOFLINE_STREAM_TYPE * stream = in->stream;
+    size_t size = in->stream_size;
+#ifdef _OPENMP
 #pragma omp parallel
+#pragma omp single
+	size /= omp_get_num_threads();;
+
+#pragma omp parallel firstprivate(stream)
     {
-	roofline_hwloc_cpubind();
+	stream = stream + omp_get_thread_num()*size/sizeof(*stream);
 #pragma omp barrier
-#pragma omp master 
-	roofline_rdtsc(c_high, c_low);
-	__asm__ __volatile__ (						\
-			      "loop_flops_repeat:\n\t"			\
-			      fpeak_instructions			\
-			      "sub $1, %0\n\t"				\
-			      "jnz loop_flops_repeat\n\t"		\
-			      :: "r" (in->loop_repeat)			\
-			      : SIMD_CLOBBERED_REGS);
-#pragma omp barrier
-#pragma omp master 
-	{
-	    roofline_rdtsc(c_high1, c_low1);
-	    out->ts_start = roofline_rdtsc_diff(c_high, c_low);
-	    out->ts_end = roofline_rdtsc_diff(c_high1, c_low1);
-	    out->instructions = omp_get_num_threads()*16*in->loop_repeat;
-	    out->flops = out->instructions * SIMD_FLOPS;
+#pragma omp master
+	roofline_rdtsc(c_high0, c_low0);
+	switch(type){
+	case ROOFLINE_LOAD:
+	    bandwidth_asm_begin("load") roofline_load_ins_loop bandwidth_asm_end("load", in->loop_repeat, stream, size);
+	    break;
+	case ROOFLINE_LOAD_NT:
+	    bandwidth_asm_begin("loadnt") roofline_loadnt_ins_loop bandwidth_asm_end("loadnt", in->loop_repeat, stream, size);
+	    break;
+	case ROOFLINE_STORE:
+	    bandwidth_asm_begin("store") roofline_store_ins_loop bandwidth_asm_end("store", in->loop_repeat, stream, size);
+	    break;
+	case ROOFLINE_STORE_NT:
+	    bandwidth_asm_begin("storent") roofline_storent_ins_loop bandwidth_asm_end("storent", in->loop_repeat, stream, size);
+	    break;
+	default:
+	    break;
 	}
+#pragma omp barrier
+#pragma omp master
+	roofline_rdtsc(c_high1, c_low1);
     }
-}
 #else
-void fpeak_bench(struct roofline_sample_in * in, struct roofline_sample_out * out){
-    uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0;
-    long repeat = in->loop_repeat;
-    roofline_hwloc_cpubind();
-    __asm__ __volatile__ (						\
-			  "CPUID\n\t"					\
-			  "RDTSC\n\t"					\
-			  "mov %%rdx, %0\n\t"				\
-			  "mov %%rax, %1\n\t"				\
-			  "loop_flops_repeat:\n\t"			\
-			  fpeak_instructions				\
-			  "sub $1, %4\n\t"				\
-			  "jnz loop_flops_repeat\n\t"			\
-			  "CPUID\n\t"					\
-			  "RDTSC\n\t"					\
-			  "movq %%rdx, %2\n\t"				\
-			  "movq %%rax, %3\n\t"				\
-			  : "=&r" (c_high), "=&r" (c_low), "=&r" (c_high1), "=&r" (c_low1) \
-			  : "r" (repeat)				\
-			  : "%rax", "%rbx", "%rcx", "%rdx", SIMD_CLOBBERED_REGS);
-    out->ts_start = roofline_rdtsc_diff(c_high, c_low);
-    out->ts_end = roofline_rdtsc_diff(c_high1, c_low1);
-    out->instructions = 16*in->loop_repeat;
-    out->flops = out->instructions*SIMD_FLOPS;
-}
+	switch(type){
+	case ROOFLINE_LOAD:
+	    roofline_rdtsc(c_high0, c_low0);
+	    bandwidth_asm_begin("load") roofline_load_ins_loop bandwidth_asm_end("load", in->loop_repeat, stream, size);
+	    roofline_rdtsc(c_high1, c_low1);
+	    break;
+	case ROOFLINE_LOAD_NT:
+	    roofline_rdtsc(c_high0, c_low0);
+	    bandwidth_asm_begin("loadnt") roofline_loadnt_ins_loop bandwidth_asm_end("loadnt", in->loop_repeat, stream, size);
+	    roofline_rdtsc(c_high1, c_low1);
+	    break;
+	case ROOFLINE_STORE:
+	    roofline_rdtsc(c_high0, c_low0);
+	    bandwidth_asm_begin("store") roofline_store_ins_loop bandwidth_asm_end("store", in->loop_repeat, stream, size);
+	    roofline_rdtsc(c_high1, c_low1);
+	    break;
+	case ROOFLINE_STORE_NT:
+	    roofline_rdtsc(c_high0, c_low0);
+	    bandwidth_asm_begin("storent") roofline_storent_ins_loop bandwidth_asm_end("storent", in->loop_repeat, stream, size);
+	    roofline_rdtsc(c_high1, c_low1);
+	    break;
+	default:
+	    break;
+	}
 #endif
+    	out->ts_start = roofline_rdtsc_diff(c_high0, c_low0);
+    	out->ts_end = roofline_rdtsc_diff(c_high1, c_low1);
+    	out->bytes = in->stream_size*in->loop_repeat;
+    	out->instructions = out->bytes/SIMD_BYTES;
+}
 
 /***************************************** OI BENCHMARKS GENERATION ******************************************/
+
+#include <stdio.h>
 
 #if defined (__AVX__)  || defined (__AVX512__)
 static void dprint_FUOP(int fd, const char * op, unsigned * regnum){
     dprintf(fd, "\"%s %%%%%s%d, %%%%%s%d, %%%%%s%d\\n\\t\"\\\n",
-	    op, SIMD_REG, *regnum, SIMD_REG, (*regnum+1)%SIMD_N_REGS, SIMD_REG, (*regnum+1)%SIMD_N_REGS);
-    *regnum = (*regnum+2)%SIMD_N_REGS;
+	    op, SIMD_REG, *regnum, SIMD_REG, *regnum, SIMD_REG, *regnum);
+    *regnum = (*regnum+1)%SIMD_N_REGS;
 }
 #else 
 static void dprint_FUOP(int fd, const char * op, unsigned * regnum){
-    dprintf(fd, "\"%s %%%%%s%d, %%%%%s%d\\n\\t\"\\\n",
-	    op, SIMD_REG, *regnum, SIMD_REG, (*regnum+1)%SIMD_N_REGS);
-    *regnum = (*regnum+2)%SIMD_N_REGS;
+    dprintf(fd, "\"%s %%%%%s%d, %%%%%s%d\\n\\t\"\\\n", op, SIMD_REG, *regnum, SIMD_REG, *regnum);
+    *regnum = (*regnum+1)%SIMD_N_REGS;
 }
 #endif
 
-static unsigned tie_breaker = 0;
-static void dprint_MUOP(int fd, int type, off_t * offset, unsigned * regnum, const char * datareg, int nt){
-    if(type == ROOFLINE_LOAD || (type == ROOFLINE_COPY && tie_breaker++%2)){
-	dprintf(fd, "\"%s %lu(%%%%%s), %%%%%s%d\\n\\t\"\\\n", nt?SIMD_LOAD_NT:SIMD_LOAD, *offset, datareg, SIMD_REG, *regnum);
-    }
-    else if(type == ROOFLINE_STORE || (type == ROOFLINE_COPY && (tie_breaker++%2)==0)){
-	dprintf(fd, "\"%s %%%%%s%d, %lu(%%%%%s)\\n\\t\"\\\n", nt?SIMD_STORE_NT:SIMD_STORE, SIMD_REG, *regnum, *offset, datareg);
+static void dprint_MUOP(int fd, int type, off_t * offset, unsigned * regnum, const char * datareg){
+    switch(type){
+    case ROOFLINE_LOAD:
+	dprintf(fd, "\"%s %lu(%s), %%%%%s%d\\n\\t\"\\\n", SIMD_LOAD, *offset, datareg, SIMD_REG, *regnum);
+	break;
+    case ROOFLINE_LOAD_NT:
+	dprintf(fd, "\"%s %lu(%s), %%%%%s%d\\n\\t\"\\\n", SIMD_LOAD_NT, *offset, datareg, SIMD_REG, *regnum);
+	break;
+    case ROOFLINE_STORE:
+	dprintf(fd, "\"%s %%%%%s%d, %lu(%s)\\n\\t\"\\\n", SIMD_STORE, SIMD_REG, *regnum, *offset, datareg);
+	break;
+    case ROOFLINE_STORE_NT:
+	dprintf(fd, "\"%s %%%%%s%d, %lu(%s)\\n\\t\"\\\n", SIMD_STORE_NT, SIMD_REG, *regnum, *offset, datareg);
+	break;
+    default:
+	break;
     }
     *offset+=SIMD_BYTES;
     *regnum = (*regnum+1)%SIMD_N_REGS;
@@ -417,121 +523,74 @@ static void dprint_MUOP(int fd, int type, off_t * offset, unsigned * regnum, con
 
 static void  dprint_header(int fd) {
     dprintf(fd, "#include <stdlib.h>\n");
-#ifdef USE_OMP
+    dprintf(fd, "#ifdef _OPENMP\n");
     dprintf(fd, "#include <omp.h>\n");
-#endif
+    dprintf(fd, "#endif\n");
     dprintf(fd, "#include \"roofline.h\"\n\n");
-    dprintf(fd, "#define rdtsc(high,low) __asm__ __volatile__ (\"CPUID\\n\\tRDTSC\\n\\tmovq %%%%rdx, %%0\\n\\tmovq %%%%rax, %%1\\n\\t\" :\"=r\" (high), \"=r\" (low)::\"%%rax\", \"%%rbx\", \"%%rcx\", \"%%rdx\")\n\n");
+    dprintf(fd, "#define rdtsc(c_high,c_low) ");
+    dprintf(fd, "__asm__ __volatile__ (\"CPUID\\n\\tRDTSC\\n\\tmovq %%%%rdx, %%0\\n\\tmovq %%%%rax, %%1\\n\\t\"");
+    dprintf(fd, ":\"=r\" (c_high), \"=r\" (c_low)::\"%%rax\", \"%%rbx\", \"%%rcx\", \"%%rdx\")\n");
 }
-
-#define benchmark_name "roofline_oi_benchmark" 
-static void dprint_footer(int fd, const char * bench, const char * bench_nt) {
-    dprintf(fd, "void %s(struct roofline_sample_in * in, struct roofline_sample_out * out){\n", benchmark_name);
-    dprintf(fd, "if(in->stream_size>%lu){%s(in,out);}\n", LLC_size, bench_nt);
-    dprintf(fd, "else{%s(in,out);}\n", bench);
-    dprintf(fd, "}\n\n");
-}
-
  
 static void dprint_oi_bench_begin(int fd, const char * id, const char * name){
-    dprintf(fd, "void %s(struct roofline_sample_in * in, struct roofline_sample_out * out){\n", name);
+    dprintf(fd, "void %s(struct roofline_sample_in * in, struct roofline_sample_out * out, __attribute__ ((unused)) int type){\n", name);
     dprintf(fd, "volatile uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0;\n");
-    dprintf(fd, "ROOFLINE_STREAM_TYPE * stream = in->stream;\n");
+    dprintf(fd, "%s * stream = in->stream;\n",roofline_stringify(ROOFLINE_STREAM_TYPE));
     dprintf(fd, "size_t size = in->stream_size;\n");
-#ifdef USE_OMP
-    dprintf(fd,"#pragma omp parallel firstprivate(size, stream)\n{");
+    dprintf(fd,"#ifdef _OPENMP\n");
+    dprintf(fd,"#pragma omp parallel firstprivate(size, stream)\n{\n");
     dprintf(fd,"size /= omp_get_num_threads();\n");
     dprintf(fd,"stream += omp_get_thread_num()*size/sizeof(*stream);\n");
     dprintf(fd,"#pragma omp barrier\n");
     dprintf(fd,"#pragma omp master\n");
-#endif
+    dprintf(fd, "#endif\n");
     dprintf(fd,"rdtsc(c_high,c_low);\n");
     dprintf(fd, "__asm__ __volatile__ (\\\n");
     dprintf(fd, "\"loop_%s_repeat:\\n\\t\"\\\n", id);
-    dprintf(fd, "\"mov %%1, %%%%r10\\n\\t\"\\\n");
-    dprintf(fd, "\"mov %%2, %%%%r11\\n\\t\"\\\n");
+    dprintf(fd, "\"mov %%1, %s\\n\\t\"\\\n", reg_mv);
+    dprintf(fd, "\"mov %%2, %%%%r12\\n\\t\"\\\n");
     dprintf(fd, "\"buffer_%s_increment:\\n\\t\"\\\n", id);
 }
 
 static void dprint_oi_bench_end(int fd, const char * id, off_t offset){
-    dprintf(fd,"\"add $%lu, %%%%r10\\n\\t\"\\\n", offset);
-    dprintf(fd,"\"sub $%lu, %%%%r11\\n\\t\"\\\n", offset);
+    dprintf(fd,"\"add $%lu, %s\\n\\t\"\\\n", offset, reg_mv);
+    dprintf(fd,"\"sub $%lu, %%%%r12\\n\\t\"\\\n", offset);
     dprintf(fd,"\"jnz buffer_%s_increment\\n\\t\"\\\n", id);
     dprintf(fd,"\"sub $1, %%0\\n\\t\"\\\n");
     dprintf(fd,"\"jnz loop_%s_repeat\\n\\t\"\\\n", id);
     dprintf(fd,":: \"r\" (in->loop_repeat), \"r\" (stream), \"r\" (size)\\\n");
-    dprintf(fd,": \"%%r10\", \"%%r11\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"memory\" );\n", SIMD_CLOBBERED_REGS);
-#ifdef USE_OMP
+    dprintf(fd,": \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"memory\" );\n", SIMD_CLOBBERED_REGS);
+    dprintf(fd, "#ifdef _OPENMP\n");
     dprintf(fd,"#pragma omp barrier\n");
     dprintf(fd,"#pragma omp master\n");
-#endif
+    dprintf(fd, "#endif\n");
     dprintf(fd,"rdtsc(c_high1,c_low1);\n");
-#ifdef USE_OMP
+    dprintf(fd, "#ifdef _OPENMP\n");
     dprintf(fd,"}\n");
-#endif
+    dprintf(fd, "#endif\n");
     dprintf(fd, "out->ts_end = ((c_high1 << 32) | c_low1);\n");
     dprintf(fd, "out->ts_start = ((c_high << 32) | c_low);\n");
 }
 
-
-static char * roofline_mkstemp()
-{ 
-    char tempname[1024], cwd[1024];
-    memset(tempname,0,sizeof(tempname));
-    memset(cwd,0,sizeof(cwd));
-
-    if(getcwd(cwd, 1024) == NULL){
-    	sprintf(cwd, "/tmp");
-    }
-    snprintf(tempname,1024,"%s/roofline_benchmark_XXXXXX",cwd);
-    if(!strcmp(mktemp(tempname),"")){
-	errEXIT("Cannot create temporary name");
-    }
-    return strdup(tempname);
-}
-
-extern char * compiler;
-
 static int roofline_compile_lib(char * c_path, char* so_path){
     char cmd[2048];
     memset(cmd,0,sizeof(cmd));
-#ifdef USE_OMP
-    sprintf(cmd, "%s -fPIC -shared %s -rdynamic -o %s -fopenmp", compiler, c_path, so_path);
-#else
-    sprintf(cmd, "%s -fPIC -shared %s -rdynamic -o %s", compiler, c_path, so_path);
-#endif
+    sprintf(cmd, "%s -fPIC -shared %s -rdynamic -o %s %s", compiler, c_path, so_path, omp_flag);
     return system(cmd);
 }
 
-static void (* roofline_load_lib(char * lib_path, char * funname)) (struct roofline_sample_in * in, struct roofline_sample_out * out)
-{
-    void * handle, * benchmark;
-
-    handle = dlopen(lib_path, RTLD_NOW);
-    if(handle == NULL){
-	fprintf(stderr,"Failed to open dynamic library: %s\n%s\n",lib_path,dlerror());
-	exit(EXIT_FAILURE);
-    }
-    dlerror();
-    benchmark = dlsym(handle, funname);
-    if(benchmark == NULL){
-	fprintf(stderr, "Failed to load function %s from dynamic library %s\n", funname, lib_path);
-    }
-    return (void (*)(struct roofline_sample_in *, struct roofline_sample_out *))benchmark;
-}
-
-
-off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int type, double oi, int nt){
+off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int type, double oi){
     off_t offset;
-    unsigned i, regnum, mem_instructions, fop_instructions, fop_per_mop, mop_per_fop;
+    size_t len;
+    unsigned i, regnum, mem_instructions = 0, fop_instructions = 0, fop_per_mop, mop_per_fop;
     char * idx;
-    offset = 1+strlen(roofline_type_str(type))+strlen("_nt");
-    idx = malloc(offset);
-    memset(idx,0,offset);
-    snprintf(idx,offset,"%s%s", roofline_type_str(type),  nt?"_nt":"");
     if(oi<=0)
 	return 0;
-    regnum=0;
+    len = 1+strlen(roofline_type_str(type));
+    idx = malloc(len);
+    memset(idx,0,len);
+    snprintf(idx,len,"%s", roofline_type_str(type));
+    regnum=0;           /* SIMD register number */
     offset = 0;         /* the offset of each load/store instruction */
     mem_instructions=0; /* The number of printed memory instructions */
     fop_instructions=0; /* The number of printed flop instructions */
@@ -540,17 +599,17 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int type, dou
     dprint_oi_bench_begin(fd, idx, name);
     if(mop_per_fop == 1){
 	for(i=0;i<SIMD_N_REGS;i++){
-	    dprint_MUOP(fd, type, &offset, &regnum, "r10", nt);
+	    dprint_MUOP(fd, type, &offset, &regnum, reg_mv);
 	    if(i%2==0){dprint_FUOP(fd, SIMD_MUL, &regnum);}
 	    if(i%2==1){dprint_FUOP(fd, SIMD_ADD, &regnum);}
 	}
 	mem_instructions = fop_instructions = SIMD_N_REGS;
     }
     else if(mop_per_fop > 1){
-	mem_instructions = roofline_PPCM(mop_per_fop, SIMD_N_REGS);
-	fop_instructions = mem_instructions / mop_per_fop;
+	fop_instructions = roofline_PPCM(mop_per_fop+1, SIMD_N_REGS)/(mop_per_fop+1);
+	mem_instructions = fop_instructions*mop_per_fop;
 	for(i=0;i<mem_instructions;i++){
-	    dprint_MUOP(fd, type, &offset, &regnum, "r10", nt);
+	    dprint_MUOP(fd, type, &offset, &regnum, reg_mv);
 	    if(i%mop_per_fop==0){
 		if(i%2==0){dprint_FUOP(fd, SIMD_MUL, &regnum);}
 		if(i%2==1){dprint_FUOP(fd, SIMD_ADD, &regnum);}
@@ -558,11 +617,11 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int type, dou
 	}
     }
     else if(fop_per_mop > 1){
-        fop_instructions = roofline_PPCM(fop_per_mop, SIMD_N_REGS);
-	mem_instructions = fop_instructions / fop_per_mop;
+	mem_instructions = roofline_PPCM(fop_per_mop+1, SIMD_N_REGS)/(fop_per_mop+1);
+	fop_instructions = mem_instructions*fop_per_mop;
 	for(i=0;i<fop_instructions;i++){
 	    if(i%fop_per_mop == 0) {
-		dprint_MUOP(fd, type, &offset, &regnum, "r10", nt);
+		dprint_MUOP(fd, type, &offset, &regnum, reg_mv);
 	    }
 	    if(i%2==0){dprint_FUOP(fd, SIMD_MUL, &regnum);}
 	    if(i%2==1){dprint_FUOP(fd, SIMD_ADD, &regnum);}
@@ -571,59 +630,66 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int type, dou
     dprint_oi_bench_end(fd, idx, offset);
     dprintf(fd, "out->instructions = in->loop_repeat * %u * in->stream_size / %lu;\n", mem_instructions+fop_instructions, offset);
     dprintf(fd, "out->flops = in->loop_repeat * %u * in->stream_size / %lu;\n", fop_instructions*SIMD_FLOPS, offset);
-	dprintf(fd, "out->bytes = in->loop_repeat * in->stream_size;\n");
+    dprintf(fd, "out->bytes = in->loop_repeat * in->stream_size;\n");
     dprintf(fd, "}\n\n");
     free(idx);
     return offset;
 }
 
-
-
-void (* roofline_oi_bench(double oi, int type))(struct roofline_sample_in * in, struct roofline_sample_out * out)
+static void (* roofline_load_lib(const char * path, const char * funname)) (const struct roofline_sample_in *, struct roofline_sample_out *, int)
 {
-    char * tempname, * c_path, * so_path;
-    size_t len;
-    int fd; 
-    void (* benchmark) (struct roofline_sample_in * in, struct roofline_sample_out * out);
-    /* If oi is 0, then its a bandwidth benchmark, there is no need to generate it.*/
-    if(oi==0){
-	chunk_size = SIMD_CHUNK_SIZE;
-	switch(type){
-	case ROOFLINE_LOAD:
-	    return load_bandwidth_bench;
-	    break;
-	case ROOFLINE_STORE:
-	    return store_bandwidth_bench;
-	    break;
-	case ROOFLINE_COPY:
-	    return copy_bandwidth_bench;
-	    break;
-	default:
-	    return NULL;
-	    break;
-	}
+    void * benchmark, * handle;
+    
+    dlerror();
+    handle = dlopen(path, RTLD_NOW|RTLD_DEEPBIND);
+    if(handle == NULL){
+	fprintf(stderr, "Failed to load dynamic library %s: %s\n", path, dlerror());
+	return NULL;
     }
 
-    /* Else we create one */
-    /* Create the filename */
-    tempname = roofline_mkstemp();
+    dlerror();
+    benchmark = dlsym(handle, funname);
+    if(benchmark == NULL){
+	fprintf(stderr, "Failed to load function %s from %s: %s\n", funname, path, dlerror());
+    }
+    return (void (*)(const struct roofline_sample_in *, struct roofline_sample_out *, int))benchmark;
+}
+
+void (* roofline_oi_bench(const double oi, const int type))(const struct roofline_sample_in * in, struct roofline_sample_out * out, int type)
+{
+    const char * func_name = "roofline_oi_benchmark";
+
+    char tempname[1024], * c_path, * so_path;
+    size_t len;
+    int fd; 
+    void (* benchmark) (const struct roofline_sample_in *, struct roofline_sample_out *, int);
+
+    if(oi<=0){
+	fprintf(stderr, "operational intensity must be greater than 0.\n");
+	return NULL;
+    }
+
+
+    /* Create the filenames */
+    snprintf(tempname, sizeof(tempname), "roofline_benchmark_%s_oi_%lf", roofline_type_str(type), oi);
     len = strlen(tempname)+3; c_path =  malloc(len); memset(c_path,  0, len); snprintf(c_path, len, "%s.c", tempname);
     len = strlen(tempname)+4; so_path = malloc(len); memset(so_path, 0, len); snprintf(so_path, len, "%s.so", tempname);
-    free(tempname);
-    fd = open(c_path, O_WRONLY|O_CREAT, 0644);
     
+    /* Generate benchmark */
+    fd = open(c_path, O_WRONLY|O_CREAT, 0644);
     /* Write the appropriate roofline to the file */
     dprint_header(fd);
-    chunk_size = roofline_benchmark_write_oi_bench(fd, "roofline_oi_temporal", type, oi, 0);
-    chunk_size = roofline_benchmark_write_oi_bench(fd, "roofline_oi_non_temporal", type, oi, 1);
-    dprint_footer(fd, "roofline_oi_temporal", "roofline_oi_non_temporal");
+    chunk_size = roofline_benchmark_write_oi_bench(fd, func_name, type, oi);
     /* Compile the roofline function */
     close(fd); 
     roofline_compile_lib(c_path, so_path);
-    unlink(c_path);free(c_path);
     /* Load the roofline function */
-    benchmark = roofline_load_lib(so_path, benchmark_name);
-    unlink(so_path);free(so_path);
+    benchmark = roofline_load_lib(so_path, func_name);
+
+    unlink(c_path);
+    unlink(so_path);
+    free(c_path);
+    free(so_path);
     return benchmark;
 }
 

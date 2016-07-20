@@ -1,6 +1,6 @@
 #include "roofline.h"
 #include "MSC/MSC.h"
-#ifdef USE_OMP
+#ifdef _OPENMP
 #include <omp.h>
 #endif
 
@@ -9,15 +9,15 @@ size_t           alignement = 0;             /* Level 1 cache line size */
 size_t           LLC_size = 0;               /* Last Level Cache size */
 float            cpu_freq = 0;               /* In Hz */
 char *           compiler = NULL;            /* The compiler name to compile the roofline validation. */
+char *           omp_flag = NULL;            /* The openmp flag to compile the roofline validation. */
 hwloc_obj_t      first_node = NULL;          /* The first node where to bind threads */
 unsigned         n_threads = 1;              /* The number of threads for benchmark */
+int              per_thread = 0;             /* Should results be printed with per thread value */
+unsigned int     roofline_types;             /* What rooflines do we want in byte array */
 struct roofline_progress_bar progress_bar;   /* Global progress bar of the benchmark */
-char             vendor[13];                 /* Processor vendor */
-unsigned int     model = 0;                  /* Processor model (initialized with bit 7:4 set to one) */
-unsigned int     family = 0;                 /* Processor family (initialized with bit 11:8 set to one) */
 
 
-#ifdef USE_OMP
+#ifdef _OPENMP
 int roofline_lib_init(int with_hyperthreading)
 #else
     int roofline_lib_init(__attribute__ ((unused)) int with_hyperthreading)
@@ -51,7 +51,7 @@ int roofline_lib_init(int with_hyperthreading)
 
     /* Get first node and number of threads */
     first_node = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NODE, 0);
-#ifdef USE_OMP
+#ifdef _OPENMP
     if(with_hyperthreading)
 	n_threads = hwloc_get_nbobjs_inside_cpuset_by_type(topology, first_node->cpuset, HWLOC_OBJ_PU);
     else
@@ -91,15 +91,24 @@ int roofline_lib_init(int with_hyperthreading)
     cpu_freq = CPU_FREQ;
 #endif 
 
-    /* set compiler */
+    /* set compilation options */
 #ifdef CC
-    compiler = roofline_macro_xstr(CC);
+    compiler = roofline_stringify(CC);
 #else
     compiler = getenv("CC");
     if(compiler==NULL){
 	errEXIT("Undefined compiler. Please set env CC to your compiler.");
     }
 #endif
+#ifdef OMP_FLAG
+    omp_flag = roofline_stringify(OMP_FLAG);
+#else
+    omp_flag = getenv("OMP_FLAG");
+    if(omp_flag==NULL){
+	errEXIT("Undefined omp_flag. Please set env OMP_FLAG to your compiler.");
+    }
+#endif
+
     return 0;
 }
 
@@ -121,35 +130,35 @@ inline void print_roofline_sample_output(struct roofline_sample_out * out){
 	   out->ts_start, out->ts_end, out->instructions, out->bytes, out->flops);
 }
 
-void roofline_fpeak(FILE * output)
+void roofline_fpeak(FILE * output, int type)
 {
     char info[128];
     struct roofline_sample_out result;
     struct roofline_sample_in in = {1,NULL,0};  
     double sd = 0;
 
-    snprintf(info, sizeof(info), "%5s","FLOPS");
+    snprintf(info, sizeof(info), "%5s",roofline_type_str(type));
     roofline_output_clear(&result);
-    roofline_autoset_loop_repeat(fpeak_bench, &in, BENCHMARK_MIN_DUR, 10000);
-    sd = roofline_repeat_bench(fpeak_bench,&in,&result, roofline_output_median);    
-#ifdef USE_OMP
+    roofline_autoset_loop_repeat(fpeak_benchmark, &in, type, BENCHMARK_MIN_DUR, 10000);
+    sd = roofline_repeat_bench(fpeak_benchmark,&in,&result, type, roofline_output_median);    
+#ifdef _OPENMP
     roofline_print_sample(output, first_node, &result, sd, info);
 #else
     roofline_print_sample(output, hwloc_get_obj_by_type(topology, HWLOC_OBJ_PU, 0), &result, sd, info);
 #endif
 }
 
-size_t resize_splitable_chunk(size_t size, int overflow){
-    size_t ret, modulo;
-    modulo = chunk_size*n_threads;
-    if(size%modulo == 0)
-	return size;
-    ret = size - size%modulo;
-    if(overflow)
-	ret+=overflow;
-    return ret;
+extern size_t chunk_size;
+static size_t resize_splitable_chunk(size_t size){
+    int nthreads = 1;
+#ifdef _OPENMP
+#pragma omp parallel
+#pragma omp single
+    nthreads = omp_get_num_threads();
+#endif
+    if(size%(chunk_size*nthreads) == 0){return size;}
+    else{return (chunk_size*nthreads)*(1+(size/(chunk_size*nthreads)));}
 }
-
 
 static size_t roofline_memalign(double ** data, size_t size){
     int err;
@@ -175,10 +184,11 @@ static size_t roofline_memalign(double ** data, size_t size){
 }
 
 
-static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int type){
+static void roofline_memory(FILE * output, hwloc_obj_t memory, int type,
+			    void(* bench)(const struct roofline_sample_in *, struct roofline_sample_out *, int))
+{
     char info[128];
     char progress_info[128];
-    void (* bench) (struct roofline_sample_in * in, struct roofline_sample_out * out);    
     int nc;
     int s, n_sizes;
     size_t * sizes, lower_bound_size, upper_bound_size;    
@@ -195,9 +205,6 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int ty
     nc = hwloc_obj_type_snprintf(progress_info,sizeof(progress_info),memory, 0);
     nc += snprintf(progress_info+nc, sizeof(progress_info)-nc, ":%d %s", memory->logical_index, info);
 
-    /* various initializations */
-    bench = roofline_oi_bench(oi,type);
-
     /* bind memory */
     roofline_hwloc_membind(memory);
 
@@ -206,7 +213,7 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int ty
     if(child == NULL)
 	lower_bound_size = chunk_size*n_threads;
     else{
-	lower_bound_size = 8*roofline_hwloc_get_memory_size(child);
+	lower_bound_size = 4*roofline_hwloc_get_memory_size(child);
 	if(n_threads > 1){
 	    lower_bound_size = lower_bound_size*n_threads/hwloc_bitmap_weight(child->cpuset);
 	}
@@ -230,7 +237,7 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int ty
 		n_threads/hwloc_bitmap_weight(child->cpuset));
 	}
 	else{
-	    fprintf(stderr, "%u*chunk_size(%lu B) greater memory %s(%lu B).\n",
+	    fprintf(stderr, "minimum chunk size(%u*%lu B) greater than memory %s size(%lu B). Skipping.\n",
 		    n_threads, chunk_size, 
 		    hwloc_type_name(memory->type), roofline_hwloc_get_memory_size(memory));
 	}
@@ -248,10 +255,11 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int ty
 
     for(s=0;s<n_sizes;s++){
 	roofline_progress_set(&progress_bar, "",0,s,n_sizes);
-	in.stream_size = resize_splitable_chunk(sizes[s],0);
-	roofline_autoset_loop_repeat(bench, &in, BENCHMARK_MIN_DUR,4);
+	in.stream_size = resize_splitable_chunk(sizes[s]);
+	if(in.stream_size > upper_bound_size){break;}
+	roofline_autoset_loop_repeat(bench, &in, type, BENCHMARK_MIN_DUR,4);
 	roofline_output_clear(&(samples[s]));
-	sd = roofline_repeat_bench(bench, &in, &(samples[s]), roofline_output_median);
+	sd = roofline_repeat_bench(bench, &in, &(samples[s]), type, roofline_output_median);
 	/* roofline_print_sample(output, memory, &(samples[s]), sd, info);     */
     }
 
@@ -267,9 +275,29 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, double oi, int ty
 }
 
 void roofline_bandwidth(FILE * output, hwloc_obj_t mem, int type){
-    roofline_memory(output,mem,0,type);
+    if(type & ROOFLINE_LOAD){roofline_memory(output,mem,ROOFLINE_LOAD,bandwidth_benchmark);}
+    if(type & ROOFLINE_LOAD_NT){roofline_memory(output,mem,ROOFLINE_LOAD_NT,bandwidth_benchmark);}
+    if(type & ROOFLINE_STORE){roofline_memory(output,mem,ROOFLINE_STORE,bandwidth_benchmark);}
+    if(type & ROOFLINE_STORE_NT){roofline_memory(output,mem,ROOFLINE_STORE_NT,bandwidth_benchmark);}
 }
 
-inline void roofline_oi(FILE * output, hwloc_obj_t mem, int type, double oi){
-    roofline_memory(output,mem,oi,type);
+void roofline_flops(FILE * output, int type){
+   if(type & ROOFLINE_ADD){roofline_fpeak(output,ROOFLINE_ADD);}
+   if(type & ROOFLINE_MUL){roofline_fpeak(output,ROOFLINE_MUL);}
+   if(type & ROOFLINE_MAD){roofline_fpeak(output,ROOFLINE_MAD);}
 }
+
+void roofline_oi(FILE * output, hwloc_obj_t mem, int type, double oi){
+    void(* bench)(const struct roofline_sample_in *, struct roofline_sample_out *, int);
+    int i, tp;
+    const int mem_types[4] = {ROOFLINE_LOAD, ROOFLINE_LOAD_NT, ROOFLINE_STORE, ROOFLINE_STORE_NT};
+    for(i=0;i<4;i++){
+	tp = mem_types[i];
+	if(type & tp){
+	    bench = roofline_oi_bench(oi,tp);
+	    if(bench == NULL){continue;}
+	    roofline_memory(output,mem,tp,bench);
+	}
+    }
+}
+
