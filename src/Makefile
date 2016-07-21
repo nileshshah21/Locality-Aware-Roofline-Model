@@ -12,8 +12,8 @@ PAPI=yes
 #                                              BUILD                                        #
 #############################################################################################
 CC=gcc
-OMP_FLAG= #-fopenmp
-LDFLAGS=-lhwloc -ldl
+OMP_FLAG=-fopenmp
+LDFLAGS=-lhwloc -ldl $(OMP_FLAG)
 CFLAGS=-g -Wall -Werror -Wextra -DCC=$(CC) -DOMP_FLAG=$(OMP_FLAG)
 SRC=roofline.c utils.c stats.c progress.c
 OBJ=$(patsubst %.c, %.o, $(SRC)) MSC.o

@@ -1,6 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 
-#ifdef _OPENMP
+#if defined(_OPENMP)
 #include <omp.h>
 #endif
 #include <string.h>
@@ -233,7 +233,7 @@
     simd_fp(SIMD_FMA, "14", "15", "15")
 #endif
 
-#ifdef _OPENMP
+#if defined(_OPENMP)
 
 #define asm_flops_begin(type_str, c_high, c_low) do{			\
     _Pragma("omp parallel")						\
@@ -242,7 +242,7 @@
     _Pragma("omp master")						\
     roofline_rdtsc(c_high, c_low);					\
     __asm__ __volatile__ (						\
-    "loop_flops_"type_str"repeat:\n\t"
+    "loop_flops_"type_str"_repeat:\n\t"
 
 #define asm_flops_end(in, out, type_str, c_high, c_low, c_high1, c_low1) \
     "sub $1, %0\n\t"							\
@@ -420,7 +420,7 @@ void bandwidth_benchmark(const struct roofline_sample_in * in, struct roofline_s
     chunk_size = SIMD_CHUNK_SIZE;
     ROOFLINE_STREAM_TYPE * stream = in->stream;
     size_t size = in->stream_size;
-#ifdef _OPENMP
+#if defined(_OPENMP)
 #pragma omp parallel
 #pragma omp single
 	size /= omp_get_num_threads();;
@@ -523,7 +523,7 @@ static void dprint_MUOP(int fd, int type, off_t * offset, unsigned * regnum, con
 
 static void  dprint_header(int fd) {
     dprintf(fd, "#include <stdlib.h>\n");
-    dprintf(fd, "#ifdef _OPENMP\n");
+    dprintf(fd, "#if defined(_OPENMP)\n");
     dprintf(fd, "#include <omp.h>\n");
     dprintf(fd, "#endif\n");
     dprintf(fd, "#include \"roofline.h\"\n\n");
@@ -537,7 +537,7 @@ static void dprint_oi_bench_begin(int fd, const char * id, const char * name){
     dprintf(fd, "volatile uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0;\n");
     dprintf(fd, "%s * stream = in->stream;\n",roofline_stringify(ROOFLINE_STREAM_TYPE));
     dprintf(fd, "size_t size = in->stream_size;\n");
-    dprintf(fd,"#ifdef _OPENMP\n");
+    dprintf(fd,"#if defined(_OPENMP)\n");
     dprintf(fd,"#pragma omp parallel firstprivate(size, stream)\n{\n");
     dprintf(fd,"size /= omp_get_num_threads();\n");
     dprintf(fd,"stream += omp_get_thread_num()*size/sizeof(*stream);\n");
@@ -560,12 +560,12 @@ static void dprint_oi_bench_end(int fd, const char * id, off_t offset){
     dprintf(fd,"\"jnz loop_%s_repeat\\n\\t\"\\\n", id);
     dprintf(fd,":: \"r\" (in->loop_repeat), \"r\" (stream), \"r\" (size)\\\n");
     dprintf(fd,": \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"memory\" );\n", SIMD_CLOBBERED_REGS);
-    dprintf(fd, "#ifdef _OPENMP\n");
+    dprintf(fd, "#if defined(_OPENMP)\n");
     dprintf(fd,"#pragma omp barrier\n");
     dprintf(fd,"#pragma omp master\n");
     dprintf(fd, "#endif\n");
     dprintf(fd,"rdtsc(c_high1,c_low1);\n");
-    dprintf(fd, "#ifdef _OPENMP\n");
+    dprintf(fd, "#if defined(_OPENMP)\n");
     dprintf(fd,"}\n");
     dprintf(fd, "#endif\n");
     dprintf(fd, "out->ts_end = ((c_high1 << 32) | c_low1);\n");
