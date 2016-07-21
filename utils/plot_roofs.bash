@@ -105,33 +105,28 @@ abline(h = fpeaks[,dgflops], lty=3, col=1, lwd=2);
 axis(2, labels = fpeaks[,dinfo], at = fpeaks[,dgflops], las=1, tick=FALSE, pos=xmin*2, padj=0, hadj=0)
 
 #plot validation points
-plot_points <- function(df, col_start = 0){
-  points       = subset(df, df[,dgflops]!=0 & df[,dbandwidth]!=0)
-  points_info  = unique(points[,dinfo])
-  points_objs  = unique(points[,dobj])
-
- for(i in 1:length(points_objs)){
-    obj = points_objs[i]
-    for(j in 1:length(points_info)){
-      type = points_info[j]
-      idx = col_start+(i-1)*length(points_info)+j
-      valid = subset(points, points[,dinfo]==type & points[,dobj]==obj)
-      points(valid[,doi], valid[,dgflops], asp=1, pch=idx, col=idx)
-      par(new=TRUE);
-    }
-  }
-  idx
+points = subset(d, d[,dgflops]!=0 & d[,dbandwidth]!=0)
+if($BEST){
+  #keep only for best rooflines
+  points = merge(x = points, y=bandwidths[,c(dobj,dinfo)], by.x=c(dobj,dinfo), by.y=c(1,2))[, union(names(points), names(bandwidths[,c(dobj,dinfo)]))]
 }
-plot_points(d)
+for(i in 1:nrow(bandwidths)){
+  valid = subset(points, points[,dinfo]==bandwidths[i,dinfo] & points[,dobj]==bandwidths[i,dobj])
+  points(valid[,doi], valid[,dgflops], asp=1, pch=i, col=i)
+  par(new=TRUE);
+}
 
 #plot MISC points
 if("$DATA" != ""){
-  col_start = nrow(bandwidths)
   misc = filter(read.table("$DATA",header=TRUE))
-  col_end = plot_points(misc, col_start = col_start)
-  labels = unique(misc[,dinfo])
-  range = col=col_start+1:col_end
-  legend("topright", legend=labels, cex=.7, lty=1, col=range, pch=range)
+  types = unique(misc[,dinfo])
+  range = nrow(bandwidths):nrow(bandwidths)+length(types)
+  for(i in 1:length(types)){
+    points = subset(misc, misc[,dinfo]==types[i])
+    points(points[,doi], points[,dgflops], asp=1, pch=i, col=i)
+    par(new=TRUE);
+  }
+  legend("topright", legend=types, cex=.7, lty=1, col=range, pch=range)
 }
 
 #draw axes, title and legend
