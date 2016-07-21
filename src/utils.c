@@ -1,4 +1,4 @@
-#ifdef _OPENMP
+#if defined(_OPENMP)
 #include <omp.h>
 #endif
 #include "roofline.h"
@@ -99,9 +99,6 @@ void roofline_print_sample(FILE * output, hwloc_obj_t obj, struct roofline_sampl
     hwloc_obj_type_snprintf(obj_str, 10, obj, 0);
     snprintf(obj_str+strlen(obj_str),5,":%d",obj->logical_index);
     cyc = sample_out->ts_end - sample_out->ts_start;
-#ifdef _OPENMP
-#pragma omp critical
-#endif
     if(!per_thread){
 	fprintf(output, "%12s %20lu %20lu %16lu %10.6f %10.6f %10.3f %10.3f %10.6f %10u %s\n",
 		obj_str, 
@@ -249,7 +246,7 @@ hwloc_obj_t roofline_hwloc_parse_obj(char* arg){
 extern hwloc_obj_t first_node;          /* The first node where to bind threads */
 int roofline_hwloc_cpubind(){
     hwloc_cpuset_t cpuset;
-#ifdef _OPENMP
+#if defined(_OPENMP)
     hwloc_obj_t PU, core;
     unsigned n_core;
     unsigned tid;
