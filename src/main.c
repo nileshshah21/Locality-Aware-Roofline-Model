@@ -9,9 +9,14 @@ static hwloc_obj_t mem = NULL;          /* Do we restrict memory to one memory *
 static int hyperthreading = 0;          /* If compiled with openmp do we use hyperthreading */
 
 static void usage(char * argv0){
-    printf("%s -h  -v -t <\"LOAD|LOAD_NT|STORE|STORE_NT|MUL|ADD|MAD\"> -m <hwloc_ibj:idx> -o <output> -ht\n", argv0);
-    printf("%s --help --validate --type <\"LOAD|LOAD_NT|STORE|STORE_NT|MUL|ADD|MAD\"> --memory <hwloc_obj:idx> --output <output> --with-hyperthreading\n", argv0);
-    
+#if defined(_OPENMP)
+    printf("%s -h     -v         -t     <\"LOAD|LOAD_NT|STORE|STORE_NT|MUL|ADD|MAD\"> -m       <hwloc_ibj:idx> -o       <output> -ht                   -pt\n", argv0);
+    printf("%s --help --validate --type <\"LOAD|LOAD_NT|STORE|STORE_NT|MUL|ADD|MAD\"> --memory <hwloc_obj:idx> --output <output> --with-hyperthreading --per-thread\n", argv0);
+#else
+    printf("%s -h     -v         -t     <\"LOAD|LOAD_NT|STORE|STORE_NT|MUL|ADD|MAD\"> -m       <hwloc_ibj:idx> -o       <output>\n", argv0);
+    printf("%s --help --validate --type <\"LOAD|LOAD_NT|STORE|STORE_NT|MUL|ADD|MAD\"> --memory <hwloc_obj:idx> --output <output>\n", argv0);
+
+#endif    
     exit(EXIT_SUCCESS);
 }
 
@@ -35,10 +40,12 @@ static void parse_args(int argc, char ** argv){
 	else if(!strcmp(argv[i],"--type") || !strcmp(argv[i],"-t")){
 	    parse_type(argv[++i]);
 	}
+#if defined(_OPENMP)	
 	else if(!strcmp(argv[i],"--with-hyperthreading") || !strcmp(argv[i],"-ht"))
 	    hyperthreading = 1;
 	else if(!strcmp(argv[i],"--per-thread") || !strcmp(argv[i],"-pt"))
 	    per_thread = 1;
+#endif
 	else if(!strcmp(argv[i],"--memory") || !strcmp(argv[i],"-m")){
 	    mem_str = argv[++i];
 	}
