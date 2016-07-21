@@ -1,6 +1,6 @@
 #include "roofline.h"
 #include "MSC/MSC.h"
-#ifdef _OPENMP
+#if defined(_OPENMP)
 #include <omp.h>
 #endif
 
@@ -17,7 +17,7 @@ unsigned int     roofline_types;             /* What rooflines do we want in byt
 struct roofline_progress_bar progress_bar;   /* Global progress bar of the benchmark */
 
 
-#ifdef _OPENMP
+#if defined(_OPENMP)
 int roofline_lib_init(int with_hyperthreading)
 #else
     int roofline_lib_init(__attribute__ ((unused)) int with_hyperthreading)
@@ -51,7 +51,7 @@ int roofline_lib_init(int with_hyperthreading)
 
     /* Get first node and number of threads */
     first_node = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NODE, 0);
-#ifdef _OPENMP
+#if defined(_OPENMP)
     if(with_hyperthreading)
 	n_threads = hwloc_get_nbobjs_inside_cpuset_by_type(topology, first_node->cpuset, HWLOC_OBJ_PU);
     else
@@ -141,7 +141,7 @@ void roofline_fpeak(FILE * output, int type)
     roofline_output_clear(&result);
     roofline_autoset_loop_repeat(fpeak_benchmark, &in, type, BENCHMARK_MIN_DUR, 10000);
     sd = roofline_repeat_bench(fpeak_benchmark,&in,&result, type, roofline_output_median);    
-#ifdef _OPENMP
+#if defined(_OPENMP)
     roofline_print_sample(output, first_node, &result, sd, info);
 #else
     roofline_print_sample(output, hwloc_get_obj_by_type(topology, HWLOC_OBJ_PU, 0), &result, sd, info);
@@ -151,7 +151,7 @@ void roofline_fpeak(FILE * output, int type)
 extern size_t chunk_size;
 static size_t resize_splitable_chunk(size_t size){
     int nthreads = 1;
-#ifdef _OPENMP
+#if defined(_OPENMP)
 #pragma omp parallel
 #pragma omp single
     nthreads = omp_get_num_threads();
