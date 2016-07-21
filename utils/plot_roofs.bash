@@ -9,16 +9,17 @@
 #################################################################################################################################
 
 usage(){
-    printf "plot_roofs.sh -o <output> -f <filter(for input info col)> -i <input> -d <data-file> -t <title>\n"; 
+    printf "plot_roofs.sh -o <output> -f <filter(for input info col)> -b (\"if several bandwidths matches on a resource, the best only is kept\") -i <input> -d <data-file> -t <title>\n"; 
     exit
 }
 
 FILTER="*"
 TITLE="roofline chart"
+BEST="FALSE"
 
 #################################################################################################################################
 ## Parse options
-while getopts :o:i:t:d:m:f:h opt; do
+while getopts :o:i:t:d:m:f:hb opt; do
     case $opt in
 	o) OUTPUT=$OPTARG;;
 	d) DATA=$OPTARG;;
@@ -26,6 +27,7 @@ while getopts :o:i:t:d:m:f:h opt; do
 	i) INPUT=$OPTARG;;
 	f) FILTER="$OPTARG";;
 	t) TITLE="$OPTARG";;
+	b) BEST="TRUE";;
 	h) usage;;
 	:) echo "Option -$OPTARG requires an argument."; exit;;
     esac
@@ -43,10 +45,6 @@ fi
 
 output_R(){
     R --vanilla --silent --slave <<EOF
-#Globals
-#Load data
-d = read.table("$INPUT",header=TRUE)
-
 #Columns id
 dobj       = 1;    #The obj column id
 dbandwidth = 7;    #The bandwidth column id
@@ -54,11 +52,24 @@ dgflops    = 8;    #The gflop/s column id
 doi        = 9;    #The oi column id
 dinfo      = 11;   #The info column id
 
-d = subset(d, grepl("$FILTER",d[,dinfo]))
+filter <- function(df){
+  subset(df, grepl("$FILTER", df[,dinfo], perl=TRUE))
+}
+
+#load data
+d = filter(read.table("$INPUT",header=TRUE))
 
 fpeaks            = d[d[,dbandwidth]==0,] #The peak floating point performance
 fpeak_max         = max(fpeaks[,dgflops]) #the top peak performance
 bandwidths        = d[d[,dgflops]==0,]    #The bandwidths
+
+if($BEST){
+   top_bandwidth <- function(obj){
+      max_bdw = max(bandwidths[bandwidths[,dobj]==obj, dbandwidth])
+      which(bandwidths[,dbandwidth] == max_bdw)
+   }
+   bandwidths = bandwidths[sapply(unique(bandwidths[,dobj]), top_bandwidth),]
+}
 
 #Logarithmic sequence of points
 lseq <- function(from=1, to=100000, length.out = 6) {
@@ -116,8 +127,7 @@ plot_points(d)
 #plot MISC points
 if("$DATA" != ""){
   col_start = nrow(bandwidths)
-  misc = read.table("$DATA",header=TRUE)
-  misc = subset(misc, grepl("$FILTER",misc[,dinfo]))
+  misc = filter(read.table("$DATA",header=TRUE))
   col_end = plot_points(misc, col_start = col_start)
   labels = unique(misc[,dinfo])
   range = col=col_start+1:col_end
