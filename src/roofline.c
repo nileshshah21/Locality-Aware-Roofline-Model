@@ -12,7 +12,6 @@ char *           compiler = NULL;            /* The compiler name to compile the
 char *           omp_flag = NULL;            /* The openmp flag to compile the roofline validation. */
 hwloc_obj_t      first_node = NULL;          /* The first node where to bind threads */
 unsigned         n_threads = 1;              /* The number of threads for benchmark */
-int              per_thread = 0;             /* Should results be printed with per thread value */
 unsigned int     roofline_types;             /* What rooflines do we want in byte array */
 struct roofline_progress_bar progress_bar;   /* Global progress bar of the benchmark */
 

@@ -9,17 +9,18 @@
 #################################################################################################################################
 
 usage(){
-    printf "plot_roofs.sh -o <output> -f <filter(for input info col)> -b (\"if several bandwidths matches on a resource, the best only is kept\") -i <input> -d <data-file> -t <title>\n"; 
+    printf "plot_roofs.sh -o <output> -f <filter(for input info col)> -b (\"if several bandwidths matches on a resource, the best only is kept\") -i <input> -d <data-file> -t <title> -p (per_thread: divide the values by the number of threads) \n"; 
     exit
 }
 
 FILTER="*"
 TITLE="roofline chart"
 BEST="FALSE"
+SINGLE="FALSE"
 
 #################################################################################################################################
 ## Parse options
-while getopts :o:i:t:d:m:f:hb opt; do
+while getopts :o:i:t:d:m:f:hbp opt; do
     case $opt in
 	o) OUTPUT=$OPTARG;;
 	d) DATA=$OPTARG;;
@@ -28,6 +29,7 @@ while getopts :o:i:t:d:m:f:hb opt; do
 	f) FILTER="$OPTARG";;
 	t) TITLE="$OPTARG";;
 	b) BEST="TRUE";;
+	p) SINGLE="TRUE";;
 	h) usage;;
 	:) echo "Option -$OPTARG requires an argument."; exit;;
     esac
@@ -51,6 +53,7 @@ dbandwidth = 7;    #The bandwidth column id
 dgflops    = 8;    #The gflop/s column id
 doi        = 9;    #The oi column id
 dinfo      = 11;   #The info column id
+dthreads   = 10;   #The number of threads
 
 filter <- function(df){
   subset(df, grepl("$FILTER", df[,dinfo], perl=TRUE))
@@ -60,7 +63,6 @@ filter <- function(df){
 d = filter(read.table("$INPUT",header=TRUE))
 
 fpeaks            = d[d[,dbandwidth]==0,] #The peak floating point performance
-fpeak_max         = max(fpeaks[,dgflops]) #the top peak performance
 bandwidths        = d[d[,dgflops]==0,]    #The bandwidths
 
 if($BEST){
@@ -70,6 +72,12 @@ if($BEST){
    }
    bandwidths = bandwidths[sapply(unique(bandwidths[,dobj]), top_bandwidth),]
 }
+if($SINGLE){
+  fpeaks[,dgflops] = fpeaks[,dgflops]/fpeaks[,dthreads]
+  bandwidths[,dbandwidth] = bandwidths[,dbandwidth]/bandwidth[,dthreads]
+}
+
+fpeak_max         = max(fpeaks[,dgflops]) #the top peak performance
 
 #Logarithmic sequence of points
 lseq <- function(from=1, to=100000, length.out = 6) {
