@@ -2,7 +2,7 @@
 #                                      Configuration                                        #
 #############################################################################################
 #Duration time of each sample (millisecond)
-LAST=10
+LAST=30
 #Machine specific code implementing benchmarks: MSC/MSC.h {intel only for now}
 MSC=intel
 #Use PAPI and compile tool for code sampling
@@ -34,7 +34,7 @@ endif
 	$(CC) -march=native -DBENCHMARK_MIN_DUR=$(LAST) $(CFLAGS) -c -o $@ $^ $(LDFLAGS)
 
 MSC.o: MSC/$(MSC).c
-	$(CC) -march=native -DCC=$(CC) $(CFLAGS) -c -o $@ $^ $(LDFLAGS)
+	$(CC) -march=native -Wl,-rpath=$(PWD) -DCC=$(CC) $(CFLAGS) -c -o $@ $^ $(LDFLAGS)
 
 $(BIN): main.c $(OBJ)
 	$(CC) $(CFLAGS) -pedantic-errors $^ -o $@ $(LDFLAGS) -lhwloc -lm
