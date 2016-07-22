@@ -340,7 +340,7 @@ inline size_t roofline_hwloc_get_instruction_cache_size(void){
 }
 
 
-hwloc_obj_t roofline_hwloc_get_previous_memory(hwloc_obj_t obj){
+hwloc_obj_t roofline_hwloc_get_under_memory(hwloc_obj_t obj){
     hwloc_obj_t child;
     if(obj==NULL)
 	return NULL;
@@ -358,22 +358,31 @@ hwloc_obj_t roofline_hwloc_get_previous_memory(hwloc_obj_t obj){
 
 
 hwloc_obj_t roofline_hwloc_get_next_memory(hwloc_obj_t obj){
-    hwloc_obj_t tmp,root;
+    float latency0[2], latency1[2];
+    hwloc_obj_t tmp,root, node0;
     root = hwloc_get_root_obj(topology);
+    
     /* If current_obj is not set, start from the bottom of the topology to return the first memory */
     if(obj == NULL){
 	obj = hwloc_get_obj_by_depth(topology,hwloc_topology_get_depth(topology)-1,0);
     }
     /* If current_mem_obj is a node, get next node at this depth*/
     if(obj->type==HWLOC_OBJ_NODE){
-	tmp = hwloc_get_next_obj_by_type(topology,obj->type, obj);
-	if(tmp != NULL && tmp->logical_index!=0){
-	    obj = tmp;
-	    return obj;
+	/* get latency from obj to node0 */
+	node0 = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NODE, 0);
+	hwloc_get_latency(topology, node0, obj, &(latency0[0]), &(latency0[1]));
+	/* get next node */	
+	tmp = hwloc_get_next_obj_by_type(topology,HWLOC_OBJ_NODE, obj);
+	while(tmp != NULL){
+	    /* If latency is equal then skip this node beacause we don't want twice the same information */
+	    hwloc_get_latency(topology, node0, tmp, &(latency1[0]), &(latency1[1]));
+	    if(latency1[0]!=latency0[0] && latency1[1]!=latency0[1])
+		return tmp;
+	    /* get next node */
+	    tmp = hwloc_get_next_obj_by_type(topology,HWLOC_OBJ_NODE, tmp);
 	}
     }
-    /* climb the topology on left side (assuming:
-     * each node at a given depth have the same amount of children and are of the same type) */
+    /* obj is not a node or there is no remaining node, then climb the topology on left side */
     while(obj != root){
 	obj = hwloc_get_obj_by_depth(topology,obj->depth-1,0);
 	if(roofline_hwloc_obj_is_memory(obj)){
