@@ -9,7 +9,7 @@
 #################################################################################################################################
 
 usage(){
-    printf "plot_roofs.sh -o <output> -f <filter(for input info col)> -b (\"if several bandwidths matches on a resource, the best only is kept\") -i <input> -d <data-file> -t <title> -p (per_thread: divide the values by the number of threads) \n"; 
+    printf "plot_roofs.sh -o <output> -f <filter(for input info col)> -b (\"if several bandwidths matches on a resource, the best only is kept\") -i <input> -d <data-file> -t <title> -p (per_thread: divide the values by the number of threads) -v (plot validation points if any)\n"; 
     exit
 }
 
@@ -17,10 +17,10 @@ FILTER="*"
 TITLE="roofline chart"
 BEST="FALSE"
 SINGLE="FALSE"
-
+VALIDATION="FALSE"
 #################################################################################################################################
 ## Parse options
-while getopts :o:i:t:d:m:f:hbp opt; do
+while getopts :o:i:t:d:m:f:hbpv opt; do
     case $opt in
 	o) OUTPUT=$OPTARG;;
 	d) DATA=$OPTARG;;
@@ -30,6 +30,7 @@ while getopts :o:i:t:d:m:f:hbp opt; do
 	t) TITLE="$OPTARG";;
 	b) BEST="TRUE";;
 	p) SINGLE="TRUE";;
+	v) VALIDATION="TRUE";;
 	h) usage;;
 	:) echo "Option -$OPTARG requires an argument."; exit;;
     esac
@@ -74,7 +75,7 @@ if($BEST){
 }
 if($SINGLE){
   fpeaks[,dgflops] = fpeaks[,dgflops]/fpeaks[,dthreads]
-  bandwidths[,dbandwidth] = bandwidths[,dbandwidth]/bandwidth[,dthreads]
+  bandwidths[,dbandwidth] = bandwidths[,dbandwidth]/bandwidths[,dthreads]
 }
 
 fpeak_max         = max(fpeaks[,dgflops]) #the top peak performance
@@ -113,15 +114,21 @@ abline(h = fpeaks[,dgflops], lty=3, col=1, lwd=2);
 axis(2, labels = fpeaks[,dinfo], at = fpeaks[,dgflops], las=1, tick=FALSE, pos=xmin*2, padj=0, hadj=0)
 
 #plot validation points
-points = subset(d, d[,dgflops]!=0 & d[,dbandwidth]!=0)
-if($BEST){
-  #keep only for best rooflines
-  points = merge(x = points, y=bandwidths[,c(dobj,dinfo)], by.x=c(dobj,dinfo), by.y=c(1,2))[, union(names(points), names(bandwidths[,c(dobj,dinfo)]))]
-}
-for(i in 1:nrow(bandwidths)){
-  valid = subset(points, points[,dinfo]==bandwidths[i,dinfo] & points[,dobj]==bandwidths[i,dobj])
-  points(valid[,doi], valid[,dgflops], asp=1, pch=i, col=i)
-  par(new=TRUE);
+if($VALIDATION){
+  points = subset(d, d[,dgflops]!=0 & d[,dbandwidth]!=0)
+  if($BEST){
+    #keep only for best rooflines
+    points = merge(x = points, y=bandwidths[,c(dobj,dinfo)], by.x=c(dobj,dinfo), by.y=c(1,2))[, union(names(points), names(bandwidths[,c(dobj,dinfo)]))]
+  }
+  for(i in 1:nrow(bandwidths)){
+    valid = subset(points, points[,dinfo]==bandwidths[i,dinfo] & points[,dobj]==bandwidths[i,dobj])
+    if($SINGLE){
+      valid[,dgflops] = valid[,dgflops]/valid[,dthreads]
+      valid[,dbandwidth] = valid[,dbandwidth]/valid[,dthreads]
+    }
+    points(valid[,doi], valid[,dgflops], asp=1, pch=i, col=i)
+    par(new=TRUE);
+  }
 }
 
 #plot MISC points
@@ -131,6 +138,10 @@ if("$DATA" != ""){
   range = nrow(bandwidths):nrow(bandwidths)+length(types)
   for(i in 1:length(types)){
     points = subset(misc, misc[,dinfo]==types[i])
+    if($SINGLE){
+      points[,dgflops] = points[,dgflops]/points[,dthreads]
+      points[,dbandwidth] = points[,dbandwidth]/points[,dthreads]
+    }
     points(points[,doi], points[,dgflops], asp=1, pch=i, col=i)
     par(new=TRUE);
   }
