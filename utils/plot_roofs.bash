@@ -113,12 +113,13 @@ pdf("$OUTPUT", family = "Helvetica", title="roofline chart", width=10, height=5)
 
 #plot bandwidths roofs
 par(ann=FALSE)
-plot_bandwidth <- function(bandwidth, dev = 0, color = 1){
+plot_bandwidth <- function(bandwidth, bytes_dev = 0, color = 1){
   gflops     = sapply(oi*bandwidth, min, fpeak_max)
   plot(oi, gflops, lty=1, type="l", log="xy", axes=FALSE, xlim=xlim, ylim=ylim, col=color, panel.first=abline(h=yticks, v=xticks,col = "darkgray", lty = 3))
   par(new=TRUE);
   if($DEVIATION){
-    coord.x = c(xmin*(1-dev/2), fpeak_max*(1-dev/2)/bandwidth, fpeak_max*(1+dev/2)/bandwidth, xmin*(1+dev/2))
+    xdev=dev*0.5*sqrt(1+1/(bandwidth*bandwidth))
+    coord.x = c(xmin*(1-xdev), fpeak_max/bandwidth*(1 - xdev), fpeak_max/bandwidth*(1 + xdev), xmin*(1+xdev))
     coord.y = c(xmin*bandwidth, fpeak_max, fpeak_max, xmin*bandwidth)
     polygon(coord.x,coord.y,col=adjustcolor(i,alpha.f=.25), lty="blank")
     par(new=TRUE);
@@ -127,7 +128,7 @@ plot_bandwidth <- function(bandwidth, dev = 0, color = 1){
 for(i in 1:nrow(bandwidths)){
   bandwidth = bandwidths[i,dbandwidth];
   dev = bandwidths[i,ddev]/bandwidths[i,dthroughput];
-  plot_bandwidth(bandwidth, dev = dev, col=i);
+  plot_bandwidth(bandwidth, bytes_dev = dev, col=i);
 }
 
 #plot fpeak roofs
