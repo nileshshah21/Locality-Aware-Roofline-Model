@@ -27,7 +27,7 @@ double roofline_output_sd(struct roofline_sample_out * out, unsigned n){
 	throughput *= throughput;
 	sd += throughput;
     }
-    return sqrt(sd)/n;
+    return sqrt(sd/n);
 }
 
 int comp_roofline_throughput(void * a, void * b){
