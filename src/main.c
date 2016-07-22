@@ -83,7 +83,7 @@ int main(int argc, char * argv[]){
 	if(mem == NULL)
 	errEXIT("Unrecognized object");
 	if(!roofline_hwloc_obj_is_memory(mem))
-	mem = roofline_hwloc_get_previous_memory(mem);
+	mem = roofline_hwloc_get_under_memory(mem);
     }
 
     out = open_output(output);

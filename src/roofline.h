@@ -107,7 +107,7 @@ int         roofline_hwloc_membind(hwloc_obj_t);
 int         roofline_hwloc_obj_is_memory(hwloc_obj_t);
 size_t      roofline_hwloc_get_memory_size(hwloc_obj_t);
 hwloc_obj_t roofline_hwloc_get_next_memory(hwloc_obj_t);
-hwloc_obj_t roofline_hwloc_get_previous_memory(hwloc_obj_t);
+hwloc_obj_t roofline_hwloc_get_under_memory(hwloc_obj_t);
 hwloc_obj_t roofline_hwloc_get_instruction_cache(void);
 size_t      roofline_hwloc_get_instruction_cache_size(void);
 
