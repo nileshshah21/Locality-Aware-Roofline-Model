@@ -9,7 +9,17 @@
 #################################################################################################################################
 
 usage(){
-    printf "plot_roofs.sh -o <output> -f <filter(for input info col)> -b (\"if several bandwidths matches on a resource, the best only is kept\") -i <input> -d <data-file> -t <title> -p (per_thread: divide the values by the number of threads) -v (plot validation points if any)\n"; 
+    printf "plot_roofs.sh <options...>\n\n"
+    printf "options:\n"
+    printf "\t-o <output file(pdf)>\n"
+    printf "\t-f <perl regular expression to filter input rows. (Match is done on info column)> \n"
+    printf "\t-b (if several bandwidths matches on a resource, the best only is kept)\n"
+    printf "\t-i <input file given by roofline utility>\n"
+    printf "\t-d <input data-file given by roofline library to plot applications on the roofline chart>\n"
+    printf "\t-t <plot title>\n"
+    printf "\t-p (per_thread: divide roofs' value by the number of threads)\n"
+    printf "\t-v (plot validation points if any)\n"
+    printf "\t-s (plot bandwidths deviation around median)\n" 
     exit
 }
 
@@ -18,9 +28,10 @@ TITLE="roofline chart"
 BEST="FALSE"
 SINGLE="FALSE"
 VALIDATION="FALSE"
+DEVIATION="FALSE"
 #################################################################################################################################
 ## Parse options
-while getopts :o:i:t:d:m:f:hbpv opt; do
+while getopts :o:i:t:d:m:f:hbpvs opt; do
     case $opt in
 	o) OUTPUT=$OPTARG;;
 	d) DATA=$OPTARG;;
@@ -31,6 +42,7 @@ while getopts :o:i:t:d:m:f:hbpv opt; do
 	b) BEST="TRUE";;
 	p) SINGLE="TRUE";;
 	v) VALIDATION="TRUE";;
+	s) DEVIATION="TRUE";;
 	h) usage;;
 	:) echo "Option -$OPTARG requires an argument."; exit;;
     esac
@@ -49,12 +61,14 @@ fi
 output_R(){
     R --vanilla --silent --slave <<EOF
 #Columns id
-dobj       = 1;    #The obj column id
-dbandwidth = 7;    #The bandwidth column id
-dgflops    = 8;    #The gflop/s column id
-doi        = 9;    #The oi column id
-dinfo      = 11;   #The info column id
-dthreads   = 10;   #The number of threads
+dobj        = 1;    #The obj column id
+dthroughput = 5;    #The instruction throughput
+ddev        = 6;    #The instruction throughput standard deviation
+dbandwidth  = 7;    #The bandwidth column id
+dgflops     = 8;    #The gflop/s column id
+doi         = 9;    #The oi column id
+dthreads    = 10;   #The number of threads
+dinfo       = 11;   #The info column id
 
 filter <- function(df){
   subset(df, grepl("$FILTER", df[,dinfo], perl=TRUE))
@@ -99,14 +113,23 @@ pdf("$OUTPUT", family = "Helvetica", title="roofline chart", width=10, height=5)
 
 #plot bandwidths roofs
 par(ann=FALSE)
-plot_bandwidth <- function(bandwidth, color = 1){
-  gflops = sapply(oi*bandwidth, min, fpeak_max)
+plot_bandwidth <- function(bandwidth, dev = 0, color = 1){
+  gflops     = sapply(oi*bandwidth, min, fpeak_max)
   plot(oi, gflops, lty=1, type="l", log="xy", axes=FALSE, xlim=xlim, ylim=ylim, col=color, panel.first=abline(h=yticks, v=xticks,col = "darkgray", lty = 3))
   par(new=TRUE);
+  if($DEVIATION){
+    gflops_inf = sapply(oi*bandwidth*(1-dev/2), min, fpeak_max)
+    gflops_sup = sapply(oi*bandwidth*(1+dev/2), min, fpeak_max)
+    plot(oi, gflops_inf, lty=2, type="l", log="xy", axes=FALSE, xlim=xlim, ylim=ylim, col=color, panel.first=abline(h=yticks, v=xticks,col = "darkgray", lty = 3))
+    par(new=TRUE);
+    plot(oi, gflops_sup, lty=2, type="l", log="xy", axes=FALSE, xlim=xlim, ylim=ylim, col=color, panel.first=abline(h=yticks, v=xticks,col = "darkgray", lty = 3))
+    par(new=TRUE);
+  }
 }
 for(i in 1:nrow(bandwidths)){
   bandwidth = bandwidths[i,dbandwidth];
-  plot_bandwidth(bandwidth, i);
+  dev = bandwidths[i,ddev]/bandwidths[i,dthroughput];
+  plot_bandwidth(bandwidth, dev = dev, col=i);
 }
 
 #plot fpeak roofs
@@ -124,7 +147,6 @@ if($VALIDATION){
     valid = subset(points, points[,dinfo]==bandwidths[i,dinfo] & points[,dobj]==bandwidths[i,dobj])
     if($SINGLE){
       valid[,dgflops] = valid[,dgflops]/valid[,dthreads]
-      valid[,dbandwidth] = valid[,dbandwidth]/valid[,dthreads]
     }
     points(valid[,doi], valid[,dgflops], asp=1, pch=i, col=i)
     par(new=TRUE);
@@ -140,7 +162,6 @@ if("$DATA" != ""){
     points = subset(misc, misc[,dinfo]==types[i])
     if($SINGLE){
       points[,dgflops] = points[,dgflops]/points[,dthreads]
-      points[,dbandwidth] = points[,dbandwidth]/points[,dthreads]
     }
     points(points[,doi], points[,dgflops], asp=1, pch=i, col=i)
     par(new=TRUE);
