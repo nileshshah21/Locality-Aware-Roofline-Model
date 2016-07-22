@@ -16,17 +16,18 @@ unsigned roofline_PPCM(unsigned a, unsigned b){
 
 double roofline_output_sd(struct roofline_sample_out * out, unsigned n){
     unsigned i;
-    double mean = 0, M2 = 0, delta = 0, throughput;
-    for(i=0;i<n;i++){
-	throughput = (double)(out[i].instructions) / (double)(out[i].ts_end - out[i].ts_start);
-	delta = throughput-mean;
-        mean += delta/(i+1);
-	M2 += delta*(throughput - mean);
-    }
+    double median = roofline_output_median(out, n);
+    double sd = 0, throughput;
     if(n < 2)
         return 0;
-    else
-        return sqrt(M2 / (n-1));
+
+    for(i=0;i<n;i++){
+	throughput = (double)(out[i].instructions) / (double)(out[i].ts_end - out[i].ts_start);
+	throughput = throughput - median;
+	throughput *= throughput;
+	sd += throughput;
+    }
+    return sqrt(sd/n);
 }
 
 int comp_roofline_throughput(void * a, void * b){
