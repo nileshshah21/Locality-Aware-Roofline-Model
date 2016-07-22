@@ -118,11 +118,9 @@ plot_bandwidth <- function(bandwidth, dev = 0, color = 1){
   plot(oi, gflops, lty=1, type="l", log="xy", axes=FALSE, xlim=xlim, ylim=ylim, col=color, panel.first=abline(h=yticks, v=xticks,col = "darkgray", lty = 3))
   par(new=TRUE);
   if($DEVIATION){
-    gflops_inf = sapply(oi*bandwidth*(1-dev/2), min, fpeak_max)
-    gflops_sup = sapply(oi*bandwidth*(1+dev/2), min, fpeak_max)
-    plot(oi, gflops_inf, lty=2, type="l", log="xy", axes=FALSE, xlim=xlim, ylim=ylim, col=color, panel.first=abline(h=yticks, v=xticks,col = "darkgray", lty = 3))
-    par(new=TRUE);
-    plot(oi, gflops_sup, lty=2, type="l", log="xy", axes=FALSE, xlim=xlim, ylim=ylim, col=color, panel.first=abline(h=yticks, v=xticks,col = "darkgray", lty = 3))
+    coord.x = c(xmin*(1-dev/2), fpeak_max*(1-dev/2)/bandwidth, fpeak_max*(1+dev/2)/bandwidth, xmin*(1+dev/2))
+    coord.y = c(xmin*bandwidth, fpeak_max, fpeak_max, xmin*bandwidth)
+    polygon(coord.x,coord.y,col=adjustcolor(i,alpha.f=.25), lty="blank")
     par(new=TRUE);
   }
 }
