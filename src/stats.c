@@ -14,15 +14,19 @@ unsigned roofline_PPCM(unsigned a, unsigned b){
     return a*b/roofline_PGCD(a,b);
 }
 
+static inline double roofline_output_throughput(struct roofline_sample_out * out){
+    return (double)(out->instructions) / (double)(out->ts_end - out->ts_start);
+}
+
 double roofline_output_sd(struct roofline_sample_out * out, unsigned n){
     unsigned i;
-    double median = roofline_output_median(out, n);
+    double median = roofline_output_throughput(&(out[roofline_output_median(out, n)]));
     double sd = 0, throughput;
     if(n < 2)
         return 0;
 
     for(i=0;i<n;i++){
-	throughput = (double)(out[i].instructions) / (double)(out[i].ts_end - out[i].ts_start);
+	throughput = roofline_output_throughput(&(out[i]));
 	throughput = throughput - median;
 	throughput *= throughput;
 	sd += throughput;
