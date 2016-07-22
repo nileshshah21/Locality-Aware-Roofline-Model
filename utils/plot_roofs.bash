@@ -132,7 +132,7 @@ for(i in 1:nrow(bandwidths)){
 
 #plot fpeak roofs
 abline(h = fpeaks[,dgflops], lty=3, col=1, lwd=2);
-axis(2, labels = fpeaks[,dinfo], at = fpeaks[,dgflops], las=1, tick=FALSE, pos=xmin*2, padj=0, hadj=0)
+axis(2, labels = fpeaks[,dinfo], at = fpeaks[,dgflops], las=1, tick=FALSE, pos=xmin, padj=0, hadj=0)
 
 #plot validation points
 if($VALIDATION){
