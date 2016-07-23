@@ -108,8 +108,9 @@ int main(int argc, char * argv[]){
 	    else{
 		roofline_bandwidth(out, mem, roofline_types);
 		if(oi<0){
-		    for(oi = pow(2,-10); oi < pow(2,6); oi*=2){
-			roofline_oi(out, mem, roofline_types, oi);
+		    double op_int = oi;
+		    for(op_int = pow(2,-10); op_int < pow(2,6); op_int*=2){
+			roofline_oi(out, mem, roofline_types, op_int);
 		    }
 		}
 	    }
@@ -122,8 +123,9 @@ int main(int argc, char * argv[]){
 	else{
 	    roofline_bandwidth(out, mem, roofline_types);
 	    if(oi<0){
-		for(oi = pow(2,-10); oi < pow(2,6); oi*=2){
-		    roofline_oi(out, mem, roofline_types, oi);
+		double op_int = oi;
+		for(op_int = pow(2,-10); op_int < pow(2,6); op_int*=2){
+		    roofline_oi(out, mem, roofline_types, op_int);
 		}
 	    }
 	}
