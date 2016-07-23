@@ -3,19 +3,22 @@
 
 /* options */
 static char * output = NULL;            /* Where to print output */
-static int validate = 0;                /* Do we perform validation benchmarks */
 static char * mem_str = NULL;           /* Do we restrict memory to one memory */
 static hwloc_obj_t mem = NULL;          /* Do we restrict memory to one memory */
 static int hyperthreading = 0;          /* If compiled with openmp do we use hyperthreading */
+static double oi = 0;                   /* -1 => perform validation benchmarks, >0 => perform validation benchmarks on value */
 
 static void usage(char * argv0){
+    printf("%s <options...>\n\n", argv0);
+    printf("OPTIONS:\n");
+    printf("\t-h, --help: print this help message\n");
+    printf("\t-v, --validate: perform roofline validation checking. This will run benchmark for several operational intensity trying to hit the roofs.\n");
+    printf("\t-oi, --operational-intensity: perform roofline validation checking on current operational intensity.\n");
+    printf("\t-t, --type  <\"LOAD|LOAD_NT|STORE|STORE_NT|MUL|ADD|MAD\">: choose the roofline types among load, load_nt, store, store_nt for memory, add, mul, and fma for fpeak.\n");
+    printf("\t-m, --memory <hwloc_ibj:idx>: restrict memory roofline to a single memory in the hierarchiy.\n");
+    printf("\t-o, --output <output>: Set output file to write restults.\n");
 #if defined(_OPENMP)
-    printf("%s -h     -v         -t     <\"LOAD|LOAD_NT|STORE|STORE_NT|MUL|ADD|MAD\"> -m       <hwloc_ibj:idx> -o       <output> -ht\n", argv0);
-    printf("%s --help --validate --type <\"LOAD|LOAD_NT|STORE|STORE_NT|MUL|ADD|MAD\"> --memory <hwloc_obj:idx> --output <output> --with-hyperthreading\n", argv0);
-#else
-    printf("%s -h     -v         -t     <\"LOAD|LOAD_NT|STORE|STORE_NT|MUL|ADD|MAD\"> -m       <hwloc_ibj:idx> -o       <output>\n", argv0);
-    printf("%s --help --validate --type <\"LOAD|LOAD_NT|STORE|STORE_NT|MUL|ADD|MAD\"> --memory <hwloc_obj:idx> --output <output>\n", argv0);
-
+    printf("\t-ht, --with-hyperthreading: use hyperthreading for benchmarks\n");
 #endif    
     exit(EXIT_SUCCESS);
 }
@@ -36,7 +39,9 @@ static void parse_args(int argc, char ** argv){
 	if(!strcmp(argv[i],"--help") || !strcmp(argv[i],"-h"))
 	    usage(argv[0]);
 	else if(!strcmp(argv[i],"--validate") || !strcmp(argv[i],"-v"))
-	    validate = 1;
+	    oi = -1;
+	else if(!strcmp(argv[i],"--operational-intensity") || !strcmp(argv[i],"-oi"))
+	    oi = atof(argv[++i]);
 	else if(!strcmp(argv[i],"--type") || !strcmp(argv[i],"-t")){
 	    parse_type(argv[++i]);
 	}
@@ -97,21 +102,29 @@ int main(int argc, char * argv[]){
     /* roofline every memory obj */
     if(mem == NULL){
 	while((mem = roofline_hwloc_get_next_memory(mem)) != NULL){
-	    roofline_bandwidth(out, mem, roofline_types);
-	    if(validate){
-		double oi;
-		for(oi = pow(2,-10); oi < pow(2,6); oi*=2){
-		    roofline_oi(out, mem, roofline_types, oi);
+	    if(oi>0){
+		roofline_oi(out, mem, roofline_types, oi);
+	    }
+	    else{
+		roofline_bandwidth(out, mem, roofline_types);
+		if(oi<0){
+		    for(oi = pow(2,-10); oi < pow(2,6); oi*=2){
+			roofline_oi(out, mem, roofline_types, oi);
+		    }
 		}
 	    }
 	}
     }
     else{
-	roofline_bandwidth(out, mem, roofline_types);
-	if(validate){
-	    double oi;
-	    for(oi = pow(2,-10); oi < pow(2,6); oi*=2){
-		roofline_oi(out, mem, roofline_types, oi);
+	if(oi>0){
+	    roofline_oi(out, mem, roofline_types, oi);
+	}
+	else{
+	    roofline_bandwidth(out, mem, roofline_types);
+	    if(oi<0){
+		for(oi = pow(2,-10); oi < pow(2,6); oi*=2){
+		    roofline_oi(out, mem, roofline_types, oi);
+		}
 	    }
 	}
     }
