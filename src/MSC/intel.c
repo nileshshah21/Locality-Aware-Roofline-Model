@@ -606,7 +606,7 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int type, dou
 	mem_instructions = fop_instructions = SIMD_N_REGS;
     }
     else if(mop_per_fop > 1){
-	fop_instructions = roofline_PPCM(mop_per_fop+1, SIMD_N_REGS)/(mop_per_fop+1);
+	fop_instructions = SIMD_N_REGS;
 	mem_instructions = fop_instructions*mop_per_fop;
 	for(i=0;i<mem_instructions;i++){
 	    dprint_MUOP(fd, type, &offset, &regnum, reg_mv);
@@ -617,7 +617,7 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int type, dou
 	}
     }
     else if(fop_per_mop > 1){
-	mem_instructions = roofline_PPCM(fop_per_mop+1, SIMD_N_REGS)/(fop_per_mop+1);
+	mem_instructions = SIMD_N_REGS;
 	fop_instructions = mem_instructions*fop_per_mop;
 	for(i=0;i<fop_instructions;i++){
 	    if(i%fop_per_mop == 0) {
