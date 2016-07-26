@@ -133,6 +133,8 @@ for(i in 1:nrow(bandwidths)){
 
 #plot fpeak roofs
 abline(h = fpeaks[,dgflops], lty=3, col=1, lwd=2);
+yticks = c(yticks, fpeaks[,dgflops])
+ylabels = c(ylabels, paste(fpeaks[,dgflops]))
 axis(2, labels = fpeaks[,dinfo], at = fpeaks[,dgflops], las=1, tick=FALSE, pos=xmin, padj=0, hadj=0)
 
 #plot validation points
@@ -170,9 +172,9 @@ if("$DATA" != ""){
 
 #draw axes, title and legend
 axis(1, at=xticks, labels=xlabels)
-axis(2, at=yticks, labels=ylabels)
+axis(2, at=yticks, labels=ylabels, las=1)
 title(main = "$TITLE", xlab="Flops/Byte", ylab="GFlops/s")
-legend("bottomright", legend=paste(bandwidths[,dobj], bandwidths[,dinfo], sep=" "), cex=.7, lty=1, col=1:nrow(bandwidths))
+legend("bottomright", legend=paste(bandwidths[,dobj], paste(bandwidths[,dinfo], bandwidths[,dbandwidth], sep="="), "GB/s", sep=" "), cex=.7, lty=1, col=1:nrow(bandwidths))
 box()
 
 #output
