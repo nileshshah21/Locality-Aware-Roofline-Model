@@ -23,7 +23,7 @@ usage(){
     exit
 }
 
-FILTER="*"
+FILTER=".*"
 TITLE="roofline chart"
 BEST="FALSE"
 SINGLE="FALSE"
@@ -100,7 +100,7 @@ lseq <- function(from=1, to=100000, length.out = 6) {
 }
 
 # axes
-xmin = 2^-8; xmax = 2^6; xlim = c(xmin,xmax)
+xmin = 2^-12; xmax = 2^6; xlim = c(xmin,xmax)
 xticks = lseq(xmin,xmax,log(xmax/xmin,base=2) + 1)
 xlabels = sapply(xticks, function(i) as.expression(bquote(2^ .(round(log(i,base=2))))))
 oi = lseq(xmin,xmax,500)
