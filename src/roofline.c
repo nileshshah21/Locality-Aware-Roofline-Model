@@ -258,13 +258,13 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, int type,
 	if(in.stream_size > upper_bound_size){break;}
 	roofline_autoset_loop_repeat(bench, &in, type, BENCHMARK_MIN_DUR,4);
 	roofline_output_clear(&(samples[s]));
-	sd = roofline_repeat_bench(bench, &in, &(samples[s]), type, roofline_output_median);
+	bench(&in, &(samples[s]), type);
 	/* roofline_print_sample(output, memory, &(samples[s]), sd, info);     */
     }
 
-    roofline_progress_set(&progress_bar, "",0,s,n_sizes);
-    median = samples[roofline_output_median(samples,n_sizes)];
-    sd = roofline_output_sd(samples, n_sizes);
+    roofline_progress_set(&progress_bar, "",0,s,s);
+    median = samples[roofline_output_median(samples,s)];
+    sd = roofline_output_sd(samples, s);
     roofline_progress_clean();    
     roofline_print_sample(output, memory, &median, sd, info);    
     
@@ -278,6 +278,7 @@ void roofline_bandwidth(FILE * output, hwloc_obj_t mem, int type){
     if(type & ROOFLINE_LOAD_NT){roofline_memory(output,mem,ROOFLINE_LOAD_NT,bandwidth_benchmark);}
     if(type & ROOFLINE_STORE){roofline_memory(output,mem,ROOFLINE_STORE,bandwidth_benchmark);}
     if(type & ROOFLINE_STORE_NT){roofline_memory(output,mem,ROOFLINE_STORE_NT,bandwidth_benchmark);}
+    if(type & ROOFLINE_2LD1ST){roofline_memory(output,mem,ROOFLINE_2LD1ST,bandwidth_benchmark);}
 }
 
 void roofline_flops(FILE * output, int type){
@@ -289,8 +290,8 @@ void roofline_flops(FILE * output, int type){
 void roofline_oi(FILE * output, hwloc_obj_t mem, int type, double oi){
     void(* bench)(const struct roofline_sample_in *, struct roofline_sample_out *, int);
     int i, tp;
-    const int mem_types[4] = {ROOFLINE_LOAD, ROOFLINE_LOAD_NT, ROOFLINE_STORE, ROOFLINE_STORE_NT};
-    for(i=0;i<4;i++){
+    const int mem_types[5] = {ROOFLINE_LOAD, ROOFLINE_LOAD_NT, ROOFLINE_STORE, ROOFLINE_STORE_NT, ROOFLINE_2LD1ST};
+    for(i=0;i<5;i++){
 	tp = mem_types[i];
 	if(type & tp){
 	    bench = roofline_oi_bench(oi,tp);
