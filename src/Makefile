@@ -2,7 +2,7 @@
 #                                      Configuration                                        #
 #############################################################################################
 #Duration time of each sample (millisecond)
-LAST=30
+LAST=100
 #Machine specific code implementing benchmarks: MSC/MSC.h {intel only for now}
 MSC=intel
 #Use PAPI and compile tool for code sampling
@@ -12,7 +12,7 @@ PAPI=yes
 #                                              BUILD                                        #
 #############################################################################################
 CC=gcc
-OMP_FLAG=-fopenmp
+OMP_FLAG= #-fopenmp
 LDFLAGS=-lhwloc -ldl $(OMP_FLAG)
 CFLAGS=-g -Wall -Werror -Wextra -DCC=$(CC) -DOMP_FLAG=$(OMP_FLAG)
 SRC=roofline.c utils.c stats.c progress.c
