@@ -637,6 +637,8 @@ void fpeak_benchmark(const struct roofline_sample_in * in, struct roofline_sampl
 
 #endif
 
+#define reg_mv "%%r11"
+
 size_t chunk_size = SIMD_CHUNK_SIZE; /* default chunk_size */
 #define roofline_load_ins_loop simd_mov(roofline_load_ins, reg_mv)
 #define roofline_loadnt_ins_loop simd_mov(roofline_loadnt_ins, reg_mv)
@@ -644,7 +646,6 @@ size_t chunk_size = SIMD_CHUNK_SIZE; /* default chunk_size */
 #define roofline_storent_ins_loop simd_mov(roofline_storent_ins, reg_mv)
 #define roofline_2ld1st_ins_loop simd_2ld1st(reg_mv)
 
-#define reg_mv "%%r11"
 #define bandwidth_asm_begin(type_name)					\
     __asm__ __volatile__ (						\
     "loop_"type_name"_repeat:\n\t"					\
@@ -761,16 +762,16 @@ static void dprint_FUOP(int fd, const char * op, unsigned * regnum){
 static void dprint_MUOP(int fd, int type, off_t * offset, unsigned * regnum, const char * datareg){
     switch(type){
     case ROOFLINE_LOAD:
-	dprintf(fd, "\"%s %lu(%s), %%%%%s%d\\n\\t\"\\\n", SIMD_LOAD, *offset, datareg, SIMD_REG, *regnum);
+	dprintf(fd, "\"%s %lu(%%%%%s), %%%%%s%d\\n\\t\"\\\n", SIMD_LOAD, *offset, datareg, SIMD_REG, *regnum);
 	break;
     case ROOFLINE_LOAD_NT:
-	dprintf(fd, "\"%s %lu(%s), %%%%%s%d\\n\\t\"\\\n", SIMD_LOAD_NT, *offset, datareg, SIMD_REG, *regnum);
+	dprintf(fd, "\"%s %lu(%%%%%s), %%%%%s%d\\n\\t\"\\\n", SIMD_LOAD_NT, *offset, datareg, SIMD_REG, *regnum);
 	break;
     case ROOFLINE_STORE:
-	dprintf(fd, "\"%s %%%%%s%d, %lu(%s)\\n\\t\"\\\n", SIMD_STORE, SIMD_REG, *regnum, *offset, datareg);
+	dprintf(fd, "\"%s %%%%%s%d, %lu(%%%%%s)\\n\\t\"\\\n", SIMD_STORE, SIMD_REG, *regnum, *offset, datareg);
 	break;
     case ROOFLINE_STORE_NT:
-	dprintf(fd, "\"%s %%%%%s%d, %lu(%s)\\n\\t\"\\\n", SIMD_STORE_NT, SIMD_REG, *regnum, *offset, datareg);
+	dprintf(fd, "\"%s %%%%%s%d, %lu(%%%%%s)\\n\\t\"\\\n", SIMD_STORE_NT, SIMD_REG, *regnum, *offset, datareg);
 	break;
     default:
 	break;
@@ -805,13 +806,13 @@ static void dprint_oi_bench_begin(int fd, const char * id, const char * name){
     dprintf(fd,"rdtsc(c_high,c_low);\n");
     dprintf(fd, "__asm__ __volatile__ (\\\n");
     dprintf(fd, "\"loop_%s_repeat:\\n\\t\"\\\n", id);
-    dprintf(fd, "\"mov %%1, %s\\n\\t\"\\\n", reg_mv);
+    dprintf(fd, "\"mov %%1, %%%%r11\\n\\t\"\\\n");
     dprintf(fd, "\"mov %%2, %%%%r12\\n\\t\"\\\n");
     dprintf(fd, "\"buffer_%s_increment:\\n\\t\"\\\n", id);
 }
 
 static void dprint_oi_bench_end(int fd, const char * id, off_t offset){
-    dprintf(fd,"\"add $%lu, %s\\n\\t\"\\\n", offset, reg_mv);
+    dprintf(fd,"\"add $%lu, %%%%r11\\n\\t\"\\\n", offset);
     dprintf(fd,"\"sub $%lu, %%%%r12\\n\\t\"\\\n", offset);
     dprintf(fd,"\"jnz buffer_%s_increment\\n\\t\"\\\n", id);
     dprintf(fd,"\"sub $1, %%0\\n\\t\"\\\n");
@@ -859,9 +860,9 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int type, dou
 	unsigned ppcm = SIMD_N_REGS/2;
 	if(type == ROOFLINE_2LD1ST){ppcm = roofline_PPCM(SIMD_N_REGS,3);}
 	for(i=0;i<ppcm;i++){
-	    if(type == ROOFLINE_2LD1ST && i%3){dprint_MUOP(fd, ROOFLINE_LOAD, &offset, &regnum, "r10");}
-	    else if(type == ROOFLINE_2LD1ST){  dprint_MUOP(fd, ROOFLINE_STORE, &offset, &regnum, "r10");}
-	    else{dprint_MUOP(fd, type, &offset, &regnum, "r10");}
+	    if(type == ROOFLINE_2LD1ST && i%3){dprint_MUOP(fd, ROOFLINE_LOAD, &offset, &regnum, "r11");}
+	    else if(type == ROOFLINE_2LD1ST){  dprint_MUOP(fd, ROOFLINE_STORE, &offset, &regnum, "r11");}
+	    else{dprint_MUOP(fd, type, &offset, &regnum, "r11");}
             if(i%2){dprint_FUOP(fd, SIMD_MUL, &regnum);}
 	    else{   dprint_FUOP(fd, SIMD_ADD, &regnum);}
 	}
@@ -873,9 +874,9 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int type, dou
 	if(type == ROOFLINE_2LD1ST){mem_instructions = roofline_PPCM(mem_instructions,3);}
 	fop_instructions = mem_instructions / mop_per_fop;
 	for(i=0;i<mem_instructions;i++){
-	    if(type == ROOFLINE_2LD1ST && i%3){dprint_MUOP(fd, ROOFLINE_LOAD, &offset, &regnum, "r10");}
-	    else if(type == ROOFLINE_2LD1ST){dprint_MUOP(fd, ROOFLINE_STORE, &offset, &regnum, "r10");}
-	    else{dprint_MUOP(fd, type, &offset, &regnum, "r10");}
+	    if(type == ROOFLINE_2LD1ST && i%3){dprint_MUOP(fd, ROOFLINE_LOAD, &offset, &regnum, "r11");}
+	    else if(type == ROOFLINE_2LD1ST){dprint_MUOP(fd, ROOFLINE_STORE, &offset, &regnum, "r11");}
+	    else{dprint_MUOP(fd, type, &offset, &regnum, "r11");}
 	    if(i%mop_per_fop==0){
 		if((i/mop_per_fop)%2){dprint_FUOP(fd, SIMD_MUL, &regnum);}
 		else{dprint_FUOP(fd, SIMD_ADD, &regnum);}
@@ -891,9 +892,9 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int type, dou
 	}
 	for(i=0;i<fop_instructions;i++){
 	    if(i%fop_per_mop == 0) {
-		if(type == ROOFLINE_2LD1ST && i%3){dprint_MUOP(fd, ROOFLINE_LOAD, &offset, &regnum, "r10");}
-		else if(type == ROOFLINE_2LD1ST){dprint_MUOP(fd, ROOFLINE_STORE, &offset, &regnum, "r10");}
-		else{dprint_MUOP(fd, type, &offset, &regnum, "r10");}
+		if(type == ROOFLINE_2LD1ST && i%3){dprint_MUOP(fd, ROOFLINE_LOAD, &offset, &regnum, "r11");}
+		else if(type == ROOFLINE_2LD1ST){dprint_MUOP(fd, ROOFLINE_STORE, &offset, &regnum, "r11");}
+		else{dprint_MUOP(fd, type, &offset, &regnum, "r11");}
 	    }
 	    if(i%2){dprint_FUOP(fd, SIMD_MUL, &regnum);}
 	    else{dprint_FUOP(fd, SIMD_ADD, &regnum);}
