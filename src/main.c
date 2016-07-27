@@ -14,7 +14,7 @@ static void usage(char * argv0){
     printf("\t-h, --help: print this help message\n");
     printf("\t-v, --validate: perform roofline validation checking. This will run benchmark for several operational intensity trying to hit the roofs.\n");
     printf("\t-oi, --operational-intensity: perform roofline validation checking on current operational intensity.\n");
-    printf("\t-t, --type  <\"LOAD|LOAD_NT|STORE|STORE_NT|MUL|ADD|MAD\">: choose the roofline types among load, load_nt, store, store_nt for memory, add, mul, and fma for fpeak.\n");
+    printf("\t-t, --type  <\"LOAD|LOAD_NT|STORE|STORE_NT|2LD1ST|MUL|ADD|MAD\">: choose the roofline types among load, load_nt, store, store_nt, or 2loads/1store for memory, add, mul, and fma for fpeak.\n");
     printf("\t-m, --memory <hwloc_ibj:idx>: restrict memory roofline to a single memory in the hierarchiy.\n");
     printf("\t-o, --output <output>: Set output file to write restults.\n");
 #if defined(_OPENMP)

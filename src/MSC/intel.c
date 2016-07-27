@@ -312,24 +312,25 @@ void fpeak_benchmark(const struct roofline_sample_in * in, struct roofline_sampl
 
 /*  unroll several instructions of above roofline_*_ins(parameter mem_uop) macro functions */
 #if defined (__AVX512__)
-#define SIMD_CHUNK_SIZE 2048
+#define SIMD_CHUNK_SIZE 6144
+
 #define simd_mov(mem_uop, datareg)		\
-    mem_uop("0",datareg,"0")			\
-    mem_uop("64",datareg,"1")			\
-    mem_uop("128",datareg,"2")			\
-    mem_uop("192",datareg,"3")			\
-    mem_uop("256",datareg,"4")			\
-    mem_uop("320",datareg,"5")			\
-    mem_uop("384",datareg,"6")			\
-    mem_uop("448",datareg,"7")			\
-    mem_uop("512",datareg,"8")			\
-    mem_uop("576",datareg,"9")			\
-    mem_uop("640",datareg,"10")			\
-    mem_uop("704",datareg,"11")			\
-    mem_uop("768",datareg,"12")			\
-    mem_uop("832",datareg,"13")			\
-    mem_uop("896",datareg,"14")			\
-    mem_uop("960",datareg,"15")			\
+    mem_uop("0",datareg,"0")		\
+    mem_uop("64",datareg,"1")		\
+    mem_uop("128",datareg,"2")		\
+    mem_uop("192",datareg,"3")		\
+    mem_uop("256",datareg,"4")		\
+    mem_uop("320",datareg,"5")		\
+    mem_uop("384",datareg,"6")		\
+    mem_uop("448",datareg,"7")		\
+    mem_uop("512",datareg,"8")		\
+    mem_uop("576",datareg,"9")		\
+    mem_uop("640",datareg,"10")		\
+    mem_uop("704",datareg,"11")		\
+    mem_uop("768",datareg,"12")		\
+    mem_uop("832",datareg,"13")		\
+    mem_uop("896",datareg,"14")		\
+    mem_uop("960",datareg,"15")		\
     mem_uop("1024",datareg,"16")		\
     mem_uop("1088",datareg,"17")		\
     mem_uop("1152",datareg,"18")		\
@@ -345,47 +346,295 @@ void fpeak_benchmark(const struct roofline_sample_in * in, struct roofline_sampl
     mem_uop("1792",datareg,"28")		\
     mem_uop("1856",datareg,"29")		\
     mem_uop("1920",datareg,"30")		\
-    mem_uop("1984",datareg,"31")
+    mem_uop("1984",datareg,"31")		\
+    mem_uop("2048",datareg,"0")		\
+    mem_uop("2112",datareg,"1")		\
+    mem_uop("2176",datareg,"2")		\
+    mem_uop("2240",datareg,"3")		\
+    mem_uop("2304",datareg,"4")		\
+    mem_uop("2368",datareg,"5")		\
+    mem_uop("2432",datareg,"6")		\
+    mem_uop("2496",datareg,"7")		\
+    mem_uop("2560",datareg,"8")		\
+    mem_uop("2624",datareg,"9")		\
+    mem_uop("2688",datareg,"10")		\
+    mem_uop("2752",datareg,"11")		\
+    mem_uop("2816",datareg,"12")		\
+    mem_uop("2880",datareg,"13")		\
+    mem_uop("2944",datareg,"14")		\
+    mem_uop("3008",datareg,"15")		\
+    mem_uop("3072",datareg,"16")		\
+    mem_uop("3136",datareg,"17")		\
+    mem_uop("3200",datareg,"18")		\
+    mem_uop("3264",datareg,"19")		\
+    mem_uop("3328",datareg,"20")		\
+    mem_uop("3392",datareg,"21")		\
+    mem_uop("3456",datareg,"22")		\
+    mem_uop("3520",datareg,"23")		\
+    mem_uop("3584",datareg,"24")		\
+    mem_uop("3648",datareg,"25")		\
+    mem_uop("3712",datareg,"26")		\
+    mem_uop("3776",datareg,"27")		\
+    mem_uop("3840",datareg,"28")		\
+    mem_uop("3904",datareg,"29")		\
+    mem_uop("3968",datareg,"30")		\
+    mem_uop("4032",datareg,"31")		\
+    mem_uop("4096",datareg,"0")		\
+    mem_uop("4160",datareg,"1")		\
+    mem_uop("4224",datareg,"2")		\
+    mem_uop("4288",datareg,"3")		\
+    mem_uop("4352",datareg,"4")		\
+    mem_uop("4416",datareg,"5")		\
+    mem_uop("4480",datareg,"6")		\
+    mem_uop("4544",datareg,"7")		\
+    mem_uop("4608",datareg,"8")		\
+    mem_uop("4672",datareg,"9")		\
+    mem_uop("4736",datareg,"10")		\
+    mem_uop("4800",datareg,"11")		\
+    mem_uop("4864",datareg,"12")		\
+    mem_uop("4928",datareg,"13")		\
+    mem_uop("4992",datareg,"14")		\
+    mem_uop("5056",datareg,"15")		\
+    mem_uop("5120",datareg,"16")		\
+    mem_uop("5184",datareg,"17")		\
+    mem_uop("5248",datareg,"18")		\
+    mem_uop("5312",datareg,"19")		\
+    mem_uop("5376",datareg,"20")		\
+    mem_uop("5440",datareg,"21")		\
+    mem_uop("5504",datareg,"22")		\
+    mem_uop("5568",datareg,"23")		\
+    mem_uop("5632",datareg,"24")		\
+    mem_uop("5696",datareg,"25")		\
+    mem_uop("5760",datareg,"26")		\
+    mem_uop("5824",datareg,"27")		\
+    mem_uop("5888",datareg,"28")		\
+    mem_uop("5952",datareg,"29")		\
+    mem_uop("6016",datareg,"30")		\
+    mem_uop("6080",datareg,"31")
 
+
+#define simd_2ld1st(reg)			\
+    roofline_load_ins("0",reg,"0")		\
+    roofline_load_ins("64",reg,"1")		\
+    roofline_store_ins("128",reg,"2")		\
+    roofline_load_ins("192",reg,"3")		\
+    roofline_load_ins("256",reg,"4")		\
+    roofline_store_ins("320",reg,"5")		\
+    roofline_load_ins("384",reg,"6")		\
+    roofline_load_ins("448",reg,"7")		\
+    roofline_store_ins("512",reg,"8")		\
+    roofline_load_ins("576",reg,"9")		\
+    roofline_load_ins("640",reg,"10")		\
+    roofline_store_ins("704",reg,"11")		\
+    roofline_load_ins("768",reg,"12")		\
+    roofline_load_ins("832",reg,"13")		\
+    roofline_store_ins("896",reg,"14")		\
+    roofline_load_ins("960",reg,"15")		\
+    roofline_load_ins("1024",reg,"16")		\
+    roofline_store_ins("1088",reg,"17")		\
+    roofline_load_ins("1152",reg,"18")		\
+    roofline_load_ins("1216",reg,"19")		\
+    roofline_store_ins("1280",reg,"20")		\
+    roofline_load_ins("1344",reg,"21")		\
+    roofline_load_ins("1408",reg,"22")		\
+    roofline_store_ins("1472",reg,"23")		\
+    roofline_load_ins("1536",reg,"24")		\
+    roofline_load_ins("1600",reg,"25")		\
+    roofline_store_ins("1664",reg,"26")		\
+    roofline_load_ins("1728",reg,"27")		\
+    roofline_load_ins("1792",reg,"28")		\
+    roofline_store_ins("1856",reg,"29")		\
+    roofline_load_ins("1920",reg,"30")		\
+    roofline_load_ins("1984",reg,"31")		\
+    roofline_store_ins("2048",reg,"0")		\
+    roofline_load_ins("2112",reg,"1")		\
+    roofline_load_ins("2176",reg,"2")		\
+    roofline_store_ins("2240",reg,"3")		\
+    roofline_load_ins("2304",reg,"4")		\
+    roofline_load_ins("2368",reg,"5")		\
+    roofline_store_ins("2432",reg,"6")		\
+    roofline_load_ins("2496",reg,"7")		\
+    roofline_load_ins("2560",reg,"8")		\
+    roofline_store_ins("2624",reg,"9")		\
+    roofline_load_ins("2688",reg,"10")		\
+    roofline_load_ins("2752",reg,"11")		\
+    roofline_store_ins("2816",reg,"12")		\
+    roofline_load_ins("2880",reg,"13")		\
+    roofline_load_ins("2944",reg,"14")		\
+    roofline_store_ins("3008",reg,"15")		\
+    roofline_load_ins("3072",reg,"16")		\
+    roofline_load_ins("3136",reg,"17")		\
+    roofline_store_ins("3200",reg,"18")		\
+    roofline_load_ins("3264",reg,"19")		\
+    roofline_load_ins("3328",reg,"20")		\
+    roofline_store_ins("3392",reg,"21")		\
+    roofline_load_ins("3456",reg,"22")		\
+    roofline_load_ins("3520",reg,"23")		\
+    roofline_store_ins("3584",reg,"24")		\
+    roofline_load_ins("3648",reg,"25")		\
+    roofline_load_ins("3712",reg,"26")		\
+    roofline_store_ins("3776",reg,"27")		\
+    roofline_load_ins("3840",reg,"28")		\
+    roofline_load_ins("3904",reg,"29")		\
+    roofline_store_ins("3968",reg,"30")		\
+    roofline_load_ins("4032",reg,"31")		\
+    roofline_load_ins("4096",reg,"0")		\
+    roofline_store_ins("4160",reg,"1")		\
+    roofline_load_ins("4224",reg,"2")		\
+    roofline_load_ins("4288",reg,"3")		\
+    roofline_store_ins("4352",reg,"4")		\
+    roofline_load_ins("4416",reg,"5")		\
+    roofline_load_ins("4480",reg,"6")		\
+    roofline_store_ins("4544",reg,"7")		\
+    roofline_load_ins("4608",reg,"8")		\
+    roofline_load_ins("4672",reg,"9")		\
+    roofline_store_ins("4736",reg,"10")		\
+    roofline_load_ins("4800",reg,"11")		\
+    roofline_load_ins("4864",reg,"12")		\
+    roofline_store_ins("4928",reg,"13")		\
+    roofline_load_ins("4992",reg,"14")		\
+    roofline_load_ins("5056",reg,"15")		\
+    roofline_store_ins("5120",reg,"16")		\
+    roofline_load_ins("5184",reg,"17")		\
+    roofline_load_ins("5248",reg,"18")		\
+    roofline_store_ins("5312",reg,"19")		\
+    roofline_load_ins("5376",reg,"20")		\
+    roofline_load_ins("5440",reg,"21")		\
+    roofline_store_ins("5504",reg,"22")		\
+    roofline_load_ins("5568",reg,"23")		\
+    roofline_load_ins("5632",reg,"24")		\
+    roofline_store_ins("5696",reg,"25")		\
+    roofline_load_ins("5760",reg,"26")		\
+    roofline_load_ins("5824",reg,"27")		\
+    roofline_store_ins("5888",reg,"28")		\
+    roofline_load_ins("5952",reg,"29")		\
+    roofline_load_ins("6016",reg,"30")		\
+    roofline_store_ins("6080",reg,"31")
+    
 #elif defined (__AVX__)
-#define SIMD_CHUNK_SIZE 512
-#define simd_mov(mem_uop, datareg)		\
-    mem_uop("0",datareg,"0")			\
-    mem_uop("32",datareg,"1")			\
-    mem_uop("64",datareg,"2")			\
-    mem_uop("96",datareg,"3")			\
-    mem_uop("128",datareg,"4")			\
-    mem_uop("160",datareg,"5")			\
-    mem_uop("192",datareg,"6")			\
-    mem_uop("224",datareg,"7")			\
-    mem_uop("256",datareg,"8")			\
-    mem_uop("288",datareg,"9")			\
-    mem_uop("320",datareg,"10")			\
-    mem_uop("352",datareg,"11")			\
-    mem_uop("384",datareg,"12")			\
-    mem_uop("416",datareg,"13")			\
-    mem_uop("448",datareg,"14")			\
-    mem_uop("480",datareg,"15")
+#define SIMD_CHUNK_SIZE 864
+#define simd_mov(mem_uop, datareg)	\
+    mem_uop("0",datareg,"0")		\
+    mem_uop("32",datareg,"1")		\
+    mem_uop("64",datareg,"2")		\
+    mem_uop("96",datareg,"3")		\
+    mem_uop("128",datareg,"4")		\
+    mem_uop("160",datareg,"5")		\
+    mem_uop("192",datareg,"6")		\
+    mem_uop("224",datareg,"7")		\
+    mem_uop("256",datareg,"8")		\
+    mem_uop("288",datareg,"9")		\
+    mem_uop("320",datareg,"10")		\
+    mem_uop("352",datareg,"11")		\
+    mem_uop("384",datareg,"12")		\
+    mem_uop("416",datareg,"13")		\
+    mem_uop("448",datareg,"14")		\
+    mem_uop("480",datareg,"15")		\
+    mem_uop("512",datareg,"0")		\
+    mem_uop("544",datareg,"1")		\
+    mem_uop("576",datareg,"2")		\
+    mem_uop("608",datareg,"3")		\
+    mem_uop("640",datareg,"4")		\
+    mem_uop("672",datareg,"5")		\
+    mem_uop("704",datareg,"6")		\
+    mem_uop("736",datareg,"7")		\
+    mem_uop("768",datareg,"8")		\
+    mem_uop("800",datareg,"9")		\
+    mem_uop("832",datareg,"10")
+
+
+#define simd_2ld1st(reg)			\
+    roofline_load_ins("0",reg,"0")		\
+    roofline_load_ins("32",reg,"1")		\
+    roofline_store_ins("64",reg,"2")		\
+    roofline_load_ins("96",reg,"3")		\
+    roofline_load_ins("128",reg,"4")		\
+    roofline_store_ins("160",reg,"5")		\
+    roofline_load_ins("192",reg,"6")		\
+    roofline_load_ins("224",reg,"7")		\
+    roofline_store_ins("256",reg,"8")		\
+    roofline_load_ins("288",reg,"9")		\
+    roofline_load_ins("320",reg,"10")		\
+    roofline_store_ins("352",reg,"11")		\
+    roofline_load_ins("384",reg,"12")		\
+    roofline_load_ins("416",reg,"13")		\
+    roofline_store_ins("448",reg,"14")		\
+    roofline_load_ins("480",reg,"15")		\
+    roofline_load_ins("512",reg,"0")		\
+    roofline_store_ins("544",reg,"1")		\
+    roofline_load_ins("576",reg,"2")		\
+    roofline_load_ins("608",reg,"3")		\
+    roofline_store_ins("640",reg,"4")		\
+    roofline_load_ins("672",reg,"5")		\
+    roofline_load_ins("704",reg,"6")		\
+    roofline_store_ins("736",reg,"7")		\
+    roofline_load_ins("768",reg,"8")		\
+    roofline_load_ins("800",reg,"9")		\
+    roofline_store_ins("832",reg,"10")
+
+
 
 #elif defined (__SSE__) || defined (__SSE2__) || defined (__SSE4_1__)
-#define SIMD_CHUNK_SIZE 256
-#define simd_mov(mem_uop, datareg)		\
-    mem_uop("0",datareg,"0")			\
-    mem_uop("16",datareg,"1")			\
-    mem_uop("32",datareg,"2")			\
-    mem_uop("48",datareg,"3")			\
-    mem_uop("64",datareg,"4")			\
-    mem_uop("80",datareg,"5")			\
-    mem_uop("96",datareg,"6")			\
-    mem_uop("112",datareg,"7")			\
-    mem_uop("128",datareg,"8")			\
-    mem_uop("144",datareg,"9")			\
-    mem_uop("160",datareg,"10")			\
-    mem_uop("176",datareg,"11")			\
-    mem_uop("192",datareg,"12")			\
-    mem_uop("208",datareg,"13")			\
-    mem_uop("224",datareg,"14")			\
-    mem_uop("240",datareg,"15")
+#define SIMD_CHUNK_SIZE 432
+#define simd_mov(mem_uop, datareg)	\
+    mem_uop("0",datareg,"0")		\
+    mem_uop("16",datareg,"1")		\
+    mem_uop("32",datareg,"2")		\
+    mem_uop("48",datareg,"3")		\
+    mem_uop("64",datareg,"4")		\
+    mem_uop("80",datareg,"5")		\
+    mem_uop("96",datareg,"6")		\
+    mem_uop("112",datareg,"7")		\
+    mem_uop("128",datareg,"8")		\
+    mem_uop("144",datareg,"9")		\
+    mem_uop("160",datareg,"10")		\
+    mem_uop("176",datareg,"11")		\
+    mem_uop("192",datareg,"12")		\
+    mem_uop("208",datareg,"13")		\
+    mem_uop("224",datareg,"14")		\
+    mem_uop("240",datareg,"15")		\
+    mem_uop("256",datareg,"0")		\
+    mem_uop("272",datareg,"1")		\
+    mem_uop("288",datareg,"2")		\
+    mem_uop("304",datareg,"3")		\
+    mem_uop("320",datareg,"4")		\
+    mem_uop("336",datareg,"5")		\
+    mem_uop("352",datareg,"6")		\
+    mem_uop("368",datareg,"7")		\
+    mem_uop("384",datareg,"8")		\
+    mem_uop("400",datareg,"9")		\
+    mem_uop("416",datareg,"10")
+
+
+#define simd_2ld1st(reg)			\
+    roofline_load_ins("0",reg,"0")		\
+    roofline_load_ins("16",reg,"1")		\
+    roofline_store_ins("32",reg,"2")		\
+    roofline_load_ins("48",reg,"3")		\
+    roofline_load_ins("64",reg,"4")		\
+    roofline_store_ins("80",reg,"5")		\
+    roofline_load_ins("96",reg,"6")		\
+    roofline_load_ins("112",reg,"7")		\
+    roofline_store_ins("128",reg,"8")		\
+    roofline_load_ins("144",reg,"9")		\
+    roofline_load_ins("160",reg,"10")		\
+    roofline_store_ins("176",reg,"11")		\
+    roofline_load_ins("192",reg,"12")		\
+    roofline_load_ins("208",reg,"13")		\
+    roofline_store_ins("224",reg,"14")		\
+    roofline_load_ins("240",reg,"15")		\
+    roofline_load_ins("256",reg,"0")		\
+    roofline_store_ins("272",reg,"1")		\
+    roofline_load_ins("288",reg,"2")		\
+    roofline_load_ins("304",reg,"3")		\
+    roofline_store_ins("320",reg,"4")		\
+    roofline_load_ins("336",reg,"5")		\
+    roofline_load_ins("352",reg,"6")		\
+    roofline_store_ins("368",reg,"7")		\
+    roofline_load_ins("384",reg,"8")		\
+    roofline_load_ins("400",reg,"9")		\
+    roofline_store_ins("416",reg,"10")
+
 #endif
 
 size_t chunk_size = SIMD_CHUNK_SIZE; /* default chunk_size */
@@ -393,6 +642,7 @@ size_t chunk_size = SIMD_CHUNK_SIZE; /* default chunk_size */
 #define roofline_loadnt_ins_loop simd_mov(roofline_loadnt_ins, reg_mv)
 #define roofline_store_ins_loop simd_mov(roofline_store_ins, reg_mv)
 #define roofline_storent_ins_loop simd_mov(roofline_storent_ins, reg_mv)
+#define roofline_2ld1st_ins_loop simd_2ld1st(reg_mv)
 
 #define reg_mv "%%r11"
 #define bandwidth_asm_begin(type_name)					\
@@ -444,6 +694,9 @@ void bandwidth_benchmark(const struct roofline_sample_in * in, struct roofline_s
 	case ROOFLINE_STORE_NT:
 	    bandwidth_asm_begin("storent") roofline_storent_ins_loop bandwidth_asm_end("storent", in->loop_repeat, stream, size);
 	    break;
+	case ROOFLINE_2LD1ST:
+	    bandwidth_asm_begin("2ld1st") roofline_2ld1st_ins_loop bandwidth_asm_end("2ld1st", in->loop_repeat, stream, size);
+	    break;
 	default:
 	    break;
 	}
@@ -471,6 +724,11 @@ void bandwidth_benchmark(const struct roofline_sample_in * in, struct roofline_s
 	case ROOFLINE_STORE_NT:
 	    roofline_rdtsc(c_high0, c_low0);
 	    bandwidth_asm_begin("storent") roofline_storent_ins_loop bandwidth_asm_end("storent", in->loop_repeat, stream, size);
+	    roofline_rdtsc(c_high1, c_low1);
+	    break;
+	case ROOFLINE_2LD1ST:
+	    roofline_rdtsc(c_high0, c_low0);
+	    bandwidth_asm_begin("2ld1st") roofline_2ld1st_ins_loop bandwidth_asm_end("2ld1st", in->loop_repeat, stream, size);
 	    roofline_rdtsc(c_high1, c_low1);
 	    break;
 	default:
@@ -598,33 +856,47 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int type, dou
     mop_per_fop = SIMD_FLOPS / (oi * SIMD_BYTES);
     dprint_oi_bench_begin(fd, idx, name);
     if(mop_per_fop == 1){
-	for(i=0;i<SIMD_N_REGS;i++){
-	    dprint_MUOP(fd, type, &offset, &regnum, reg_mv);
-	    if(i%2==0){dprint_FUOP(fd, SIMD_MUL, &regnum);}
-	    if(i%2==1){dprint_FUOP(fd, SIMD_ADD, &regnum);}
+	unsigned ppcm = SIMD_N_REGS/2;
+	if(type == ROOFLINE_2LD1ST){ppcm = roofline_PPCM(SIMD_N_REGS,3);}
+	for(i=0;i<ppcm;i++){
+	    if(type == ROOFLINE_2LD1ST && i%3){dprint_MUOP(fd, ROOFLINE_LOAD, &offset, &regnum, "r10");}
+	    else if(type == ROOFLINE_2LD1ST){  dprint_MUOP(fd, ROOFLINE_STORE, &offset, &regnum, "r10");}
+	    else{dprint_MUOP(fd, type, &offset, &regnum, "r10");}
+            if(i%2){dprint_FUOP(fd, SIMD_MUL, &regnum);}
+	    else{   dprint_FUOP(fd, SIMD_ADD, &regnum);}
 	}
-	mem_instructions = fop_instructions = SIMD_N_REGS;
+	mem_instructions = fop_instructions = ppcm;
     }
     else if(mop_per_fop > 1){
 	fop_instructions = SIMD_N_REGS;
-	mem_instructions = fop_instructions*mop_per_fop;
+	mem_instructions = fop_instructions * mop_per_fop;
+	if(type == ROOFLINE_2LD1ST){mem_instructions = roofline_PPCM(mem_instructions,3);}
+	fop_instructions = mem_instructions / mop_per_fop;
 	for(i=0;i<mem_instructions;i++){
-	    dprint_MUOP(fd, type, &offset, &regnum, reg_mv);
+	    if(type == ROOFLINE_2LD1ST && i%3){dprint_MUOP(fd, ROOFLINE_LOAD, &offset, &regnum, "r10");}
+	    else if(type == ROOFLINE_2LD1ST){dprint_MUOP(fd, ROOFLINE_STORE, &offset, &regnum, "r10");}
+	    else{dprint_MUOP(fd, type, &offset, &regnum, "r10");}
 	    if(i%mop_per_fop==0){
-		if(i%2==0){dprint_FUOP(fd, SIMD_MUL, &regnum);}
-		if(i%2==1){dprint_FUOP(fd, SIMD_ADD, &regnum);}
+		if((i/mop_per_fop)%2){dprint_FUOP(fd, SIMD_MUL, &regnum);}
+		else{dprint_FUOP(fd, SIMD_ADD, &regnum);}
 	    }
 	}
     }
     else if(fop_per_mop > 1){
-	mem_instructions = SIMD_N_REGS;
-	fop_instructions = mem_instructions*fop_per_mop;
+        mem_instructions = SIMD_N_REGS;
+	fop_instructions = mem_instructions * fop_per_mop;
+	if(type == ROOFLINE_2LD1ST){
+	    mem_instructions = roofline_PPCM(mem_instructions, 3);
+	    fop_instructions = mem_instructions*fop_per_mop;
+	}
 	for(i=0;i<fop_instructions;i++){
 	    if(i%fop_per_mop == 0) {
-		dprint_MUOP(fd, type, &offset, &regnum, reg_mv);
+		if(type == ROOFLINE_2LD1ST && i%3){dprint_MUOP(fd, ROOFLINE_LOAD, &offset, &regnum, "r10");}
+		else if(type == ROOFLINE_2LD1ST){dprint_MUOP(fd, ROOFLINE_STORE, &offset, &regnum, "r10");}
+		else{dprint_MUOP(fd, type, &offset, &regnum, "r10");}
 	    }
-	    if(i%2==0){dprint_FUOP(fd, SIMD_MUL, &regnum);}
-	    if(i%2==1){dprint_FUOP(fd, SIMD_ADD, &regnum);}
+	    if(i%2){dprint_FUOP(fd, SIMD_MUL, &regnum);}
+	    else{dprint_FUOP(fd, SIMD_ADD, &regnum);}
 	}
     }
     dprint_oi_bench_end(fd, idx, offset);

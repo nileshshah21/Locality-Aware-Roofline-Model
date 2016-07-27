@@ -45,13 +45,14 @@ void roofline_output_clear(struct roofline_sample_out * out);
 void print_roofline_sample_output(struct roofline_sample_out * out);
 
 /***********************************  BENCHMARK FUNCTIONS ****************************************/
-#define ROOFLINE_LOAD     1  /* benchmark type */
-#define ROOFLINE_LOAD_NT  2  /* benchmark type */
-#define ROOFLINE_STORE    4  /* benchmark type */
-#define ROOFLINE_STORE_NT 8  /* benchmark type */
-#define ROOFLINE_MUL      16 /* benchmark type */
-#define ROOFLINE_ADD      32 /* benchmark type */
-#define ROOFLINE_MAD      64 /* benchmark type */
+#define ROOFLINE_LOAD     1   /* benchmark type */
+#define ROOFLINE_LOAD_NT  2   /* benchmark type */
+#define ROOFLINE_STORE    4   /* benchmark type */
+#define ROOFLINE_STORE_NT 8   /* benchmark type */
+#define ROOFLINE_2LD1ST   16  /* benchmark type */
+#define ROOFLINE_MUL      32  /* benchmark type */
+#define ROOFLINE_ADD      64  /* benchmark type */
+#define ROOFLINE_MAD      128 /* benchmark type */
 
 #define ROOFLINE_N_SAMPLES 8
 
