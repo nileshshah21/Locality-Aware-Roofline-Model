@@ -57,7 +57,7 @@ static void parse_args(int argc, char ** argv){
 	}
     }
     if(roofline_types == 0){
-	roofline_types = ROOFLINE_LOAD|ROOFLINE_STORE|ROOFLINE_MAD;
+	roofline_types = ROOFLINE_2LD1ST|ROOFLINE_LOAD|ROOFLINE_STORE_NT|ROOFLINE_MAD;
     }
 }
 
