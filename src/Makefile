@@ -2,7 +2,7 @@
 #                                      Configuration                                        #
 #############################################################################################
 #Duration time of each sample (millisecond)
-LAST=100
+LAST=10
 #Machine specific code implementing benchmarks: MSC/MSC.h {intel only for now}
 MSC=intel
 #Use PAPI and compile tool for code sampling

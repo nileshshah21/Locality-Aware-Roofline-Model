@@ -110,7 +110,7 @@ int main(int argc, char * argv[]){
 	    }
 	}
 	while((mem = roofline_hwloc_get_next_memory(mem)) != NULL){
-	    if(oi<=0){
+	    if(oi<0){
 		double op_int = oi;
 		for(op_int = pow(2,-10); op_int < pow(2,6); op_int*=2){
 		    roofline_oi(out, mem, roofline_types, op_int);
