@@ -296,6 +296,9 @@ void fpeak_benchmark(const struct roofline_sample_in * in, struct roofline_sampl
 	break;
     case ROOFLINE_MAD:
 	asm_flops_begin("mad", c_high, c_low) fmad asm_flops_end(in, out, "mad", c_high, c_low, c_high1, c_low1);
+#if defined (__FMA__)
+	out->flops*=3;
+#endif
 	break;
     default:
 	break;
