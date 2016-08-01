@@ -83,11 +83,18 @@
 #define SIMD_MUL           "mulps"
 #define SIMD_ADD           "addps"
 #endif
+
 #if defined (__FMA__)
 #define SIMD_FMA           "vfmadd132pd" /* Fuse multiply add instruction */
 #undef  SIMD_FLOPS
-#define SIMD_FLOPS         8
+#if defined (__AVX512__)
+#define SIMD_FLOPS 16
+#elif defined (__AVX2__) || defined (__AVX__)
+#define SIMD_FLOPS 8
+#elif defined (__SSE4_1__) || defined (__SSE2__) || defined (__SSE__)
+#define SIMD_FLOPS 4
 #endif
+#endif /* __FMA__ */
 
 
 /******************************** Flops loop instructions ***************************/
@@ -215,22 +222,22 @@
 #ifdef __FMA__
 #undef fmad
 #define fmad					\
-    simd_fp(SIMD_FMA, "0", "1", "1")		\
-    simd_fp(SIMD_FMA, "2", "3", "3")		\
-    simd_fp(SIMD_FMA, "4", "5", "5")		\
-    simd_fp(SIMD_FMA, "6", "7", "7")		\
-    simd_fp(SIMD_FMA, "8", "9", "9")		\
-    simd_fp(SIMD_FMA, "10", "11", "11")		\
-    simd_fp(SIMD_FMA, "12", "13", "13")		\
-    simd_fp(SIMD_FMA, "14", "15", "15")		\
-    simd_fp(SIMD_FMA, "0", "1", "1")		\
-    simd_fp(SIMD_FMA, "2", "3", "3")		\
-    simd_fp(SIMD_FMA, "4", "5", "5")		\
-    simd_fp(SIMD_FMA, "6", "7", "7")		\
-    simd_fp(SIMD_FMA, "8", "9", "9")		\
-    simd_fp(SIMD_FMA, "10", "11", "11")		\
-    simd_fp(SIMD_FMA, "12", "13", "13")		\
-    simd_fp(SIMD_FMA, "14", "15", "15")
+    simd_fp(SIMD_FMA, "0", "1", "2")		\
+    simd_fp(SIMD_FMA, "3", "4", "5")		\
+    simd_fp(SIMD_FMA, "6", "7", "8")		\
+    simd_fp(SIMD_FMA, "9", "10", "11")		\
+    simd_fp(SIMD_FMA, "12", "13", "14")		\
+    simd_fp(SIMD_FMA, "15", "0", "1")		\
+    simd_fp(SIMD_FMA, "2", "3", "4")		\
+    simd_fp(SIMD_FMA, "5", "6", "7")		\
+    simd_fp(SIMD_FMA, "8", "9", "10")		\
+    simd_fp(SIMD_FMA, "11", "12", "13")		\
+    simd_fp(SIMD_FMA, "14", "15", "0")		\
+    simd_fp(SIMD_FMA, "1", "2", "3")		\
+    simd_fp(SIMD_FMA, "4", "5", "6")		\
+    simd_fp(SIMD_FMA, "7", "8", "9")		\
+    simd_fp(SIMD_FMA, "10", "11", "12")		\
+    simd_fp(SIMD_FMA, "13", "14", "15")
 #endif
 
 #if defined(_OPENMP)
