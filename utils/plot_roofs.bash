@@ -85,7 +85,7 @@ if($BEST){
       max_bdw = max(bandwidths[bandwidths[,dobj]==obj, dbandwidth])
       which(bandwidths[,dbandwidth] == max_bdw)
    }
-   bandwidths = bandwidths[sapply(unique(bandwidths[,dobj]), top_bandwidth),]
+   bandwidths = bandwidths[unlist(unique(sapply(unique(bandwidths[,dobj]), top_bandwidth))),]
 }
 if($SINGLE){
   fpeaks[,dgflops] = fpeaks[,dgflops]/fpeaks[,dthreads]
