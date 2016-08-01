@@ -86,14 +86,6 @@
 
 #if defined (__FMA__)
 #define SIMD_FMA           "vfmadd132pd" /* Fuse multiply add instruction */
-#undef  SIMD_FLOPS
-#if defined (__AVX512__)
-#define SIMD_FLOPS 16
-#elif defined (__AVX2__) || defined (__AVX__)
-#define SIMD_FLOPS 8
-#elif defined (__SSE4_1__) || defined (__SSE2__) || defined (__SSE__)
-#define SIMD_FLOPS 4
-#endif
 #endif /* __FMA__ */
 
 
