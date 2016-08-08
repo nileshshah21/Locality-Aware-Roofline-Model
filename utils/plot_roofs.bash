@@ -1,4 +1,4 @@
-#!/bin/bash 
+ #!/bin/bash 
 #################################################################################################################################
 # This is a script to plot results output by main benchmark.                                                                    #
 # usage: plot_roofs.sh -o <output> -f <format> -t <filter(for input info col)> -i <input>                                       #
@@ -174,7 +174,7 @@ if("$DATA" != ""){
 axis(1, at=xticks, labels=xlabels)
 axis(2, at=yticks, labels=ylabels, las=1)
 title(main = "$TITLE", xlab="Flops/Byte", ylab="GFlops/s")
-legend("bottomright", legend=paste(bandwidths[,dobj], paste(bandwidths[,dinfo], bandwidths[,dbandwidth], sep="="), "GB/s", sep=" "), cex=.7, lty=1, col=1:nrow(bandwidths))
+legend("bottomright", legend=paste(bandwidths[,dobj], paste(bandwidths[,dinfo], sprintf("%.2f", bandwidths[,dbandwidth]), sep="="), "GB/s", sep=" "), cex=.7, lty=1, col=1:nrow(bandwidths))
 box()
 
 #output
