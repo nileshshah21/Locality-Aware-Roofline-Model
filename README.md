@@ -20,7 +20,7 @@ make
 Several options can be set in [Makefile](./src/Makefile)
 * `LAST=` repeat the benchmark to make it last DUR milliseconds. This is useful in case you want to sample benchmarks performance with external sampling tool. Making longer benchmarks can give more stable results.
 
-* `PAPI=no` Change to yes to compile librfsampling. This library allows to use functino defined in [sampling.h](./src/sampling.h),
+* `PAPI=no` Change to yes to compile librfsampling. This library allows to use functions defined in [sampling.h](./src/sampling.h),
 in order to output performance results from an application code, drawable on the roofline chart.
 
 * `OMP_FLAG=` Change to your compiler openmp flag to enable parallel benchmark.
