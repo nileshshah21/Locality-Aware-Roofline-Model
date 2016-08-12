@@ -18,8 +18,6 @@ make
 ```
 
 Several options can be set in [Makefile](./src/Makefile)
-* `MSC=` For now only intel is supported but the [interface](./src/MSC/MSC.h) can be implemented with other benchmarks.
-
 * `LAST=` repeat the benchmark to make it last DUR milliseconds. This is useful in case you want to sample benchmarks performance with external sampling tool. Making longer benchmarks can give more stable results.
 
 * `PAPI=no` Change to yes to compile librfsampling. This library allows to use functino defined in [sampling.h](./src/sampling.h),
