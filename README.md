@@ -8,7 +8,7 @@ For each memory, several size fitting the memory space are loaded, and again, th
 
 ![](roofline_chart.png?raw=true)
 
-This plot output shows store rooflines (lines) and validation kernels (points) hitting the measured bandwidth.
+This plot output shows load instructions' rooflines (lines) and validation kernels (points) hitting the measured bandwidth.
 
 ### Installation
 ```
