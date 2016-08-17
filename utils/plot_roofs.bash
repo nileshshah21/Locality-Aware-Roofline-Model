@@ -134,7 +134,7 @@ for(i in 1:nrow(bandwidths)){
 #plot fpeak roofs
 abline(h = fpeaks[,dgflops], lty=3, col=1, lwd=2);
 yticks = c(yticks, fpeaks[,dgflops])
-ylabels = c(ylabels, paste(fpeaks[,dgflops]))
+ylabels = c(ylabels, sprintf("%.2f", fpeaks[,dgflops]))
 axis(2, labels = fpeaks[,dinfo], at = fpeaks[,dgflops], las=1, tick=FALSE, pos=xmin, padj=0, hadj=0)
 
 #plot validation points
