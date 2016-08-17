@@ -131,19 +131,17 @@ inline void print_roofline_sample_output(struct roofline_sample_out * out){
 
 void roofline_fpeak(FILE * output, int type)
 {
-    char info[128];
     struct roofline_sample_out result;
     struct roofline_sample_in in = {1,NULL,0};  
     double sd = 0;
 
-    snprintf(info, sizeof(info), "%5s",roofline_type_str(type));
     roofline_output_clear(&result);
     roofline_autoset_loop_repeat(fpeak_benchmark, &in, type, BENCHMARK_MIN_DUR, 10000);
     sd = roofline_repeat_bench(fpeak_benchmark,&in,&result, type, roofline_output_median);    
 #if defined(_OPENMP)
-    roofline_print_sample(output, first_node, &result, sd, info);
+    roofline_print_sample(output, first_node, &result, sd, type);
 #else
-    roofline_print_sample(output, hwloc_get_obj_by_type(topology, HWLOC_OBJ_PU, 0), &result, sd, info);
+    roofline_print_sample(output, hwloc_get_obj_by_type(topology, HWLOC_OBJ_PU, 0), &result, sd, type);
 #endif
 }
 
@@ -186,7 +184,6 @@ static size_t roofline_memalign(double ** data, size_t size){
 static void roofline_memory(FILE * output, hwloc_obj_t memory, int type,
 			    void(* bench)(const struct roofline_sample_in *, struct roofline_sample_out *, int))
 {
-    char info[128];
     char progress_info[128];
     int nc;
     int s, n_sizes;
@@ -197,12 +194,10 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, int type,
     hwloc_obj_t child;
 
     /* set legend to append to results */
-    memset(info,0,sizeof(info));
     memset(progress_info,0,sizeof(progress_info));
-    snprintf(info, sizeof(info),"%5s", roofline_type_str(type));
 
     nc = hwloc_obj_type_snprintf(progress_info,sizeof(progress_info),memory, 0);
-    nc += snprintf(progress_info+nc, sizeof(progress_info)-nc, ":%d %s", memory->logical_index, info);
+    nc += snprintf(progress_info+nc, sizeof(progress_info)-nc, ":%d %s", memory->logical_index, roofline_type_str(type));
 
     /* bind memory */
     roofline_hwloc_membind(memory);
@@ -259,14 +254,14 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, int type,
 	roofline_autoset_loop_repeat(bench, &in, type, BENCHMARK_MIN_DUR,4);
 	roofline_output_clear(&(samples[s]));
 	bench(&in, &(samples[s]), type);
-	/* roofline_print_sample(output, memory, &(samples[s]), sd, info);     */
+	/* roofline_print_sample(output, memory, &(samples[s]), sd, type);     */
     }
 
     roofline_progress_set(&progress_bar, "",0,s,s);
     median = samples[roofline_output_median(samples,s)];
     sd = roofline_output_sd(samples, s);
     roofline_progress_clean();    
-    roofline_print_sample(output, memory, &median, sd, info);    
+    roofline_print_sample(output, memory, &median, sd, type);    
     
     /* Cleanup */
     free(samples);

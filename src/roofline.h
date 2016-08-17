@@ -123,8 +123,8 @@ size_t      roofline_hwloc_get_instruction_cache_size(void);
 
 const char * roofline_type_str(int type);
 int          roofline_type_from_str(const char * type);
-void         roofline_print_header(FILE * output, const char * append);
-void         roofline_print_sample(FILE * output, hwloc_obj_t obj, struct roofline_sample_out * sample_out, double sd, const char * append);
+void         roofline_print_header(FILE * output);
+void         roofline_print_sample(FILE * output, hwloc_obj_t obj, struct roofline_sample_out * sample_out, double sd, int type);
 
 /**
  * Compute a logarithmic array of sizes

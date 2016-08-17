@@ -73,9 +73,6 @@ static FILE * open_output(char * out){
 
 int main(int argc, char * argv[]){
     FILE * out;
-    char info[128];
-
-    memset(info,0,sizeof(info));
     parse_args(argc,argv);
 
     if(roofline_lib_init(hyperthreading)==-1)
@@ -93,8 +90,7 @@ int main(int argc, char * argv[]){
     if(out==NULL) out = stdout;
 
     /* print header */
-    snprintf(info,sizeof(info), "%5s", "info");
-    roofline_print_header(out, info);
+    roofline_print_header(out);
 
     /* roofline for flops */
     roofline_flops(out, roofline_types);

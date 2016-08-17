@@ -88,12 +88,12 @@ const char * roofline_type_str(int type){
     }
 }
 
-inline void roofline_print_header(FILE * output, const char * append){
-    fprintf(output, "%12s %20s %20s %16s %10s %10s %10s %10s %10s %10s %s\n",
-	    "Obj", "start", "end", "Instructions", "Throughput", "SDev", "GByte/s", "GFlop/s", "Flops/Byte", "n_threads", append);
+inline void roofline_print_header(FILE * output){
+    fprintf(output, "%12s %20s %20s %16s %10s %10s %10s %10s %10s %10s %10s\n",
+	    "Obj", "start", "end", "Instructions", "Throughput", "SDev", "GByte/s", "GFlop/s", "Flops/Byte", "n_threads", "type");
 }
 
-void roofline_print_sample(FILE * output, hwloc_obj_t obj, struct roofline_sample_out * sample_out, double sd, const char * append)
+void roofline_print_sample(FILE * output, hwloc_obj_t obj, struct roofline_sample_out * sample_out, double sd, const int type)
 {
     long cyc;
     char obj_str[12];
@@ -101,7 +101,7 @@ void roofline_print_sample(FILE * output, hwloc_obj_t obj, struct roofline_sampl
     hwloc_obj_type_snprintf(obj_str, 10, obj, 0);
     snprintf(obj_str+strlen(obj_str),5,":%d",obj->logical_index);
     cyc = sample_out->ts_end - sample_out->ts_start;
-    fprintf(output, "%12s %20lu %20lu %16lu %10.6f %10.6f %10.3f %10.3f %10.6f %10u %s\n",
+    fprintf(output, "%12s %20lu %20lu %16lu %10.6f %10.6f %10.3f %10.3f %10.6f %10u %10s\n",
 	    obj_str, 
 	    sample_out->ts_start, 
 	    sample_out->ts_end, 
@@ -112,7 +112,7 @@ void roofline_print_sample(FILE * output, hwloc_obj_t obj, struct roofline_sampl
 	    (float)(sample_out->flops * cpu_freq) / (float)(1e9*cyc),
 	    (float)(sample_out->flops) / (float)(sample_out->bytes),
 	    n_threads,
-	    append);
+	    roofline_type_str(type));
     fflush(output);
 }
 
