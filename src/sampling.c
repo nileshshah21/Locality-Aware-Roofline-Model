@@ -14,7 +14,7 @@ uint64_t freq = 0;
 unsigned n_threads = 1;
 
 static inline void roofline_print_header(){
-    fprintf(output_file, "%12s %20s %20s %16s %10s %10s %10s %10s %10s %10s %s\n",
+    fprintf(output_file, "%12s %20s %20s %16s %10s %10s %10s %10s %10s %-20s %s\n",
 	    "Obj", "start", "end", "Instructions", "Throughput", "SDev", "GByte/s", "GFlop/s", "Flops/Byte", "n_threads", "info");
 }
 
@@ -26,18 +26,18 @@ static char * roofline_cat_info(const char * info){
     if(env_info != NULL){len += strlen(env_info);}
     ret = malloc(len+2);
     memset(ret, 0 ,len+2);
-    if(info != NULL && env_info != NULL){snprintf(ret, len, "%s_%s", info, env_info);}
+    if(info != NULL && env_info != NULL){snprintf(ret, len+2, "%s_%s", info, env_info);}
     else if(info != NULL){snprintf(ret, len, "%s", info);}
     else if(env_info != NULL){snprintf(ret, len, "%s", env_info);}
     return ret;
 }
 
-void roofline_sample_print(struct roofline_sample * out , char * info)
+void roofline_sample_print(struct roofline_sample * out , const char * info)
 {
     long cyc;
     char * info_cat = roofline_cat_info(info);
     cyc = out->ts_end - out->ts_start;
-    fprintf(output_file, "%12s %20lu %20lu %16lu %10.6f %10.6f %10.3f %10.3f %10.6f %10u %s\n",
+    fprintf(output_file, "%12s %20lu %20lu %16lu %10.6f %10.6f %10.3f %10.3f %10.6f %10u %-20s\n",
 	    "Machine", 
 	    out->ts_start, 
 	    out->ts_end, 
@@ -209,3 +209,22 @@ void roofline_sampling_stop(int eventset, struct roofline_sample * out){
     out->flops        = values[2]+values[3]*2+values[4]*4;
 }
 
+
+#ifdef _OPENMP
+struct roofline_sample shared;
+
+void roofline_sample_clear(struct roofline_sample * out){
+    out->ts_start = 0;
+    out->ts_end = 0;
+    out->bytes = 0;
+    out->flops = 0;
+    out->instructions = 0;
+}
+
+void roofline_sample_accumulate(struct roofline_sample * out, struct roofline_sample * with){
+    out->ts_end       += with->ts_end - with->ts_start;
+    out->bytes        += with->bytes;
+    out->flops        += with->flops;
+    out->instructions += with->instructions;
+}
+#endif

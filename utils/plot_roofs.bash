@@ -167,7 +167,7 @@ if("$DATA" != ""){
     points(points[,doi], points[,dgflops], asp=1, pch=i, col=i)
     par(new=TRUE);
   }
-  legend("topright", legend=types, cex=.7, lty=1, col=range, pch=range)
+  legend("topright", legend=types, cex=.7, lty=1, col=1:length(types), pch=1:length(types))
 }
 
 #draw axes, title and legend
