@@ -68,14 +68,14 @@ dbandwidth  = 7;    #The bandwidth column id
 dgflops     = 8;    #The gflop/s column id
 doi         = 9;    #The oi column id
 dthreads    = 10;   #The number of threads
-dinfo       = 11;   #The info column id
+dtype       = 11;   #The info column id
 
-filter <- function(df){
-  subset(df, grepl("$FILTER", df[,dinfo], perl=TRUE))
+filter <- function(df, col){
+  subset(df, grepl("$FILTER", df[,col], perl=TRUE))
 }
 
 #load data
-d = filter(read.table("$INPUT",header=TRUE))
+d = filter(read.table("$INPUT",header=TRUE), dtype)
 
 fpeaks            = d[d[,dbandwidth]==0,] #The peak floating point performance
 bandwidths        = d[d[,dgflops]==0,]    #The bandwidths
@@ -135,17 +135,17 @@ for(i in 1:nrow(bandwidths)){
 abline(h = fpeaks[,dgflops], lty=3, col=1, lwd=2);
 yticks = c(yticks, fpeaks[,dgflops])
 ylabels = c(ylabels, sprintf("%.2f", fpeaks[,dgflops]))
-axis(2, labels = fpeaks[,dinfo], at = fpeaks[,dgflops], las=1, tick=FALSE, pos=xmin, padj=0, hadj=0)
+axis(2, labels = fpeaks[,dtype], at = fpeaks[,dgflops], las=1, tick=FALSE, pos=xmin, padj=0, hadj=0)
 
 #plot validation points
 if($VALIDATION){
   points = subset(d, d[,dgflops]!=0 & d[,dbandwidth]!=0)
   if($BEST){
     #keep only for best rooflines
-    points = merge(x = points, y=bandwidths[,c(dobj,dinfo)], by.x=c(dobj,dinfo), by.y=c(1,2))[, union(names(points), names(bandwidths[,c(dobj,dinfo)]))]
+    points = merge(x = points, y=bandwidths[,c(dobj,dtype)], by.x=c(dobj,dtype), by.y=c(1,2))[, union(names(points), names(bandwidths[,c(dobj,dtype)]))]
   }
   for(i in 1:nrow(bandwidths)){
-    valid = subset(points, points[,dinfo]==bandwidths[i,dinfo] & points[,dobj]==bandwidths[i,dobj])
+    valid = subset(points, points[,dtype]==bandwidths[i,dtype] & points[,dobj]==bandwidths[i,dobj])
     if($SINGLE){
       valid[,dgflops] = valid[,dgflops]/valid[,dthreads]
     }
@@ -154,27 +154,34 @@ if($VALIDATION){
   }
 }
 
+#draw axes, title and legend
+axis(1, at=xticks, labels=xlabels)
+axis(2, at=yticks, labels=ylabels, las=1)
+title(main = "$TITLE", xlab="Flops/Byte", ylab="GFlops/s")
+legend("bottomright", legend=paste(bandwidths[,dobj], paste(bandwidths[,dtype], sprintf("%.2f", bandwidths[,dbandwidth]), sep="="), "GB/s", sep=" "), cex=.7, lty=1, col=1:nrow(bandwidths))
+
 #plot MISC points
 if("$DATA" != ""){
-  misc = filter(read.table("$DATA",header=TRUE))
-  types = unique(misc[,dinfo])
-  range = nrow(bandwidths):nrow(bandwidths)+length(types)
-  for(i in 1:length(types)){
-    points = subset(misc, misc[,dinfo]==types[i])
+  dtype = 6
+  dinfo = 7
+  dgflops = 3
+  doi = 4
+  dthreads=5
+  misc = filter(read.table("$DATA",header=TRUE), dtype)
+  misc = filter(misc, dinfo)
+  types = unique(misc[,c(dtype, dinfo)])
+
+  for(i in 1:nrow(types)){
+    points = subset(misc, misc[,dtype] == types[i,1] & misc[,dinfo] == types[i,2])
     if($SINGLE){
       points[,dgflops] = points[,dgflops]/points[,dthreads]
     }
     points(points[,doi], points[,dgflops], asp=1, pch=i, col=i)
     par(new=TRUE);
   }
-  legend("topright", legend=types, cex=.7, lty=1, col=1:length(types), pch=1:length(types))
+  legend("topright", legend=apply(types, 1, function(t){paste(t[1], t[2], sep=" ")}), cex=.7, col=1:nrow(types), pch=1:nrow(types))
 }
 
-#draw axes, title and legend
-axis(1, at=xticks, labels=xlabels)
-axis(2, at=yticks, labels=ylabels, las=1)
-title(main = "$TITLE", xlab="Flops/Byte", ylab="GFlops/s")
-legend("bottomright", legend=paste(bandwidths[,dobj], paste(bandwidths[,dinfo], sprintf("%.2f", bandwidths[,dbandwidth]), sep="="), "GB/s", sep=" "), cex=.7, lty=1, col=1:nrow(bandwidths))
 box()
 
 #output
