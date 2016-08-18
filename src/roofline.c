@@ -269,17 +269,26 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, int type,
 }
 
 void roofline_bandwidth(FILE * output, hwloc_obj_t mem, int type){
-    if(type & ROOFLINE_LOAD){roofline_memory(output,mem,ROOFLINE_LOAD,bandwidth_benchmark);}
-    if(type & ROOFLINE_LOAD_NT){roofline_memory(output,mem,ROOFLINE_LOAD_NT,bandwidth_benchmark);}
-    if(type & ROOFLINE_STORE){roofline_memory(output,mem,ROOFLINE_STORE,bandwidth_benchmark);}
-    if(type & ROOFLINE_STORE_NT){roofline_memory(output,mem,ROOFLINE_STORE_NT,bandwidth_benchmark);}
-    if(type & ROOFLINE_2LD1ST){roofline_memory(output,mem,ROOFLINE_2LD1ST,bandwidth_benchmark);}
+    int supported = benchmark_types_supported();
+    if(type & ROOFLINE_LOAD & supported)
+	roofline_memory(output,mem,ROOFLINE_LOAD,bandwidth_benchmark);
+    if(type & ROOFLINE_LOAD_NT & supported)
+	roofline_memory(output,mem,ROOFLINE_LOAD_NT,bandwidth_benchmark);
+    if(type & ROOFLINE_STORE & supported)
+	roofline_memory(output,mem,ROOFLINE_STORE,bandwidth_benchmark);
+    if(type & ROOFLINE_STORE_NT & supported)
+	roofline_memory(output,mem,ROOFLINE_STORE_NT,bandwidth_benchmark);
+    if(type & ROOFLINE_2LD1ST & supported)
+	roofline_memory(output,mem,ROOFLINE_2LD1ST,bandwidth_benchmark);
+    if(type & ROOFLINE_COPY & supported)
+	roofline_memory(output,mem,ROOFLINE_COPY,bandwidth_benchmark);
 }
 
 void roofline_flops(FILE * output, int type){
-   if(type & ROOFLINE_ADD){roofline_fpeak(output,ROOFLINE_ADD);}
-   if(type & ROOFLINE_MUL){roofline_fpeak(output,ROOFLINE_MUL);}
-   if(type & ROOFLINE_MAD){roofline_fpeak(output,ROOFLINE_MAD);}
+   int supported = benchmark_types_supported();
+   if(type & ROOFLINE_ADD & supported){roofline_fpeak(output,ROOFLINE_ADD);}
+   if(type & ROOFLINE_MUL & supported){roofline_fpeak(output,ROOFLINE_MUL);}
+   if(type & ROOFLINE_MAD & supported){roofline_fpeak(output,ROOFLINE_MAD);}
 }
 
 void roofline_oi(FILE * output, hwloc_obj_t mem, int type, double oi){

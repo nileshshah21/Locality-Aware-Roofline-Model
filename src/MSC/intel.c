@@ -968,3 +968,7 @@ void (* roofline_oi_bench(const double oi, const int type))(const struct rooflin
     return benchmark;
 }
 
+int benchmark_types_supported(){
+    return ROOFLINE_LOAD|ROOFLINE_LOAD_NT|ROOFLINE_STORE|ROOFLINE_STORE_NT|ROOFLINE_2LD1ST|ROOFLINE_MUL|ROOFLINE_ADD|ROOFLINE_MAD;
+}
+

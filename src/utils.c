@@ -50,6 +50,7 @@ int roofline_type_from_str(const char * type){
     if(!strcmp(type, "STORE") || !strcmp(type, "store")){return ROOFLINE_STORE;}
     if(!strcmp(type, "STORE_NT") || !strcmp(type, "store_nt")){return ROOFLINE_STORE_NT;}
     if(!strcmp(type, "2LD1ST") || !strcmp(type, "2ld1st")){return ROOFLINE_2LD1ST;}
+    if(!strcmp(type, "COPY") || !strcmp(type, "copy")){return ROOFLINE_COPY;}
     if(!strcmp(type, "ADD") || !strcmp(type, "add")){return ROOFLINE_ADD;}
     if(!strcmp(type, "MUL") || !strcmp(type, "mul")){return ROOFLINE_MUL;}
     if(!strcmp(type, "MAD") || !strcmp(type, "mad")){return ROOFLINE_MAD;}
@@ -72,6 +73,9 @@ const char * roofline_type_str(int type){
 	break;
     case ROOFLINE_2LD1ST:
 	return "2ld1st";
+	break;
+    case ROOFLINE_COPY:
+	return "copy";
 	break;
     case ROOFLINE_ADD:
 	return "add";
