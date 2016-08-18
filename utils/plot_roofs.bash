@@ -158,7 +158,7 @@ if($VALIDATION){
 axis(1, at=xticks, labels=xlabels)
 axis(2, at=yticks, labels=ylabels, las=1)
 title(main = "$TITLE", xlab="Flops/Byte", ylab="GFlops/s")
-legend("bottomright", legend=paste(bandwidths[,dobj], paste(bandwidths[,dtype], sprintf("%.2f", bandwidths[,dbandwidth]), sep="="), "GB/s", sep=" "), cex=.7, lty=1, col=1:nrow(bandwidths), bg=white)
+legend("bottomright", legend=paste(bandwidths[,dobj], paste(bandwidths[,dtype], sprintf("%.2f", bandwidths[,dbandwidth]), sep="="), "GB/s", sep=" "), cex=.7, lty=1, col=1:nrow(bandwidths), bg="white")
 
 #plot MISC points
 if("$DATA" != ""){
