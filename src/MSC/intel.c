@@ -631,7 +631,7 @@ static void dprint_FUOP(int fd, const char * op, unsigned * regnum){
 }
 #endif
 
-static void dprint_MUOP(int fd, int type, off_t * offset, unsigned * regnum, const char * datareg){
+static void dprint_MUOP(int fd, int type, int i,  off_t * offset, unsigned * regnum, const char * datareg){
     switch(type){
     case ROOFLINE_LOAD:
 	dprintf(fd, "\"%s %lu(%%%%%s), %%%%%s%d\\n\\t\"\\\n", SIMD_LOAD, *offset, datareg, SIMD_REG, *regnum);
@@ -644,6 +644,14 @@ static void dprint_MUOP(int fd, int type, off_t * offset, unsigned * regnum, con
 	break;
     case ROOFLINE_STORE_NT:
 	dprintf(fd, "\"%s %%%%%s%d, %lu(%%%%%s)\\n\\t\"\\\n", SIMD_STORE_NT, SIMD_REG, *regnum, *offset, datareg);
+	break;
+    case ROOFLINE_2LD1ST:
+	if(i%3) dprint_MUOP(fd,ROOFLINE_LOAD,i,offset,regnum,datareg);
+	else dprint_MUOP(fd,ROOFLINE_STORE,i,offset,regnum,datareg);
+	break;
+    case ROOFLINE_COPY:
+	if(i%2) dprint_MUOP(fd,ROOFLINE_LOAD,i,offset,regnum,datareg);
+	else dprint_MUOP(fd,ROOFLINE_STORE,i,offset,regnum,datareg);
 	break;
     default:
 	break;
@@ -732,9 +740,7 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int type, dou
 	unsigned ppcm = SIMD_N_REGS/2;
 	if(type == ROOFLINE_2LD1ST){ppcm = roofline_PPCM(SIMD_N_REGS,3);}
 	for(i=0;i<ppcm;i++){
-	    if(type == ROOFLINE_2LD1ST && i%3){dprint_MUOP(fd, ROOFLINE_LOAD, &offset, &regnum, "r11");}
-	    else if(type == ROOFLINE_2LD1ST){  dprint_MUOP(fd, ROOFLINE_STORE, &offset, &regnum, "r11");}
-	    else{dprint_MUOP(fd, type, &offset, &regnum, "r11");}
+	    dprint_MUOP(fd, type, i, &offset, &regnum, "r11");
             if(i%2){dprint_FUOP(fd, SIMD_MUL, &regnum);}
 	    else{   dprint_FUOP(fd, SIMD_ADD, &regnum);}
 	}
@@ -746,9 +752,7 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int type, dou
 	if(type == ROOFLINE_2LD1ST){mem_instructions = roofline_PPCM(mem_instructions,3);}
 	fop_instructions = mem_instructions / mop_per_fop;
 	for(i=0;i<mem_instructions;i++){
-	    if(type == ROOFLINE_2LD1ST && i%3){dprint_MUOP(fd, ROOFLINE_LOAD, &offset, &regnum, "r11");}
-	    else if(type == ROOFLINE_2LD1ST){dprint_MUOP(fd, ROOFLINE_STORE, &offset, &regnum, "r11");}
-	    else{dprint_MUOP(fd, type, &offset, &regnum, "r11");}
+	    dprint_MUOP(fd, type, i, &offset, &regnum, "r11");
 	    if(i%mop_per_fop==0){
 		if((i/mop_per_fop)%2){dprint_FUOP(fd, SIMD_MUL, &regnum);}
 		else{dprint_FUOP(fd, SIMD_ADD, &regnum);}
@@ -764,9 +768,7 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int type, dou
 	}
 	for(i=0;i<fop_instructions;i++){
 	    if(i%fop_per_mop == 0) {
-		if(type == ROOFLINE_2LD1ST && i%3){dprint_MUOP(fd, ROOFLINE_LOAD, &offset, &regnum, "r11");}
-		else if(type == ROOFLINE_2LD1ST){dprint_MUOP(fd, ROOFLINE_STORE, &offset, &regnum, "r11");}
-		else{dprint_MUOP(fd, type, &offset, &regnum, "r11");}
+	        dprint_MUOP(fd, type, i, &offset, &regnum, "r11");
 	    }
 	    if(i%2){dprint_FUOP(fd, SIMD_MUL, &regnum);}
 	    else{dprint_FUOP(fd, SIMD_ADD, &regnum);}
