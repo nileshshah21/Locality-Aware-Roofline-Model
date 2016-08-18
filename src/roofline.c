@@ -297,7 +297,7 @@ void roofline_oi(FILE * output, hwloc_obj_t mem, int type, double oi){
     const int mem_types[6] = {ROOFLINE_LOAD, ROOFLINE_LOAD_NT, ROOFLINE_STORE, ROOFLINE_STORE_NT, ROOFLINE_2LD1ST, ROOFLINE_COPY};
     int supported = benchmark_types_supported();
 
-    for(i=0;i<5;i++){
+    for(i=0;i<6;i++){
 	tp = mem_types[i];
 	if(type & tp & supported){
 	    bench = roofline_oi_bench(oi,tp);
