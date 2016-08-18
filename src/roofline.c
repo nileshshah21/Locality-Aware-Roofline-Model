@@ -294,7 +294,7 @@ void roofline_flops(FILE * output, int type){
 void roofline_oi(FILE * output, hwloc_obj_t mem, int type, double oi){
     void(* bench)(const struct roofline_sample_in *, struct roofline_sample_out *, int);
     int i, tp;
-    const int mem_types[5] = {ROOFLINE_LOAD, ROOFLINE_LOAD_NT, ROOFLINE_STORE, ROOFLINE_STORE_NT, ROOFLINE_2LD1ST, ROOFLINE_COPY};
+    const int mem_types[6] = {ROOFLINE_LOAD, ROOFLINE_LOAD_NT, ROOFLINE_STORE, ROOFLINE_STORE_NT, ROOFLINE_2LD1ST, ROOFLINE_COPY};
     int supported = benchmark_types_supported();
 
     for(i=0;i<5;i++){
