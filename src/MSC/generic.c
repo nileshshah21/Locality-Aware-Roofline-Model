@@ -7,7 +7,7 @@
 #include "MSC.h"
 
 size_t chunk_size = 2;
-ROOFLINE_STREAM_TYPE res;
+ROOFLINE_STREAM_TYPE res = 0.34;
 #define LENGTH 128
 ROOFLINE_STREAM_TYPE flops[LENGTH];
 #define SIZE_T sizeof(ROOFLINE_STREAM_TYPE)
@@ -44,7 +44,6 @@ void mad(unsigned long reps){
 
 void fpeak_benchmark(const struct roofline_sample_in * in, struct roofline_sample_out * out, int type){
     void (* bench)(unsigned long) = NULL;
-    unsigned i;
     switch(type){
     case ROOFLINE_MUL:
 	bench = mul;
@@ -74,7 +73,7 @@ void fpeak_benchmark(const struct roofline_sample_in * in, struct roofline_sampl
 
 void load(ROOFLINE_STREAM_TYPE * src, size_t size){
     unsigned i;
-    ROOFLINE_STREAM_TYPE res;
+    ROOFLINE_STREAM_TYPE res = 0.34;
 #pragma vector temporal(src)
 #ifdef _OPENMP
 #pragma omp parallel for
@@ -84,7 +83,7 @@ void load(ROOFLINE_STREAM_TYPE * src, size_t size){
 
 void load_nt(ROOFLINE_STREAM_TYPE * src, size_t size){
     unsigned i;
-    ROOFLINE_STREAM_TYPE res;
+    ROOFLINE_STREAM_TYPE res = 0.34;
 #ifdef __INTEL_COMPILER
 #pragma vector nontemporal(src)
 #endif
@@ -96,7 +95,7 @@ void load_nt(ROOFLINE_STREAM_TYPE * src, size_t size){
 
 void store(ROOFLINE_STREAM_TYPE * src, size_t size){
     unsigned i;
-    ROOFLINE_STREAM_TYPE res;
+    ROOFLINE_STREAM_TYPE res = 0.34;
 #ifdef __INTEL_COMPILER
 #pragma vector temporal(src)
 #endif
@@ -108,7 +107,7 @@ void store(ROOFLINE_STREAM_TYPE * src, size_t size){
 
 void store_nt(ROOFLINE_STREAM_TYPE * src, size_t size){
     unsigned i;
-    ROOFLINE_STREAM_TYPE res;
+    ROOFLINE_STREAM_TYPE res  = 0.34;
 #ifdef __INTEL_COMPILER
 #pragma vector nontemporal(src)
 #endif
