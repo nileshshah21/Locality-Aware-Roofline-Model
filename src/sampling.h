@@ -6,9 +6,12 @@ struct roofline_sample{
     /* All sample type specific data */
     uint64_t ts_start;       /* Timestamp in cycles where the roofline started */
     uint64_t ts_end;         /* Timestamp in cycles where the roofline ended */
-    uint64_t instructions;   /* The number of instructions */
-    uint64_t bytes;          /* The amount of bytes transfered */
+    uint64_t flop_ins;       /* The number of flop instructions */
+    uint64_t load_ins;       /* The number of load instructions */
+    uint64_t store_ins;      /* The number of store instructions */
     uint64_t flops;          /* The amount of flops computed */
+    uint64_t load_bytes;     /* The amount of load bytes transfered */
+    uint64_t store_bytes;    /* The amount of store bytes transfered */
 };
 
 void roofline_sample_print(struct roofline_sample* , const char * info);
