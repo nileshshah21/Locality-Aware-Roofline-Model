@@ -20,6 +20,8 @@ make
 Several options can be set in [Makefile](./src/Makefile)
 * `LAST=` repeat the benchmark to make it last LAST milliseconds. This is useful in case you want to sample benchmarks performance with external sampling tool. Making longer benchmarks can give more stable results.
 
+* `N_SAMPLES=`Number of sample to take for each memory benchmark. The samples scale is exponential, and bounds are automatically found according to memory sizes.
+
 * `PAPI=no` Change to yes to compile librfsampling. This library allows to use functions defined in [sampling.h](./src/sampling.h),
 in order to output performance results from an application code, drawable on the roofline chart.
 

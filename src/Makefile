@@ -2,7 +2,9 @@
 #                                      Configuration                                        #
 #############################################################################################
 #Duration time of each sample (millisecond)
-LAST=10
+LAST=100
+#Number of samples per memory.
+N_SAMPLES=16
 #Machine specific code implementing benchmarks: MSC/MSC.h {intel only for now}
 MSC=intel
 #Use PAPI and compile tool for code sampling
@@ -14,7 +16,7 @@ PAPI=no
 CC=gcc
 OMP_FLAG= #-fopenmp
 LDFLAGS=-lhwloc -ldl $(OMP_FLAG)
-CFLAGS=-g -Wall -Werror -Wextra -DCC=$(CC) -DOMP_FLAG=$(OMP_FLAG)
+CFLAGS=-g -Wall -Werror -Wextra -DCC=$(CC) -DOMP_FLAG=$(OMP_FLAG) -DBENCHMARK_MIN_DUR=$(LAST) -DROOFLINE_N_SAMPLES=$(N_SAMPLES)
 SRC=roofline.c utils.c stats.c progress.c
 OBJ=$(patsubst %.c, %.o, $(SRC)) MSC.o
 PREFIX=$(HOME)/local
@@ -31,7 +33,7 @@ all: $(BIN)
 endif
 
 %.o: %.c
-	$(CC) -march=native -DBENCHMARK_MIN_DUR=$(LAST) $(CFLAGS) -c -o $@ $^ $(LDFLAGS)
+	$(CC) -march=native $(CFLAGS) -c -o $@ $^ $(LDFLAGS)
 
 MSC.o: MSC/$(MSC).c
 	$(CC) -march=native -Wl,-rpath=$(PWD) -DCC=$(CC) $(CFLAGS) -c -o $@ $^ $(LDFLAGS)

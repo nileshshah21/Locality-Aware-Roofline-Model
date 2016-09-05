@@ -55,7 +55,9 @@ void print_roofline_sample_output(struct roofline_sample_out * out);
 #define ROOFLINE_ADD      128  /* benchmark type */
 #define ROOFLINE_MAD      256 /* benchmark type */
 
+#ifndef ROOFLINE_N_SAMPLES
 #define ROOFLINE_N_SAMPLES 8
+#endif
 
 void roofline_flops    (FILE * output, const int type);
 void roofline_bandwidth(FILE * output, hwloc_obj_t memory, const int type);
