@@ -6,6 +6,26 @@
 #include <papi.h>
 #include "sampling.h"
 
+const unsigned BYTES=8;
+unsigned FLOPS = 1;
+
+#define ROOFLINE_LOAD     1   /* benchmark type */
+#define ROOFLINE_STORE    4   /* benchmark type */
+const char * roofline_type_str(int type){
+    switch(type){
+    case ROOFLINE_LOAD:
+	return "load";
+	break;
+    case ROOFLINE_STORE:
+	return "store";
+	break;
+    default:
+	return "";
+	break;
+    }
+}
+
+
 #define roofline_rdtsc(c_high,c_low) __asm__ __volatile__ ("CPUID\n\tRDTSC\n\tmovq %%rdx, %0\n\tmovq %%rax, %1\n\t" :"=r" (c_high), "=r" (c_low)::"%rax", "%rbx", "%rcx", "%rdx")
 #define roofline_rdtsc_diff(high, low) ((high << 32) | low)
 
@@ -14,8 +34,8 @@ uint64_t freq = 0;
 unsigned n_threads = 1;
 
 static inline void roofline_print_header(){
-    fprintf(output_file, "%12s %20s %20s %16s %10s %10s %10s %10s %10s %-20s %s\n",
-	    "Obj", "start", "end", "Instructions", "Throughput", "SDev", "GByte/s", "GFlop/s", "Flops/Byte", "n_threads", "info");
+    fprintf(output_file, "%10s %10s %10s %10s %10s %10s %s\n",
+	    "Throughput", "GByte/s", "GFlop/s", "Flops/Byte", "n_threads", "type", "info");
 }
 
 static char * roofline_cat_info(const char * info){
@@ -32,23 +52,31 @@ static char * roofline_cat_info(const char * info){
     return ret;
 }
 
+static void roofline_sample_print_type(float throughput, float bandwidth, float perf, float oi, int type, const char * info)
+{
+    fprintf(output_file, "%10f %10f %10f %10f %10d %10s %s\n",
+	    throughput, bandwidth, perf, oi, n_threads, roofline_type_str(type), info);
+}
+
 void roofline_sample_print(struct roofline_sample * out , const char * info)
 {
-    long cyc;
     char * info_cat = roofline_cat_info(info);
-    cyc = out->ts_end - out->ts_start;
-    fprintf(output_file, "%12s %20lu %20lu %16lu %10.6f %10.6f %10.3f %10.3f %10.6f %10u %-20s\n",
-	    "Machine", 
-	    out->ts_start, 
-	    out->ts_end, 
-	    out->instructions, 
-	    (float)out->instructions / (float) cyc, 
-	    0.0,
-	    (float)(out->bytes * freq) / (float)(cyc*1e9), 
-	    (float)(out->flops * freq) / (float)(1e9*cyc),
-	    (float)(out->flops) / (float)(out->bytes),
-	    n_threads, 
-	    info_cat);
+    long cyc = out->ts_end - out->ts_start;
+    float perf = (float)(out->flops * freq) / (float)(1e9*cyc);
+    float throughput, bandwidth, oi;
+    if(out->store_ins>0){
+	throughput = (float)(out->flop_ins+out->store_ins) / (float)cyc;
+	bandwidth = (float)(out->store_bytes*freq) / (float)(1e9*cyc);
+	oi = (float)out->flops / (float)out->store_bytes;
+	roofline_sample_print_type(throughput, bandwidth, perf, oi, ROOFLINE_STORE, info_cat);
+    }
+    if(out->load_ins>0){
+	throughput = (float)(out->flop_ins+out->load_ins) / (float)cyc;
+	bandwidth = (float)(out->load_bytes*freq) / (float)(1e9*cyc);
+	oi = (float)out->flops / (float)out->load_bytes;
+	roofline_sample_print_type(throughput, bandwidth, perf, oi, ROOFLINE_LOAD, info_cat);
+    }
+ 
     free(info_cat);
     fflush(output_file);
 }
@@ -119,6 +147,13 @@ void roofline_sampling_init(const char * output){
 	exit(EXIT_FAILURE);
     }
 
+    /* Check whether flops counted will be AVX or SSE */
+#if defined (__AVX__)
+    FLOPS = 4;
+#elif defined (__SSE__)
+    FLOPS = 2;
+#endif
+
     /* Check if cpu frequency has been defined */
     char * freq_str = NULL;
 #ifndef CPU_FREQ
@@ -146,37 +181,12 @@ void roofline_sampling_fini(){
 
 /* instructions, load_instructions, double, double[2], double[4]*/
 void roofline_eventset_init(int * eventset){
-    int err = PAPI_OK;
     *eventset = PAPI_NULL;
     PAPI_call_check(PAPI_create_eventset(eventset), PAPI_OK, "PAPI eventset initialization failed\n");
-    PAPI_call_check(PAPI_add_named_event(*eventset, "PAPI_TOT_INS"), PAPI_OK, "Failed to find instructions counter\n"); 
-    err = PAPI_add_named_event(*eventset, "PAPI_LD_INS");
-    if(err != PAPI_OK){
-	PAPI_handle_error(err);
-	printf("PAPI_LD_INS not available\n");
-	err = PAPI_add_named_event(*eventset, "MEM_UOPS_RETIRED:ALL_LOADS");
-	if(err != PAPI_OK){
-	    PAPI_handle_error(err);
-	    printf("MEM_UOPS_RETIRED:ALL_LOADS\n");
-	    printf("Cannot count load instructions.\n");
-	    exit(EXIT_FAILURE);
-	}	
-    }
-    err = PAPI_add_named_event(*eventset, "FP_COMP_OPS_EXE:SSE_SCALAR_DOUBLE");
-    if(err != PAPI_OK){
-	err = PAPI_add_named_event(*eventset, "FP_ARITH:SCALAR_DOUBLE");
-	if(err != PAPI_OK){
-	    PAPI_handle_error(err);
-	    printf("flop events not available\n");
-	    exit(EXIT_FAILURE);
-	}
-	PAPI_call_check(PAPI_add_named_event(*eventset, "FP_ARITH:128B_PACKED_DOUBLE"), PAPI_OK, "Failed to find FP_ARITH:128B_PACKED_DOUBLE event\n"); 
-	PAPI_call_check(PAPI_add_named_event(*eventset, "FP_ARITH:256B_PACKED_DOUBLE"), PAPI_OK, "Failed to find FP_ARITH:256B_PACKED_DOUBLE event\n"); 
-    }
-    else{
-	PAPI_call_check(PAPI_add_named_event(*eventset, "FP_COMP_OPS_EXE:SSE_FP_PACKED_DOUBLE"), PAPI_OK, "Failed to find FP_COMP_OPS_EXE:SSE_FP_PACKED_DOUBLE event\n"); 
-	PAPI_call_check(PAPI_add_named_event(*eventset, "SIMD_FP_256:PACKED_DOUBLE"), PAPI_OK, "Failed to find SIMD_FP_256:PACKED_DOUBLE event\n"); 
-    }
+    PAPI_call_check(PAPI_add_named_event(*eventset, "MEM_UOPS_RETIRED:ALL_STORES"), PAPI_OK, "Failed to add store instructions counter\n");
+    PAPI_call_check(PAPI_add_named_event(*eventset, "MEM_UOPS_RETIRED:ALL_LOADS"), PAPI_OK, "Failed to add load instructions counter\n");
+    PAPI_call_check(PAPI_add_named_event(*eventset, "FP_ARITH:PACKED"), PAPI_OK, "Failed to count double floating point instructions counter\n");
+    PAPI_call_check(PAPI_add_named_event(*eventset, "FP_ARITH:SCALAR_DOUBLE"), PAPI_OK, "Failed to count double floating point instructions counter\n"); 
 }
 
 void roofline_eventset_destroy(int * eventset){
@@ -190,13 +200,6 @@ void roofline_sampling_start(int eventset, struct roofline_sample * out){
     PAPI_start(eventset);
 }
 
-#if defined (__AVX512__)
-#define SIMD_BYTES         64
-#elif defined (__AVX__)
-#define SIMD_BYTES         32
-#elif defined (__SSE__)
-#define SIMD_BYTES         16
-#endif
 
 void roofline_sampling_stop(int eventset, struct roofline_sample * out){
     uint64_t c_high, c_low;
@@ -204,9 +207,12 @@ void roofline_sampling_stop(int eventset, struct roofline_sample * out){
     PAPI_stop(eventset,values);
     roofline_rdtsc(c_high, c_low);
     out->ts_end       = roofline_rdtsc_diff(c_high, c_low);
-    out->instructions = values[0];
-    out->bytes        = values[1]*SIMD_BYTES;
-    out->flops        = values[2]+values[3]*2+values[4]*4;
+    out->flop_ins     = values[2]+values[3];
+    out->flops        = values[2]*FLOPS+values[3];
+    out->load_ins     = values[1];
+    out->load_bytes   = values[1]*BYTES;
+    out->store_ins    = values[0];
+    out->store_bytes  = values[0]*BYTES;
 }
 
 
@@ -216,15 +222,21 @@ struct roofline_sample shared;
 void roofline_sample_clear(struct roofline_sample * out){
     out->ts_start = 0;
     out->ts_end = 0;
-    out->bytes = 0;
+    out->flop_ins = 0;
     out->flops = 0;
-    out->instructions = 0;
+    out->load_ins = 0;
+    out->load_bytes = 0;
+    out->store_ins = 0;
+    out->store_bytes = 0;
 }
 
 void roofline_sample_accumulate(struct roofline_sample * out, struct roofline_sample * with){
     out->ts_end       += with->ts_end - with->ts_start;
-    out->bytes        += with->bytes;
+    out->load_ins     += with->load_ins;
+    out->load_bytes   += with->load_bytes;
+    out->store_ins    += with->store_ins;
+    out->store_bytes  += with->store_bytes;
     out->flops        += with->flops;
-    out->instructions += with->instructions;
+    out->flop_ins     += with->flop_ins;
 }
 #endif
