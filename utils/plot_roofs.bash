@@ -83,10 +83,11 @@ bandwidths        = d[d[,dgflops]==0,]    #The bandwidths
 if($BEST){
    top_bandwidth <- function(obj){
       max_bdw = max(bandwidths[bandwidths[,dobj]==obj, dbandwidth])
-      which(bandwidths[,dbandwidth] == max_bdw)
+      which(bandwidths[,dbandwidth] == max_bdw & bandwidths[,dobj]==obj, arr.ind=TRUE)[1]
    }
-   bandwidths = bandwidths[unlist(unique(sapply(unique(bandwidths[,dobj]), top_bandwidth))),]
+   bandwidths = bandwidths[sapply(unique(bandwidths[,dobj]), top_bandwidth, simplify=array),]
 }
+
 if($SINGLE){
   fpeaks[,dgflops] = fpeaks[,dgflops]/fpeaks[,dthreads]
   bandwidths[,dbandwidth] = bandwidths[,dbandwidth]/bandwidths[,dthreads]
