@@ -134,6 +134,25 @@ for(i in 1:nrow(bandwidths)){
 
 #plot fpeak roofs
 abline(h = fpeaks[,dgflops], lty=3, col=1, lwd=2);
+
+for (i in 1:nrow(fpeaks)){
+  j=1; flops = fpeaks[i,dgflops]
+
+  while(j <= length(yticks)){
+    if( (yticks[j]<2*flops) && (yticks[j]>flops) ){
+      print(sprintf("remove %s:%f", ylabels[j], yticks[j]))
+      yticks = yticks[-c(j)]
+      ylabels = ylabels[-c(j)]
+      j = 1
+    }
+    else if( (yticks[j]*2>flops) && (yticks[j]<flops) ){
+      yticks = yticks[-c(j)]
+      ylabels = ylabels[-c(j)]
+      j = 1
+    }
+    j = j+1
+  }
+}
 yticks = c(yticks, fpeaks[,dgflops])
 ylabels = c(ylabels, sprintf("%.2f", fpeaks[,dgflops]))
 axis(2, labels = fpeaks[,dtype], at = fpeaks[,dgflops], las=1, tick=FALSE, pos=xmin, padj=0, hadj=0)
