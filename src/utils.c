@@ -54,6 +54,7 @@ int roofline_type_from_str(const char * type){
     if(!strcmp(type, "ADD") || !strcmp(type, "add")){return ROOFLINE_ADD;}
     if(!strcmp(type, "MUL") || !strcmp(type, "mul")){return ROOFLINE_MUL;}
     if(!strcmp(type, "MAD") || !strcmp(type, "mad")){return ROOFLINE_MAD;}
+    if(!strcmp(type, "FMA") || !strcmp(type, "fma")){return ROOFLINE_FMA;}
     return -1;
 }
 
@@ -86,6 +87,9 @@ const char * roofline_type_str(int type){
     case ROOFLINE_MAD:
 	return "mad";
 	break;
+    case ROOFLINE_FMA:
+      return "fma";
+      break;
     default:
 	return "";
 	break;

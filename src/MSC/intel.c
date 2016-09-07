@@ -154,6 +154,26 @@
     simd_fp(SIMD_ADD, "14", "14", "14")		\
     simd_fp(SIMD_MUL, "15", "15", "15")
 
+#ifdef __FMA__
+#define ffma					\
+    simd_fp(SIMD_FMA, "0", "0", "0")		\
+    simd_fp(SIMD_FMA, "1", "1", "1")		\
+    simd_fp(SIMD_FMA, "2", "2", "2")		\
+    simd_fp(SIMD_FMA, "3", "3", "3")		\
+    simd_fp(SIMD_FMA, "4", "4", "4")		\
+    simd_fp(SIMD_FMA, "5", "5", "5")		\
+    simd_fp(SIMD_FMA, "6", "6", "6")		\
+    simd_fp(SIMD_FMA, "7", "7", "7")		\
+    simd_fp(SIMD_FMA, "8", "8", "8")		\
+    simd_fp(SIMD_FMA, "9", "9", "9")		\
+    simd_fp(SIMD_FMA, "10", "10", "10")		\
+    simd_fp(SIMD_FMA, "11", "11", "11")		\
+    simd_fp(SIMD_FMA, "12", "12", "12")		\
+    simd_fp(SIMD_FMA, "13", "13", "13")		\
+    simd_fp(SIMD_FMA, "14", "14", "14")		\
+    simd_fp(SIMD_FMA, "15", "15", "15")
+#endif
+
 #else
 #define fadd					\
     simd_fp(SIMD_ADD, "0", "0")			\
@@ -208,28 +228,6 @@
     simd_fp(SIMD_MUL, "13", "13")		\
     simd_fp(SIMD_ADD, "14", "14")		\
     simd_fp(SIMD_MUL, "15", "15")
-
-#endif
-
-#ifdef __FMA__
-#undef fmad
-#define fmad					\
-    simd_fp(SIMD_FMA, "0", "1", "2")		\
-    simd_fp(SIMD_FMA, "3", "4", "5")		\
-    simd_fp(SIMD_FMA, "6", "7", "8")		\
-    simd_fp(SIMD_FMA, "9", "10", "11")		\
-    simd_fp(SIMD_FMA, "12", "13", "14")		\
-    simd_fp(SIMD_FMA, "15", "0", "1")		\
-    simd_fp(SIMD_FMA, "2", "3", "4")		\
-    simd_fp(SIMD_FMA, "5", "6", "7")		\
-    simd_fp(SIMD_FMA, "8", "9", "10")		\
-    simd_fp(SIMD_FMA, "11", "12", "13")		\
-    simd_fp(SIMD_FMA, "14", "15", "0")		\
-    simd_fp(SIMD_FMA, "1", "2", "3")		\
-    simd_fp(SIMD_FMA, "4", "5", "6")		\
-    simd_fp(SIMD_FMA, "7", "8", "9")		\
-    simd_fp(SIMD_FMA, "10", "11", "12")		\
-    simd_fp(SIMD_FMA, "13", "14", "15")
 #endif
 
 #if defined(_OPENMP)
@@ -289,19 +287,22 @@ void fpeak_benchmark(const struct roofline_sample_in * in, struct roofline_sampl
     volatile uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0;
     switch(type){
     case ROOFLINE_ADD:
-	asm_flops_begin("add", c_high, c_low) fadd asm_flops_end(in, out, "add", c_high, c_low, c_high1, c_low1);
-	break;
+      asm_flops_begin("add", c_high, c_low) fadd asm_flops_end(in, out, "add", c_high, c_low, c_high1, c_low1);
+      break;
     case ROOFLINE_MUL:
-	asm_flops_begin("mul", c_high, c_low) fmul asm_flops_end(in, out, "mul", c_high, c_low, c_high1, c_low1);
-	break;
+      asm_flops_begin("mul", c_high, c_low) fmul asm_flops_end(in, out, "mul", c_high, c_low, c_high1, c_low1);
+      break;
     case ROOFLINE_MAD:
-	asm_flops_begin("mad", c_high, c_low) fmad asm_flops_end(in, out, "mad", c_high, c_low, c_high1, c_low1);
+      asm_flops_begin("mad", c_high, c_low) fmad asm_flops_end(in, out, "mad", c_high, c_low, c_high1, c_low1);
+      break;
 #if defined (__FMA__)
-	out->flops*=2;
+    case ROOFLINE_FMA:
+      asm_flops_begin("fma", c_high, c_low) ffma asm_flops_end(in, out, "fma", c_high, c_low, c_high1, c_low1);
+      out->flops*=2;
+      break;
 #endif
-	break;
     default:
-	break;
+      break;
     }
 }
 
@@ -618,18 +619,42 @@ void bandwidth_benchmark(const struct roofline_sample_in * in, struct roofline_s
 
 #include <stdio.h>
 
+
+
 #if defined (__AVX__)  || defined (__AVX512__)
-static void dprint_FUOP(int fd, const char * op, unsigned * regnum){
+static void dprint_FUOP_by_ins(int fd, const char * op, unsigned * regnum){
     dprintf(fd, "\"%s %%%%%s%d, %%%%%s%d, %%%%%s%d\\n\\t\"\\\n",
 	    op, SIMD_REG, *regnum, SIMD_REG, *regnum, SIMD_REG, *regnum);
     *regnum = (*regnum+1)%SIMD_N_REGS;
 }
 #else 
-static void dprint_FUOP(int fd, const char * op, unsigned * regnum){
+static void dprint_FUOP_by_ins(int fd, const char * op, unsigned * regnum){
     dprintf(fd, "\"%s %%%%%s%d, %%%%%s%d\\n\\t\"\\\n", op, SIMD_REG, *regnum, SIMD_REG, *regnum);
     *regnum = (*regnum+1)%SIMD_N_REGS;
 }
 #endif
+
+static void dprint_FUOP(int fd, int type, int i, unsigned * regnum){
+  switch(type){
+  case ROOFLINE_ADD:
+    dprint_FUOP_by_ins(fd, SIMD_ADD, regnum);
+    break;
+  case ROOFLINE_MUL:
+    dprint_FUOP_by_ins(fd, SIMD_MUL, regnum);
+    break;
+  case ROOFLINE_MAD:
+    i%2? dprint_FUOP_by_ins(fd, SIMD_MUL, regnum) : dprint_FUOP_by_ins(fd, SIMD_ADD, regnum);
+    break;
+#if defined (__FMA__)  && defined (__AVX__)
+  case ROOFLINE_FMA:
+    dprint_FUOP_by_ins(fd, SIMD_FMA, regnum);
+    break;
+#endif
+  default:
+    break;
+  }
+}
+
 
 static void dprint_MUOP(int fd, int type, int i,  off_t * offset, unsigned * regnum, const char * datareg){
     switch(type){
@@ -718,65 +743,74 @@ static int roofline_compile_lib(char * c_path, char* so_path){
     return system(cmd);
 }
 
-off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int type, double oi){
+off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int mem_type, int flop_type, double oi){
     off_t offset;
     size_t len;
     unsigned i, regnum, mem_instructions = 0, fop_instructions = 0, fop_per_mop, mop_per_fop;
     char * idx;
-    if(oi<=0)
-	return 0;
-    len = 1+strlen(roofline_type_str(type));
+    if(oi<=0)return 0;
+    
+    len = 2+strlen(roofline_type_str(mem_type))+strlen(roofline_type_str(flop_type));
     idx = malloc(len);
     memset(idx,0,len);
-    snprintf(idx,len,"%s", roofline_type_str(type));
+    snprintf(idx,len,"%s_%s", roofline_type_str(mem_type), roofline_type_str(flop_type));
     regnum=0;           /* SIMD register number */
     offset = 0;         /* the offset of each load/store instruction */
     mem_instructions=0; /* The number of printed memory instructions */
     fop_instructions=0; /* The number of printed flop instructions */
     fop_per_mop = oi * SIMD_BYTES / SIMD_FLOPS;
     mop_per_fop = SIMD_FLOPS / (oi * SIMD_BYTES);
+
+    fop_per_mop = oi * SIMD_BYTES / SIMD_FLOPS;
+    mop_per_fop = SIMD_FLOPS / (oi * SIMD_BYTES);    
+    
+#ifdef __FMA__
+    if(flop_type == ROOFLINE_FMA){
+      fop_per_mop = oi * SIMD_BYTES / (2*SIMD_FLOPS);
+      mop_per_fop = SIMD_FLOPS*2 / (oi * SIMD_BYTES);
+    }
+#endif
+
     dprint_oi_bench_begin(fd, idx, name);
     if(mop_per_fop == 1){
 	unsigned ppcm = SIMD_N_REGS/2;
-	if(type == ROOFLINE_2LD1ST){ppcm = roofline_PPCM(SIMD_N_REGS,3);}
+	if(mem_type == ROOFLINE_2LD1ST){ppcm = roofline_PPCM(SIMD_N_REGS,3);}
 	for(i=0;i<ppcm;i++){
-	    dprint_MUOP(fd, type, i, &offset, &regnum, "r11");
-            if(i%2){dprint_FUOP(fd, SIMD_MUL, &regnum);}
-	    else{   dprint_FUOP(fd, SIMD_ADD, &regnum);}
+	    dprint_MUOP(fd, mem_type, i, &offset, &regnum, "r11");
+	    dprint_FUOP(fd, flop_type, i, &regnum);
 	}
 	mem_instructions = fop_instructions = ppcm;
     }
     else if(mop_per_fop > 1){
 	fop_instructions = SIMD_N_REGS;
 	mem_instructions = fop_instructions * mop_per_fop;
-	if(type == ROOFLINE_2LD1ST){mem_instructions = roofline_PPCM(mem_instructions,3);}
+	if(mem_type == ROOFLINE_2LD1ST){mem_instructions = roofline_PPCM(mem_instructions,3);}
 	fop_instructions = mem_instructions / mop_per_fop;
 	for(i=0;i<mem_instructions;i++){
-	    dprint_MUOP(fd, type, i, &offset, &regnum, "r11");
-	    if(i%mop_per_fop==0){
-		if((i/mop_per_fop)%2){dprint_FUOP(fd, SIMD_MUL, &regnum);}
-		else{dprint_FUOP(fd, SIMD_ADD, &regnum);}
-	    }
+	    dprint_MUOP(fd, mem_type, i, &offset, &regnum, "r11");
+	    if(i%mop_per_fop==0){dprint_FUOP(fd, flop_type, i/mop_per_fop, &regnum);}
 	}
     }
     else if(fop_per_mop > 1){
         mem_instructions = SIMD_N_REGS;
 	fop_instructions = mem_instructions * fop_per_mop;
-	if(type == ROOFLINE_2LD1ST){
+	if(mem_type == ROOFLINE_2LD1ST){
 	    mem_instructions = roofline_PPCM(mem_instructions, 3);
 	    fop_instructions = mem_instructions*fop_per_mop;
 	}
 	for(i=0;i<fop_instructions;i++){
-	    if(i%fop_per_mop == 0) {
-	        dprint_MUOP(fd, type, i, &offset, &regnum, "r11");
-	    }
-	    if(i%2){dprint_FUOP(fd, SIMD_MUL, &regnum);}
-	    else{dprint_FUOP(fd, SIMD_ADD, &regnum);}
+	    if(i%fop_per_mop == 0) {dprint_MUOP(fd, mem_type, i, &offset, &regnum, "r11");}
+	    dprint_FUOP(fd, flop_type, i, &regnum);
 	}
     }
     dprint_oi_bench_end(fd, idx, offset);
     dprintf(fd, "out->instructions = in->loop_repeat * %u * in->stream_size / %lu;\n", mem_instructions+fop_instructions, offset);
-    dprintf(fd, "out->flops = in->loop_repeat * %u * in->stream_size / %lu;\n", fop_instructions*SIMD_FLOPS, offset);
+#ifdef __FMA__
+    if(flop_type == ROOFLINE_FMA)
+      dprintf(fd, "out->flops = in->loop_repeat * %u * in->stream_size / %lu;\n", fop_instructions*SIMD_FLOPS*2, offset);
+    else
+#endif
+      dprintf(fd, "out->flops = in->loop_repeat * %u * in->stream_size / %lu;\n", fop_instructions*SIMD_FLOPS, offset);
     dprintf(fd, "out->bytes = in->loop_repeat * in->stream_size;\n");
     dprintf(fd, "}\n\n");
     free(idx);
@@ -808,7 +842,9 @@ void (* roofline_oi_bench(const double oi, const int type))(const struct rooflin
 
     char tempname[1024], * c_path, * so_path;
     size_t len;
-    int fd; 
+    int fd;
+    int mem_type = type & (ROOFLINE_LOAD|ROOFLINE_LOAD_NT|ROOFLINE_STORE|ROOFLINE_STORE_NT|ROOFLINE_2LD1ST|ROOFLINE_COPY);
+    int flop_type = type & (ROOFLINE_MUL|ROOFLINE_ADD|ROOFLINE_MAD|ROOFLINE_FMA);
     void (* benchmark) (const struct roofline_sample_in *, struct roofline_sample_out *, int);
 
     if(oi<=0){
@@ -826,9 +862,9 @@ void (* roofline_oi_bench(const double oi, const int type))(const struct rooflin
     fd = open(c_path, O_WRONLY|O_CREAT, 0644);
     /* Write the appropriate roofline to the file */
     dprint_header(fd);
-    chunk_size = roofline_benchmark_write_oi_bench(fd, func_name, type, oi);
+    chunk_size = roofline_benchmark_write_oi_bench(fd, func_name, mem_type, flop_type, oi);
     /* Compile the roofline function */
-    close(fd); 
+    close(fd);
     roofline_compile_lib(c_path, so_path);
     /* Load the roofline function */
     benchmark = roofline_load_lib(so_path, func_name);
@@ -841,6 +877,6 @@ void (* roofline_oi_bench(const double oi, const int type))(const struct rooflin
 }
 
 int benchmark_types_supported(){
-    return ROOFLINE_LOAD|ROOFLINE_LOAD_NT|ROOFLINE_STORE|ROOFLINE_STORE_NT|ROOFLINE_2LD1ST|ROOFLINE_COPY|ROOFLINE_MUL|ROOFLINE_ADD|ROOFLINE_MAD;
+    return ROOFLINE_LOAD|ROOFLINE_LOAD_NT|ROOFLINE_STORE|ROOFLINE_STORE_NT|ROOFLINE_2LD1ST|ROOFLINE_COPY|ROOFLINE_MUL|ROOFLINE_ADD|ROOFLINE_MAD|ROOFLINE_FMA;
 }
 

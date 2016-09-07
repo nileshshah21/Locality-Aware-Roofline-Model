@@ -289,21 +289,29 @@ void roofline_flops(FILE * output, int type){
    if(type & ROOFLINE_ADD & supported){roofline_fpeak(output,ROOFLINE_ADD);}
    if(type & ROOFLINE_MUL & supported){roofline_fpeak(output,ROOFLINE_MUL);}
    if(type & ROOFLINE_MAD & supported){roofline_fpeak(output,ROOFLINE_MAD);}
+   if(type & ROOFLINE_FMA & supported){roofline_fpeak(output,ROOFLINE_FMA);}
 }
 
 void roofline_oi(FILE * output, hwloc_obj_t mem, int type, double oi){
-    void(* bench)(const struct roofline_sample_in *, struct roofline_sample_out *, int);
-    int i, tp;
-    const int mem_types[6] = {ROOFLINE_LOAD, ROOFLINE_LOAD_NT, ROOFLINE_STORE, ROOFLINE_STORE_NT, ROOFLINE_2LD1ST, ROOFLINE_COPY};
-    int supported = benchmark_types_supported();
+  void(* bench)(const struct roofline_sample_in *, struct roofline_sample_out *, int);
+  int i, j, mem_type, flop_type, t;
+  const int mem_types[6] = {ROOFLINE_LOAD, ROOFLINE_LOAD_NT, ROOFLINE_STORE, ROOFLINE_STORE_NT, ROOFLINE_2LD1ST, ROOFLINE_COPY};
+  const int flop_types[4] = {ROOFLINE_ADD, ROOFLINE_MUL, ROOFLINE_MAD, ROOFLINE_FMA};
+  int supported = benchmark_types_supported();
 
-    for(i=0;i<6;i++){
-	tp = mem_types[i];
-	if(type & tp & supported){
-	    bench = roofline_oi_bench(oi,tp);
-	    if(bench == NULL){continue;}
-	    roofline_memory(output,mem,tp,bench);
+  for(i=0;i<6;i++){
+    mem_type = mem_types[i];
+    if(type & mem_type & supported){
+      for(j=0;j<4;j++){
+	flop_type = flop_types[j];
+	if(type & flop_type & supported){
+	  t = flop_type|mem_type;
+	  bench = roofline_oi_bench(oi,t);
+	  if(bench == NULL){continue;}
+	  roofline_memory(output, mem, t, bench);
 	}
+      }
     }
+  }
 }
 
