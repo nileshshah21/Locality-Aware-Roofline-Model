@@ -52,8 +52,9 @@ void print_roofline_sample_output(struct roofline_sample_out * out);
 #define ROOFLINE_2LD1ST   16  /* benchmark type */
 #define ROOFLINE_COPY     32  /* benchmark type */
 #define ROOFLINE_MUL      64  /* benchmark type */
-#define ROOFLINE_ADD      128  /* benchmark type */
+#define ROOFLINE_ADD      128 /* benchmark type */
 #define ROOFLINE_MAD      256 /* benchmark type */
+#define ROOFLINE_FMA      512 /* benchmark type */
 
 #ifndef ROOFLINE_N_SAMPLES
 #define ROOFLINE_N_SAMPLES 8
