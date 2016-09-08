@@ -59,41 +59,17 @@ int roofline_type_from_str(const char * type){
 }
 
 const char * roofline_type_str(int type){
-    switch(type){
-    case ROOFLINE_LOAD:
-	return "load";
-	break;
-    case ROOFLINE_LOAD_NT:
-	return "load_nt";
-	break;
-    case ROOFLINE_STORE:
-	return "store";
-	break;
-    case ROOFLINE_STORE_NT:
-	return "store_nt";
-	break;
-    case ROOFLINE_2LD1ST:
-	return "2ld1st";
-	break;
-    case ROOFLINE_COPY:
-	return "copy";
-	break;
-    case ROOFLINE_ADD:
-	return "add";
-	break;
-    case ROOFLINE_MUL:
-	return "mul";
-	break;
-    case ROOFLINE_MAD:
-	return "mad";
-	break;
-    case ROOFLINE_FMA:
-      return "fma";
-      break;
-    default:
-	return "";
-	break;
-    }
+  if(type & ROOFLINE_LOAD) return "load";
+  if(type & ROOFLINE_LOAD_NT) return "load_nt";
+  if(type & ROOFLINE_STORE) return "store";
+  if(type & ROOFLINE_STORE_NT) return "store_nt";
+  if(type & ROOFLINE_2LD1ST) return "2ld1st";
+  if(type & ROOFLINE_COPY) return "copy";
+  if(type & ROOFLINE_ADD) return "add";
+  if(type & ROOFLINE_MUL) return "mul";
+  if(type & ROOFLINE_MAD) return "mad";
+  if(type & ROOFLINE_FMA) return "fma";
+  return "";
 }
 
 inline void roofline_print_header(FILE * output){
