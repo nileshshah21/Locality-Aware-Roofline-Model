@@ -280,21 +280,75 @@
 #endif
 
 void fpeak_benchmark(const struct roofline_sample_in * in, struct roofline_sample_out * out, int type){
-    volatile uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0;
-    switch(type){
-    case ROOFLINE_ADD:
-      asm_flops_begin("add", c_high, c_low) fadd asm_flops_end(in, out, "add", c_high, c_low, c_high1, c_low1);
-      break;
-    case ROOFLINE_MUL:
-      asm_flops_begin("mul", c_high, c_low) fmul asm_flops_end(in, out, "mul", c_high, c_low, c_high1, c_low1);
-      break;
-    case ROOFLINE_MAD:
-      asm_flops_begin("mad", c_high, c_low) fmad asm_flops_end(in, out, "mad", c_high, c_low, c_high1, c_low1);
-      break;
+  volatile uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0;
+  switch(type){
+  case ROOFLINE_ADD:
+    asm_flops_begin("add", c_high, c_low) fadd asm_flops_end(in, out, "add", c_high, c_low, c_high1, c_low1);
+    break;
+  case ROOFLINE_MUL:
+    asm_flops_begin("mul", c_high, c_low) fmul asm_flops_end(in, out, "mul", c_high, c_low, c_high1, c_low1);
+    break;
+  case ROOFLINE_MAD:
+    asm_flops_begin("mad", c_high, c_low) fmad asm_flops_end(in, out, "mad", c_high, c_low, c_high1, c_low1);
+    break;
 #if defined (__FMA__)
-    case ROOFLINE_FMA:
-      asm_flops_begin("fma", c_high, c_low) ffma asm_flops_end(in, out, "fma", c_high, c_low, c_high1, c_low1);
-      out->flops*=2;
+  case ROOFLINE_FMA:;
+    double * values;
+    posix_memalign((void**)(&values), 64, sizeof(double)*SIMD_FLOPS);
+#ifdef _OPENMP
+#pragma omp parallel
+#pragma omp master
+#endif
+    roofline_rdtsc(c_high, c_low);
+    __asm__ __volatile__ (						\
+      "vmovapd (%1),   %%ymm0\n\t"					\
+      "vmovapd %%ymm0, %%ymm1\n\t"					\
+      "vmovapd %%ymm0, %%ymm2\n\t"					\
+      "vmovapd %%ymm0, %%ymm3\n\t"					\
+      "vmovapd %%ymm0, %%ymm4\n\t"					\
+      "vmovapd %%ymm0, %%ymm5\n\t"					\
+      "vmovapd %%ymm0, %%ymm6\n\t"					\
+      "vmovapd %%ymm0, %%ymm7\n\t"					\
+      "vmovapd %%ymm0, %%ymm8\n\t"					\
+      "vmovapd %%ymm0, %%ymm9\n\t"					\
+      "vmovapd %%ymm0, %%ymm10\n\t"					\
+      "vmovapd %%ymm0, %%ymm11\n\t"					\
+      "vmovapd %%ymm0, %%ymm12\n\t"					\
+      "vmovapd %%ymm0, %%ymm13\n\t"					\
+      "vmovapd %%ymm0, %%ymm14\n\t"					\
+      "vmovapd %%ymm0, %%ymm15\n\t"					\
+      "loop_flops_fma_repeat:\n\t"					\
+      "vfmadd132pd %%ymm0, %%ymm0, %%ymm0\n\t"				\
+      "vfmadd132pd %%ymm1, %%ymm1, %%ymm1\n\t"				\
+      "vfmadd132pd %%ymm2, %%ymm2, %%ymm2\n\t"				\
+      "vfmadd132pd %%ymm3, %%ymm3, %%ymm3\n\t"				\
+      "vfmadd132pd %%ymm4, %%ymm4, %%ymm4\n\t"				\
+      "vfmadd132pd %%ymm5, %%ymm5, %%ymm5\n\t"				\
+      "vfmadd132pd %%ymm6, %%ymm6, %%ymm6\n\t"				\
+      "vfmadd132pd %%ymm7, %%ymm7, %%ymm7\n\t"				\
+      "vfmadd132pd %%ymm8, %%ymm8, %%ymm8\n\t"				\
+      "vfmadd132pd %%ymm9, %%ymm9, %%ymm9\n\t"				\
+      "vfmadd132pd %%ymm10, %%ymm10, %%ymm10\n\t"			\
+      "vfmadd132pd %%ymm11, %%ymm11, %%ymm11\n\t"			\
+      "vfmadd132pd %%ymm12, %%ymm12, %%ymm12\n\t"			\
+      "vfmadd132pd %%ymm13, %%ymm13, %%ymm13\n\t"			\
+      "vfmadd132pd %%ymm14, %%ymm14, %%ymm14\n\t"			\
+      "vfmadd132pd %%ymm15, %%ymm15, %%ymm15\n\t"			\
+      "sub $1, %0\n\t"							\
+      "jnz loop_flops_fma_repeat\n\t"					\
+      :: "r" (in->loop_repeat), "r" (values)	: SIMD_CLOBBERED_REGS);
+#ifdef _OPENMP
+#pragma omp barrier
+#pragma omp master
+#endif
+      roofline_rdtsc(c_high1, c_low1);
+      out->ts_start = roofline_rdtsc_diff(c_high, c_low);
+      out->ts_end = roofline_rdtsc_diff(c_high1, c_low1);
+      out->instructions = in->loop_repeat*16;
+      out->flops = out->instructions*SIMD_FLOPS*2;
+      free(values);
+      /* asm_flops_begin("fma", c_high, c_low) ffma asm_flops_end(in, out, "fma", c_high, c_low, c_high1, c_low1); */
+      /* out->flops*=2; */
       break;
 #endif
     default:
@@ -691,7 +745,7 @@ static void  dprint_header(int fd) {
     dprintf(fd, ":\"=r\" (c_high), \"=r\" (c_low)::\"%%rax\", \"%%rbx\", \"%%rcx\", \"%%rdx\")\n");
 }
  
-static void dprint_oi_bench_begin(int fd, const char * id, const char * name){
+static void dprint_oi_bench_begin(int fd, const char * id, const char * name, int type){
     dprintf(fd, "void %s(struct roofline_sample_in * in, struct roofline_sample_out * out, __attribute__ ((unused)) int type){\n", name);
     dprintf(fd, "volatile uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0;\n");
     dprintf(fd, "%s * stream = in->stream;\n",roofline_stringify(ROOFLINE_STREAM_TYPE));
@@ -705,6 +759,24 @@ static void dprint_oi_bench_begin(int fd, const char * id, const char * name){
     dprintf(fd, "#endif\n");
     dprintf(fd,"rdtsc(c_high,c_low);\n");
     dprintf(fd, "__asm__ __volatile__ (\\\n");
+    if(type & ROOFLINE_FMA){
+      dprintf(fd, "\"vmovapd (%%1),    %%%%ymm0\\n\\t\"\n");
+      dprintf(fd, "\"vmovapd %%%%ymm0, %%%%ymm1\\n\\t\"\n");
+      dprintf(fd, "\"vmovapd %%%%ymm0, %%%%ymm2\\n\\t\"\n");
+      dprintf(fd, "\"vmovapd %%%%ymm0, %%%%ymm3\\n\\t\"\n");
+      dprintf(fd, "\"vmovapd %%%%ymm0, %%%%ymm4\\n\\t\"\n");
+      dprintf(fd, "\"vmovapd %%%%ymm0, %%%%ymm5\\n\\t\"\n");
+      dprintf(fd, "\"vmovapd %%%%ymm0, %%%%ymm6\\n\\t\"\n");
+      dprintf(fd, "\"vmovapd %%%%ymm0, %%%%ymm7\\n\\t\"\n");
+      dprintf(fd, "\"vmovapd %%%%ymm0, %%%%ymm8\\n\\t\"\n");
+      dprintf(fd, "\"vmovapd %%%%ymm0, %%%%ymm9\\n\\t\"\n");
+      dprintf(fd, "\"vmovapd %%%%ymm0, %%%%ymm10\\n\\t\"\n");
+      dprintf(fd, "\"vmovapd %%%%ymm0, %%%%ymm11\\n\\t\"\n");
+      dprintf(fd, "\"vmovapd %%%%ymm0, %%%%ymm12\\n\\t\"\n");
+      dprintf(fd, "\"vmovapd %%%%ymm0, %%%%ymm13\\n\\t\"\n");
+      dprintf(fd, "\"vmovapd %%%%ymm0, %%%%ymm14\\n\\t\"\n");
+      dprintf(fd, "\"vmovapd %%%%ymm0, %%%%ymm15\\n\\t\"\n");
+    }
     dprintf(fd, "\"loop_%s_repeat:\\n\\t\"\\\n", id);
     dprintf(fd, "\"mov %%1, %%%%r11\\n\\t\"\\\n");
     dprintf(fd, "\"mov %%2, %%%%r12\\n\\t\"\\\n");
@@ -717,7 +789,7 @@ static void dprint_oi_bench_end(int fd, const char * id, off_t offset){
     dprintf(fd,"\"jnz buffer_%s_increment\\n\\t\"\\\n", id);
     dprintf(fd,"\"sub $1, %%0\\n\\t\"\\\n");
     dprintf(fd,"\"jnz loop_%s_repeat\\n\\t\"\\\n", id);
-    dprintf(fd,":: \"r\" (in->loop_repeat), \"r\" (stream), \"r\" (size)\\\n");
+    dprintf(fd,":: \"r\" (in->loop_repeat), \"r\" (stream), \"r\" (size)\\\n"); 
     dprintf(fd,": \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"memory\" );\n", SIMD_CLOBBERED_REGS);
     dprintf(fd, "#if defined(_OPENMP)\n");
     dprintf(fd,"#pragma omp barrier\n");
@@ -766,7 +838,7 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int mem_type,
     }
 #endif
 
-    dprint_oi_bench_begin(fd, idx, name);
+    dprint_oi_bench_begin(fd, idx, name, flop_type);
     if(mop_per_fop == 1){
 	unsigned ppcm = SIMD_N_REGS/2;
 	if(mem_type == ROOFLINE_2LD1ST){ppcm = roofline_PPCM(SIMD_N_REGS,3);}
@@ -844,14 +916,13 @@ void (* roofline_oi_bench(const double oi, const int type))(const struct rooflin
       fprintf(stderr, "Both memory and compute type must be included in type\n");
       return NULL;
     }
+    void (* benchmark) (const struct roofline_sample_in *, struct roofline_sample_out *, int);
 
     if(oi<=0){
 	fprintf(stderr, "operational intensity must be greater than 0.\n");
 	return NULL;
     }
 
-    void (* benchmark) (const struct roofline_sample_in *, struct roofline_sample_out *, int);
-    
     /* Create the filenames */
     snprintf(tempname, sizeof(tempname), "roofline_benchmark_%s_%s_oi_%lf", roofline_type_str(mem_type), roofline_type_str(flop_type), oi);
     len = strlen(tempname)+3; c_path =  malloc(len); memset(c_path,  0, len); snprintf(c_path, len, "%s.c", tempname);
