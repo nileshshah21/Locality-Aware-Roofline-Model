@@ -84,11 +84,6 @@
 #define SIMD_ADD           "addps"
 #endif
 
-#if defined (__FMA__)
-#define SIMD_FMA           "vfmadd132pd" /* Fuse multiply add instruction */
-#endif /* __FMA__ */
-
-
 /******************************** Flops loop instructions ***************************/
 #if defined (__AVX__)  || defined (__AVX512__) || defined (__FMA__)
 /* asm instruction for flops between operand a & b. Result stored into c*/
@@ -155,23 +150,24 @@
     simd_fp(SIMD_MUL, "15", "15", "15")
 
 #ifdef __FMA__
+#define SIMD_FMA "vfmadd132pd" /* Fuse multiply add instruction */
 #define ffma					\
-    simd_fp(SIMD_FMA, "0", "0", "0")		\
-    simd_fp(SIMD_FMA, "1", "1", "1")		\
-    simd_fp(SIMD_FMA, "2", "2", "2")		\
-    simd_fp(SIMD_FMA, "3", "3", "3")		\
-    simd_fp(SIMD_FMA, "4", "4", "4")		\
-    simd_fp(SIMD_FMA, "5", "5", "5")		\
-    simd_fp(SIMD_FMA, "6", "6", "6")		\
-    simd_fp(SIMD_FMA, "7", "7", "7")		\
-    simd_fp(SIMD_FMA, "8", "8", "8")		\
-    simd_fp(SIMD_FMA, "9", "9", "9")		\
-    simd_fp(SIMD_FMA, "10", "10", "10")		\
-    simd_fp(SIMD_FMA, "11", "11", "11")		\
-    simd_fp(SIMD_FMA, "12", "12", "12")		\
-    simd_fp(SIMD_FMA, "13", "13", "13")		\
-    simd_fp(SIMD_FMA, "14", "14", "14")		\
-    simd_fp(SIMD_FMA, "15", "15", "15")
+  simd_fp(SIMD_FMA, "0", "0", "0")		\
+  simd_fp(SIMD_FMA, "1", "1", "1")		\
+  simd_fp(SIMD_FMA, "2", "2", "2")		\
+  simd_fp(SIMD_FMA, "3", "3", "3")		\
+  simd_fp(SIMD_FMA, "4", "4", "4")		\
+  simd_fp(SIMD_FMA, "5", "5", "5")		\
+  simd_fp(SIMD_FMA, "6", "6", "6")		\
+  simd_fp(SIMD_FMA, "7", "7", "7")		\
+  simd_fp(SIMD_FMA, "8", "8", "8")		\
+  simd_fp(SIMD_FMA, "9", "9", "9")		\
+  simd_fp(SIMD_FMA, "10", "10", "10")		\
+  simd_fp(SIMD_FMA, "11", "11", "11")		\
+  simd_fp(SIMD_FMA, "12", "12", "12")		\
+  simd_fp(SIMD_FMA, "13", "13", "13")		\
+  simd_fp(SIMD_FMA, "14", "14", "14")		\
+  simd_fp(SIMD_FMA, "15", "15", "15")
 #endif
 
 #else
@@ -274,7 +270,7 @@
     "movq %%rdx, %2\n\t"						\
     "movq %%rax, %3\n\t"						\
     : "=&r" (c_high), "=&r" (c_low), "=&r" (c_high1), "=&r" (c_low1)	\
-	: "r" (in->loop_repeat) : "%rax", "%rbx", "%rcx", "%rdx", SIMD_CLOBBERED_REGS); \
+    : "r" (in->loop_repeat) : "%rax", "%rbx", "%rcx", "%rdx", SIMD_CLOBBERED_REGS); \
     out->ts_start = roofline_rdtsc_diff(c_high, c_low);			\
     out->ts_end = roofline_rdtsc_diff(c_high1, c_low1);			\
     out->instructions = 16*in->loop_repeat;				\
@@ -500,7 +496,6 @@ void fpeak_benchmark(const struct roofline_sample_in * in, struct roofline_sampl
     roofline_store_ins("144",reg,"9")		\
     roofline_load_ins("160",reg,"10")		\
     roofline_store_ins("176",reg,"11")
-
 #endif
 
 #define reg_mv "%%r11"
@@ -739,7 +734,7 @@ static void dprint_oi_bench_end(int fd, const char * id, off_t offset){
 static int roofline_compile_lib(char * c_path, char* so_path){
     char cmd[2048];
     memset(cmd,0,sizeof(cmd));
-    sprintf(cmd, "%s -fPIC -shared %s -rdynamic -o %s %s", compiler, c_path, so_path, omp_flag);
+    sprintf(cmd, "%s -g -fPIC -shared %s -rdynamic -o %s %s", compiler, c_path, so_path, omp_flag);
     return system(cmd);
 }
 
@@ -845,6 +840,10 @@ void (* roofline_oi_bench(const double oi, const int type))(const struct rooflin
     int fd;
     int mem_type = type & (ROOFLINE_LOAD|ROOFLINE_LOAD_NT|ROOFLINE_STORE|ROOFLINE_STORE_NT|ROOFLINE_2LD1ST|ROOFLINE_COPY);
     int flop_type = type & (ROOFLINE_MUL|ROOFLINE_ADD|ROOFLINE_MAD|ROOFLINE_FMA);
+    if(!mem_type  || ! flop_type){
+      fprintf(stderr, "Both memory and compute type must be included in type\n");
+      return NULL;
+    }
     void (* benchmark) (const struct roofline_sample_in *, struct roofline_sample_out *, int);
 
     if(oi<=0){
@@ -852,12 +851,11 @@ void (* roofline_oi_bench(const double oi, const int type))(const struct rooflin
 	return NULL;
     }
 
-
     /* Create the filenames */
-    snprintf(tempname, sizeof(tempname), "roofline_benchmark_%s_oi_%lf", roofline_type_str(type), oi);
+    snprintf(tempname, sizeof(tempname), "roofline_benchmark_%s_%s_oi_%lf", roofline_type_str(mem_type), roofline_type_str(flop_type), oi);
     len = strlen(tempname)+3; c_path =  malloc(len); memset(c_path,  0, len); snprintf(c_path, len, "%s.c", tempname);
     len = strlen(tempname)+4; so_path = malloc(len); memset(so_path, 0, len); snprintf(so_path, len, "%s.so", tempname);
-    
+
     /* Generate benchmark */
     fd = open(c_path, O_WRONLY|O_CREAT, 0644);
     /* Write the appropriate roofline to the file */
