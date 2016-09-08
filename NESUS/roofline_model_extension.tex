@@ -87,19 +87,21 @@ to prove bottlenecks, or measure achievable (or achieved) improvements.
 
 It has been applied to other memory subsystems~\cite{ilic2014cache}, energy~\cite{7493653}, and abstract runtime systems.
 
-Based on the Cache Aware Roofline Model methodology, we applied and validated the model to heterogeneous memory subsystems.
+Based on the Cache Aware Roofline Model~\cite{ilic2014cache} methodology, we applied and validated the model to heterogeneous memory subsystems.
 
 \section{Contribution}
 \label{sec:contrib}
 
 In our contribution, we developped a tool able to benchmark rooflines and validate them with micro kernels, compatible with intel chips.
 
-Each benchmark (rooflines, and micro kernels) is made of assembly code using best architectures instructions available at compile
+Each benchmark (rooflines, and validation) is made of assembly code using best architectures instructions available at compile
 time.
 
-In brief, the compute benchmark repeats compute instructions and outputs $\frac{n*iFlops}{time}$ where $n$ is the number of compute instructions and $iFlops$ is the number of floating point operations computed per instruction.
+In brief, the fpeak benchmark repeats compute instructions and outputs $\frac{n*iFlops}{time}$ where $n$ is the number of compute instructions and $iFlops$ is the number of floating point operations computed per instruction.
 
-The memory benchmark repeats coallesced memory instruction on a private\footnote{Each thread have its own buffer's chunk} buffer of several sizes fitting the memory to benchmark and outputs $\frac{n*iBytes}{time}$ where $n$ is the number of memory instructions and $iBytes$ is the number of Bytes transferred per instruction.
+The bandwidth benchmark repeats coallesced memory instruction on a private\footnote{Each thread have its own buffer's chunk} buffer of several sizes fitting the memory to benchmark and outputs $\frac{n*iBytes}{time}$ where $n$ is the number of memory instructions and $iBytes$ is the number of Bytes transferred per instruction.
+
+And the validation kernels interleave previously defined benchmarks instructions and output its performance and operational intensity.
 
 We can find several arithmetic floating point operation peaks (addition, multiplication, overlapping multiply add, and fuse
 multiply add), as well as several bandwidth types (load, store, non temporal load, non temporal store, interleaving of 2 loads and one store), and for several memory levels (L1, L2, L3, (caches \dots), NUMA memories, MCDRAM \dots) detectable with hwloc~\cite{6903671} library.
@@ -115,7 +117,7 @@ Figure~\ref{fig:joe0} shows a represtentation of such a machine given by hwloc, 
 hierarchical inclusiveness of ressources in the machine. Our benchmark can work both in sequential and in parallel. In the former,
 one benchamrk thread is spawn on first Core (left most) of the machine. In the latter, one benchmark thread per Core of the first
 NUMA memory node is spawn, and threads measure (Flops and Bytes) are accumulated. The parallel model representation obtained from
-machine~\ref{fig:joe0} is shown on figure~\ref{fig:orig_model}. In this model sum of each thread load bandwidth on its (non-shared)
+machine~\ref{fig:joe0} is shown on figure~\ref{fig:orig_model}. In this model, the sum of each thread load bandwidth on its (non-shared)
  L1 cache yields a throughput of 761GB/s, whereas the shared local memory (NUMANode:0) yields a throughput of 36GB/s.
 Remote memory bandwidth are obtained by running the same benchmark as local memory, but explicitly allocating the data on remote
  memories.
