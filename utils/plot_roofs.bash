@@ -194,11 +194,14 @@ if("$DATA" != ""){
   types = unique(misc[,c(dtype, dinfo)])
   for(i in 1:nrow(types)){
     points = subset(misc, misc[,dtype] == types[i,1] & misc[,dinfo] == types[i,2])
-    if($SINGLE){
-      points[,dflop] = points[,dflop]/points[,dthread]
-      points[,dbyte] = points[,dbyte]/points[,dthread]
-    }
-    points(points[,dflop]/points[,dbyte], points[,dflop]/points[,dnano], asp=1, pch=i, col=i)
+    x = ifelse(points[,dbyte]==0, NA, as.numeric(points[,dflop])/as.numeric(points[,dbyte]))
+    y = ifelse(points[,dnano]==0, NA, as.numeric(points[,dflop])/as.numeric(points[,dnano]))
+
+    #if($SINGLE){
+      #y = y/as.numeric(points[,dthread])
+    #}
+
+    points(x, y, asp=1, pch=i, col=i)
     par(new=TRUE);
   }
   legend("topright", legend=apply(types, 1, function(t){paste(t[1], t[2], sep=" ")}), cex=.7, col=1:nrow(types), pch=1:nrow(types), bg="white")
