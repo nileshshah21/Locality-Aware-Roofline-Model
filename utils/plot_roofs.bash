@@ -198,7 +198,7 @@ if("$DATA" != ""){
       points[,dflop] = points[,dflop]/points[,dthread]
       points[,dbyte] = points[,dbyte]/points[,dthread]
     }
-    points(points[,dflop]/points[,dbyte], 10^9*points[,dflop]/points[,dnano], asp=1, pch=i, col=i)
+    points(points[,dflop]/points[,dbyte], points[,dflop]/points[,dnano], asp=1, pch=i, col=i)
     par(new=TRUE);
   }
   legend("topright", legend=apply(types, 1, function(t){paste(t[1], t[2], sep=" ")}), cex=.7, col=1:nrow(types), pch=1:nrow(types), bg="white")
