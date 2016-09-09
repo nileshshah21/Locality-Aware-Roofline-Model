@@ -39,16 +39,16 @@ static inline void roofline_print_header(){
 }
 
 static char * roofline_cat_info(const char * info){
-    size_t len = 0;
+    size_t len = 2;
     char * env_info = getenv("LARM_INFO");
     char * ret = NULL;
-    if(info != NULL){len += strlen(info);}
-    if(env_info != NULL){len += strlen(env_info);}
-    ret = malloc(len+2);
-    memset(ret, 0 ,len+2);
-    if(info != NULL && env_info != NULL){snprintf(ret, len+2, "%s_%s", info, env_info);}
-    else if(info != NULL){snprintf(ret, len, "%s", info);}
-    else if(env_info != NULL){snprintf(ret, len, "%s", env_info);}
+    if(info != NULL) len += strlen(info);
+    if(env_info != NULL) len += strlen(env_info);
+    ret = malloc(len);
+    memset(ret, 0 ,len);
+    if(info != NULL && env_info != NULL)snprintf(ret, len+2, "%s_%s", info, env_info);
+    else if(info != NULL)snprintf(ret, len, "%s", info);
+    else if(env_info != NULL)snprintf(ret, len, "%s", env_info);
     return ret;
 }
 
