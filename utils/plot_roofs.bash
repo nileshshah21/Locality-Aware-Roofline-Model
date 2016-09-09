@@ -182,21 +182,23 @@ legend("bottomright", legend=paste(bandwidths[,dobj], paste(bandwidths[,dtype], 
 
 #plot MISC points
 if("$DATA" != ""){
-  dtype = 6
-  dinfo = 7
-  dgflops = 3
-  doi = 4
-  dthreads=5
+  dnano   = 1
+  dbyte   = 2
+  dflop   = 3
+  dthread = 4
+  dtype   = 5
+  dinfo   = 6
+
   misc = filter(read.table("$DATA",header=TRUE), dtype)
   misc = filter(misc, dinfo)
   types = unique(misc[,c(dtype, dinfo)])
-
   for(i in 1:nrow(types)){
     points = subset(misc, misc[,dtype] == types[i,1] & misc[,dinfo] == types[i,2])
     if($SINGLE){
-      points[,dgflops] = points[,dgflops]/points[,dthreads]
+      points[,dflop] = points[,dflop]/points[,dthread]
+      points[,dbyte] = points[,dbyte]/points[,dthread]
     }
-    points(points[,doi], points[,dgflops], asp=1, pch=i, col=i)
+    points(points[,dflop]/points[,dbyte], 10^9*points[,dflop]/points[,dnano], asp=1, pch=i, col=i)
     par(new=TRUE);
   }
   legend("topright", legend=apply(types, 1, function(t){paste(t[1], t[2], sep=" ")}), cex=.7, col=1:nrow(types), pch=1:nrow(types), bg="white")

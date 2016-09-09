@@ -8,6 +8,9 @@
 
 const unsigned BYTES=8;
 unsigned FLOPS = 1;
+FILE *   output_file = NULL;  
+uint64_t freq = 0;
+unsigned n_threads = 1;
 
 #define ROOFLINE_LOAD     1   /* benchmark type */
 #define ROOFLINE_STORE    4   /* benchmark type */
@@ -25,17 +28,12 @@ const char * roofline_type_str(int type){
     }
 }
 
-
 #define roofline_rdtsc(c_high,c_low) __asm__ __volatile__ ("CPUID\n\tRDTSC\n\tmovq %%rdx, %0\n\tmovq %%rax, %1\n\t" :"=r" (c_high), "=r" (c_low)::"%rax", "%rbx", "%rcx", "%rdx")
 #define roofline_rdtsc_diff(high, low) ((high << 32) | low)
 
-FILE *   output_file = NULL;  
-uint64_t freq = 0;
-unsigned n_threads = 1;
-
 static inline void roofline_print_header(){
-    fprintf(output_file, "%10s %10s %10s %10s %10s %10s %s\n",
-	    "Throughput", "GByte/s", "GFlop/s", "Flops/Byte", "n_threads", "type", "info");
+    fprintf(output_file, "%16s %16s %16s %10d %10s %s\n",
+	    "Nanoseconds", "Bytes", "Flops", "n_threads", "type", "info");
 }
 
 static char * roofline_cat_info(const char * info){
@@ -52,10 +50,10 @@ static char * roofline_cat_info(const char * info){
     return ret;
 }
 
-static void roofline_sample_print_type(float throughput, float bandwidth, float perf, float oi, int type, const char * info)
+static void roofline_sample_print_type(long nanoseconds, long bytes, long flops, int type, const char * info)
 {
-    fprintf(output_file, "%10f %10f %10f %10f %10d %10s %s\n",
-	    throughput, bandwidth, perf, oi, n_threads, roofline_type_str(type), info);
+    fprintf(output_file, "%16ld %16ld %16ld %10s %10s %s\n",
+	    nanoseconds, bytes, flops, n_threads, roofline_type_str(type), info);
 }
 
 void roofline_sample_print(struct roofline_sample * out , const char * info)
@@ -64,17 +62,19 @@ void roofline_sample_print(struct roofline_sample * out , const char * info)
     long cyc = out->ts_end - out->ts_start;
     float perf = (float)(out->flops * freq) / (float)(1e9*cyc);
     float throughput, bandwidth, oi;
+    float seconds = (float)cyc/(float)freq;
+    
     if(out->store_ins>0){
 	throughput = (float)(out->flop_ins+out->store_ins) / (float)cyc;
-	bandwidth = (float)(out->store_bytes*freq) / (float)(1e9*cyc);
+	bandwidth = (float)out->store_bytes / seconds;
 	oi = (float)out->flops / (float)out->store_bytes;
-	roofline_sample_print_type(throughput, bandwidth, perf, oi, ROOFLINE_STORE, info_cat);
+	roofline_sample_print_type((long)(seconds*1e9), throughput, bandwidth, perf, oi, ROOFLINE_STORE, info_cat);
     }
     if(out->load_ins>0){
 	throughput = (float)(out->flop_ins+out->load_ins) / (float)cyc;
-	bandwidth = (float)(out->load_bytes*freq) / (float)(1e9*cyc);
+	bandwidth = (float)(out->load_bytes) / seconds;
 	oi = (float)out->flops / (float)out->load_bytes;
-	roofline_sample_print_type(throughput, bandwidth, perf, oi, ROOFLINE_LOAD, info_cat);
+	roofline_sample_print_type((long)(seconds*1e9), throughput, bandwidth, perf, oi, ROOFLINE_LOAD, info_cat);
     }
  
     free(info_cat);
