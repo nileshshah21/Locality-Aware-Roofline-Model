@@ -73,7 +73,7 @@ int main(int argc, char ** argv){
   printf("scale done.\n");
 
   for(i=0;i<repeat;i++)
-    do_sample(s, triad(size*size, Za, Zb, Zu, 2.34), "scale");
+    do_sample(s, triad(size*size, Za, Zb, Zu, 2.34), "triad");
   printf("triad done.\n");
 
   for(i=0;i<repeat;i++)
