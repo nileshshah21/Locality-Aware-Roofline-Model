@@ -183,10 +183,10 @@ void roofline_sampling_fini(){
 void roofline_eventset_init(int * eventset){
     *eventset = PAPI_NULL;
     PAPI_call_check(PAPI_create_eventset(eventset), PAPI_OK, "PAPI eventset initialization failed\n");
-    PAPI_call_check(PAPI_add_named_event(*eventset, "MEM_UOPS_RETIRED:ALL_STORES"), PAPI_OK, "Failed to add store instructions counter\n");
-    PAPI_call_check(PAPI_add_named_event(*eventset, "MEM_UOPS_RETIRED:ALL_LOADS"), PAPI_OK, "Failed to add load instructions counter\n");
-    PAPI_call_check(PAPI_add_named_event(*eventset, "FP_ARITH:PACKED"), PAPI_OK, "Failed to count double floating point instructions counter\n");
-    PAPI_call_check(PAPI_add_named_event(*eventset, "FP_ARITH:SCALAR_DOUBLE"), PAPI_OK, "Failed to count double floating point instructions counter\n"); 
+    PAPI_call_check(PAPI_add_named_event(*eventset, "MEM_UOPS_RETIRED:ALL_STORES"), PAPI_OK, "Failed to add MEM_UOPS_RETIRED:ALL_STORES event\n");
+    PAPI_call_check(PAPI_add_named_event(*eventset, "MEM_UOPS_RETIRED:ALL_LOADS"), PAPI_OK, "Failed to add MEM_UOPS_RETIRED:ALL_LOADS event\n");
+    PAPI_call_check(PAPI_add_named_event(*eventset, "FP_ARITH:PACKED"), PAPI_OK, "Failed to add FP_ARITH:PACKED event\n");
+    PAPI_call_check(PAPI_add_named_event(*eventset, "FP_ARITH:SCALAR_DOUBLE"), PAPI_OK, "Failed to add FP_ARITH:SCALAR_DOUBLE event\n"); 
 }
 
 void roofline_eventset_destroy(int * eventset){
