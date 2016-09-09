@@ -8,18 +8,17 @@
 #include "sampling.h"
 
 static unsigned BYTES = 8;
-static unsigned FLOPS = 1;
 static FILE *   output_file = NULL;  
  unsigned n_threads = 1;
 
 struct roofline_sample{
   /* All sample type specific data */
+  int type;
   int eventset;        /* Eventset of this sample used to read events */
-  long long values[5]; /* Values to be store on counter read */
+  long long values[4]; /* Values to be store on counter read */
   long nanoseconds;    /* Timestamp in cycles where the roofline started */
   long flops;          /* The amount of flops computed */
-  long load_bytes;     /* The amount of load bytes transfered */
-  long store_bytes;    /* The amount of store bytes transfered */
+  long bytes;          /* The amount of bytes of type transfered */
 };
 
 static char * roofline_cat_info(const char * info){
@@ -97,27 +96,37 @@ void roofline_sample_clear(struct roofline_sample * out){
   }
   out->nanoseconds = 0;
   out->flops = 0;
-  out->load_bytes = 0;
-  out->store_bytes = 0;
+  out->bytes = 0;
 }
 
-struct roofline_sample * new_roofline_sample(){
-  struct roofline_sample * s = malloc(sizeof(*s));
+struct roofline_sample * new_roofline_sample(int type){
+  struct roofline_sample * s = malloc(sizeof(struct roofline_sample));
   if(s==NULL){perror("malloc"); return NULL;}
+  s->nanoseconds = 0;
+  s->flops = 0;
+  s->bytes = 0;
   s->eventset = PAPI_NULL;
+  s->type = type;
+  
 #ifdef _OPENMP
 #pragma omp critical
   {
 #endif
     PAPI_call_check(PAPI_create_eventset(&(s->eventset)), PAPI_OK, "PAPI eventset initialization failed\n");
-    PAPI_call_check(PAPI_add_named_event(s->eventset, "MEM_UOPS_RETIRED:ALL_STORES"), PAPI_OK, "Failed to add MEM_UOPS_RETIRED:ALL_STORES event\n");
-    PAPI_call_check(PAPI_add_named_event(s->eventset, "MEM_UOPS_RETIRED:ALL_LOADS"), PAPI_OK, "Failed to add MEM_UOPS_RETIRED:ALL_LOADS event\n");
-    PAPI_call_check(PAPI_add_named_event(s->eventset, "FP_ARITH:PACKED"), PAPI_OK, "Failed to add FP_ARITH:PACKED event\n");
     PAPI_call_check(PAPI_add_named_event(s->eventset, "FP_ARITH:SCALAR_DOUBLE"), PAPI_OK, "Failed to add FP_ARITH:SCALAR_DOUBLE event\n");
+    PAPI_call_check(PAPI_add_named_event(s->eventset, "FP_ARITH:128B_PACKED_DOUBLE"), PAPI_OK, "Failed to add FP_ARITH:128B_PACKED_DOUBLE event\n");
+    PAPI_call_check(PAPI_add_named_event(s->eventset, "FP_ARITH:256B_PACKED_DOUBLE"), PAPI_OK, "Failed to add FP_ARITH:256B_PACKED_DOUBLE event\n");
+    switch(type){
+    case TYPE_STORE:
+      PAPI_call_check(PAPI_add_named_event(s->eventset, "MEM_UOPS_RETIRED:ALL_STORES"), PAPI_OK, "Failed to add MEM_UOPS_RETIRED:ALL_STORES event\n");
+      break;
+    default:
+      PAPI_call_check(PAPI_add_named_event(s->eventset, "MEM_UOPS_RETIRED:ALL_LOADS"), PAPI_OK, "Failed to add MEM_UOPS_RETIRED:ALL_LOADS event\n");
+      break;
+    } 
 #ifdef _OPENMP
   }
 #endif
-  roofline_sample_clear(s);
   return s;
 }
 
@@ -129,13 +138,16 @@ void delete_roofline_sample(struct roofline_sample * s){
 void roofline_sample_print(struct roofline_sample * s , const char * info)
 {
   char * info_cat = roofline_cat_info(info);
-
-  if(s->load_bytes>0)
+  switch(s->type) {
+  case TYPE_STORE:
     fprintf(output_file, "%16ld %16ld %16ld %10d %10s %s\n",
-	    s->nanoseconds, s->load_bytes, s->flops, n_threads, "load", info_cat);
-  if(s->store_bytes>0)
+	    s->nanoseconds, s->bytes, s->flops, n_threads, "store", info_cat);
+    break;
+  default:
     fprintf(output_file, "%16ld %16ld %16ld %10d %10s %s\n",
-	    s->nanoseconds, s->load_bytes, s->flops, n_threads, "store", info_cat);
+	    s->nanoseconds, s->bytes, s->flops, n_threads, "load", info_cat);
+    break;
+  }
 }
 
 static inline void roofline_print_header(){
@@ -159,16 +171,16 @@ void roofline_sampling_init(const char * output){
   /* Check SSE */
   eax = 1;
   __asm__ __volatile__ ("CPUID\n\t": "=c" (ecx), "=d" (edx): "a" (eax));
-  if ((edx & 1 << 25) || (edx & 1 << 26)) {FLOPS = 2; BYTES = 16; printf("SSE support found\n");}
+  if ((edx & 1 << 25) || (edx & 1 << 26)) {BYTES = 16; printf("SSE support found\n");}
 
   /* Check AVX */
-  if ((ecx & 1 << 28) || (edx & 1 << 26)) {FLOPS = 4; BYTES = 32; printf("AVX support found\n");}
+  if ((ecx & 1 << 28) || (edx & 1 << 26)) {BYTES = 32; printf("AVX support found\n");}
   eax = 7; ecx = 0;
   __asm__ __volatile__ ("CPUID\n\t": "=b" (ebx), "=c" (ecx): "a" (eax), "c" (ecx));
-  if ((ebx & 1 << 5)) {FLOPS = 4; BYTES = 32; printf("AVX2 support found\n");}
+  if ((ebx & 1 << 5)) {BYTES = 32; printf("AVX2 support found\n");}
 
   /* AVX512 foundation. Not checked */
-  if ((ebx & 1 << 16)) {FLOPS = 8; BYTES = 64; printf("AVX512 support found\n");}
+  if ((ebx & 1 << 16)) {BYTES = 64; printf("AVX512 support found\n");}
     
   PAPI_call_check(PAPI_library_init(PAPI_VER_CURRENT), PAPI_VER_CURRENT, "PAPI version mismatch\n");
   PAPI_call_check(PAPI_is_initialized(), PAPI_LOW_LEVEL_INITED, "PAPI initialization failed\n");
@@ -196,9 +208,8 @@ void roofline_sampling_stop(struct roofline_sample * out){
   clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t);
   PAPI_stop(out->eventset,out->values);
   out->nanoseconds = (t.tv_nsec + 1e9*t.tv_sec) - out->nanoseconds;
-  out->flops        = out->values[2]*FLOPS+out->values[3];
-  out->load_bytes   = out->values[1]*BYTES;
-  out->store_bytes  = out->values[0]*BYTES;
+  out->flops = out->values[0] + 2 * out->values[1] + 3 * out->values[2];
+  out->bytes  = out->values[3]*BYTES;
 }
 
 
@@ -208,9 +219,8 @@ struct roofline_sample shared;
 
 void roofline_sample_accumulate(struct roofline_sample * out, struct roofline_sample * with){
   out->nanoseconds = out->nanoseconds>with->nanoseconds ? out->nanoseconds : with->nanoseconds;
-  out->load_bytes   += with->load_bytes;
-  out->store_bytes  += with->store_bytes;
-  out->flops        += with->flops;
+  out->bytes      += with->bytes;
+  out->flops      += with->flops;
 }
 #endif
 

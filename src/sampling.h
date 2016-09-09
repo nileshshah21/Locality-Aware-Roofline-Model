@@ -1,11 +1,14 @@
 #ifndef SAMPLING_H
 #define SAMPLING_H
 
+#define TYPE_LOAD  1
+#define TYPE_STORE 2
+
 struct roofline_sample;
 
 void                     roofline_sampling_init (const char * output);
 void                     roofline_sampling_fini ();
-struct roofline_sample * new_roofline_sample    ();
+struct roofline_sample * new_roofline_sample    (int type);
 void                     roofline_sample_clear  (struct roofline_sample *);
 void                     roofline_sampling_start(struct roofline_sample *);
 void                     roofline_sampling_stop (struct roofline_sample *);
