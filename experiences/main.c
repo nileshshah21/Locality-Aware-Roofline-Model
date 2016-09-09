@@ -4,17 +4,17 @@
 #include <sampling.h>
 #include "kernels.h"
 
-static int eventset;
-static struct roofline_sample s;
+static int type = TYPE_LOAD;
 static char * output = NULL;
 static int size = 10000;
 static int repeat = 1;
 
-#define do_sample(call, id) do{			\
-    roofline_sampling_start(eventset, &s);	\
+#define do_sample(sample, call, id) do{		\
+    roofline_sampling_start(sample);		\
     call;					\
-    roofline_sampling_stop(eventset, &s);	\
-    roofline_sample_print(&s , id);		\
+    roofline_sampling_stop(sample);		\
+    roofline_sample_print(sample, id);		\
+    roofline_sample_clear(sample);		\
   } while(0)
 
 static inline double * new_array(const int N){
@@ -22,7 +22,7 @@ static inline double * new_array(const int N){
 }
 
 static inline void usage(const char * argv0){
-  fprintf(stderr, "%s (-s <size>) (-r <repeat>) (-o <output>) (-h)\n", argv0);
+  fprintf(stderr, "%s (-s <size>) (-r <repeat>) (-o <output>) -t (<type={load, store}>) (-h)\n", argv0);
   exit(EXIT_SUCCESS);
 }
 
@@ -40,6 +40,9 @@ static void parse_args(int argc, char ** argv){
     } else if(!strcmp(argv[i], "-r")){
       if(i+1==argc){usage(argv0);}
       repeat = atoi(argv[i+1]); i++;
+    } else if(!strcmp(argv[i], "-t")){
+      if(i+1==argc){usage(argv0);}
+      type = !strcmp(argv[i+1], "store") ? TYPE_STORE : TYPE_LOAD; i++;
     } else if(!strcmp(argv[i], "-h")){
       usage(argv0);
     }
@@ -48,34 +51,33 @@ static void parse_args(int argc, char ** argv){
 
 int main(int argc, char ** argv){
   parse_args(argc, argv);
-
-  roofline_sampling_init(NULL);
-  roofline_eventset_init(&eventset);
-
+  
   double *Za = new_array(size*size);
   double *Zb = new_array(size*size);
   double *Zu = new_array(size*size);
   double *Zv = new_array(size*size);
   double *Zr = new_array(size*size);
   double *Zz = new_array(size*size);
-  printf("init done.\n");
+
+  roofline_sampling_init(output);
+  struct roofline_sample * s = new_roofline_sample(type);
 
   int i;
 
   for(i=0;i<repeat;i++)
-    do_sample(ddot(size, Za, Zb), "ddot");
+    do_sample(s, ddot(size*size, Za, Zb), "ddot");
   printf("ddot done.\n");
 
   for(i=0;i<repeat;i++)
-    do_sample(scale(size, Za, Zb, 2.34), "scale");
+    do_sample(s, scale(size*size, Za, Zb, 2.34), "scale");
   printf("scale done.\n");
 
   for(i=0;i<repeat;i++)
-    do_sample(triad(size, Za, Zb, Zu, 2.34), "scale");
-  printf("scale done.\n");
+    do_sample(s, triad(size*size, Za, Zb, Zu, 2.34), "scale");
+  printf("triad done.\n");
 
   for(i=0;i<repeat;i++)
-    do_sample(livermore(100, size, Za, Zb, Zu, Zv, Zr, Zz), "scale");
+    do_sample(s, livermore(100, size, Za, Zb, Zu, Zv, Zr, Zz), "livermore");
   printf("livermore done.\n");
 
   
@@ -85,8 +87,8 @@ int main(int argc, char ** argv){
   free(Zv);
   free(Zr);
   free(Zz);
+  delete_roofline_sample(s);
   roofline_sampling_fini();
-  roofline_eventset_destroy(&eventset);
   return EXIT_SUCCESS;
 }
 
