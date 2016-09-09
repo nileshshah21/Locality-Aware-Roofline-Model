@@ -197,10 +197,6 @@ if("$DATA" != ""){
     x = ifelse(points[,dbyte]==0, NA, as.numeric(points[,dflop])/as.numeric(points[,dbyte]))
     y = ifelse(points[,dnano]==0, NA, as.numeric(points[,dflop])/as.numeric(points[,dnano]))
 
-    #if($SINGLE){
-      #y = y/as.numeric(points[,dthread])
-    #}
-
     points(x, y, asp=1, pch=i, col=i)
     par(new=TRUE);
   }
