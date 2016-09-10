@@ -189,15 +189,15 @@ if("$DATA" != ""){
   dtype   = 5
   dinfo   = 6
 
-  misc = filter(read.table("$DATA",header=TRUE), dtype)
+  misc = read.table("$DATA",header=TRUE)
+  misc = filter(misc, dtype)
   misc = filter(misc, dinfo)
+  misc["oi"] = ifelse(misc[,dbyte]==0, NA, as.numeric(misc[,dflop])/as.numeric(misc[,dbyte]))
+  misc["perf"] = ifelse(misc[,dnano]==0, NA, as.numeric(misc[,dflop])/as.numeric(misc[,dnano]))
   types = unique(misc[,c(dtype, dinfo)])
   for(i in 1:nrow(types)){
     points = subset(misc, misc[,dtype] == types[i,1] & misc[,dinfo] == types[i,2])
-    x = ifelse(points[,dbyte]==0, NA, as.numeric(points[,dflop])/as.numeric(points[,dbyte]))
-    y = ifelse(points[,dnano]==0, NA, as.numeric(points[,dflop])/as.numeric(points[,dnano]))
-
-    points(x, y, asp=1, pch=i, col=i)
+    points(points[,"oi"], points[,"perf"], asp=1, pch=i, col=i)
     par(new=TRUE);
   }
   legend("topright", legend=apply(types, 1, function(t){paste(t[1], t[2], sep=" ")}), cex=.7, col=1:nrow(types), pch=1:nrow(types), bg="white")
