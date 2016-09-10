@@ -2,7 +2,10 @@
 
 TARGET=roofline_model_extension
 
-all: $(TARGET).pdf
+all: $(TARGET).pdf abstract.pdf
+
+abstract.pdf: abstract.tex
+	pdflatex $<
 
 $(TARGET).pdf: $(TARGET).tex
 	pdflatex $(TARGET)
@@ -11,4 +14,4 @@ $(TARGET).pdf: $(TARGET).tex
 	pdflatex $(TARGET)
 
 clean:
-	rm -f $(TARGET).pdf *.log *.out *.aux *.bbl *.blg
+	rm -f *.log *.out *.aux *.bbl *.blg

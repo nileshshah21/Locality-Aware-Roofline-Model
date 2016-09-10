@@ -1,6 +1,4 @@
 src/*.o
 src/roofline
 src/*.so
-NESUS/*
-NESUS
 

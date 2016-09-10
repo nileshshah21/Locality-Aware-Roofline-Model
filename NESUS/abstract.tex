@@ -1,0 +1,34 @@
+\documentclass[runningheads,a4paper]{llncs}
+\usepackage{amssymb}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{wrapfig}
+\usepackage{verbatim}
+\usepackage{caption}
+\usepackage{hyperref}
+
+% #rubber: set arguments --shell-escape
+\begin{document}
+
+
+\title{Roofline Model applied to NUMA and Heterogeneous Memories}
+\titlerunning{Roofline Model for Heterogeneous and NUMA Memories}
+\author{Nicolas Denoyelle \and Aleksandar Ili\'{c}}
+\institute{Inria - France -- INESC-ID -- Portugal\\
+  Nicolas.Denoyelle@inria.fr, ilic@sips.inesc-id.pt}
+
+\maketitle
+
+\begin{abstract}
+
+Abstract. The ever growing complexity of high performance computing systems imposes significant challenges to exploit as much as
+possible their computational and communication resources.
+Recently, the Cache-aware Roofline Model has has gained popularity due to its simplicity modeling multi-cores with complex memory
+hierarchy, characterizing applications' bottlenecks, and quantifying achieved or remaining improvements.
+In this short paper we push this model a step further to model NUMA and heterogeneous memories with a handy tool, and spot data
+locality bottlenecks on such systems.
+
+\end{abstract}
+
+\end{document}
