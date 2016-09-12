@@ -42,7 +42,7 @@ $(BIN): main.c $(OBJ)
 	$(CC) $(CFLAGS) -pedantic-errors $^ -o $@ $(LDFLAGS) -lhwloc -lm
 
 $(LIB): sampling.c
-	$(CC) $(CFLAGS) -fPIC -shared $^ -o $@ -lpapi
+	$(CC) $(CFLAGS) -fPIC -shared $^ -o $@ -lpapi -lrt
 
 test: test_sampling.c $(LIB)
 	$(CC) $(CFLAGS) $< -o $@ -lrfsampling

@@ -1,16 +1,20 @@
-# LARM (Locality Aware Roofline Model)
-### Brief
-This repository holds fast tools to measure, validate and plot the different bandwidth of a CPU system.
-Benchmarks are hand-written assembly loops with known exact number of load,store,mul,add instructions.
-The only measured things is the number of cycles elapsed. 
-For each memory(including cache) in the memory hierarchy a buffer is loaded a fixed number of time, then the median value is saved.
-For each memory, several size fitting the memory space are loaded, and again, the median value is saved as well as the standard deviation.
+#LARM (Locality Aware Roofline Model)
+### Benchmark and plot your system bounds on the roofline model.
+  The ever growing complexity of high performance computing systems imposes significant challenges to exploit as much as
+  possible their computational and communication resources.
+  Recently, the Cache-aware Roofline Model has has gained popularity due to its simplicity modeling multi-cores with complex memory
+  hierarchy, characterizing applications' bottlenecks, and quantifying achieved or remaining improvements.
+  With this project, we push this model a step further to model NUMA and heterogeneous memories with a handy tool.
+
+  The repository contain the material to build the tool to benchmark your platform, to build a library to collect roofline metrics of your application, and finally a script to present the results.
+
+  The tool is able to benchmarks severals types of micro-operations: mul, add, fma, mad, load, load_nt, store, store_nt, 2ld1st, copy, explained later.
 
 ![](roofline_chart.png?raw=true)
 
-This plot output shows load instructions' rooflines (lines) and validation kernels (points) hitting the measured bandwidth.
+This plot shows load instructions' rooflines (lines) and validation kernels (points) hitting the measured bandwidth.
 
-### Installation
+###Set Up
 ```
 git clone https://github.com/NicolasDenoyelle/LARM-Locality-Aware-Roofline-Model-.git
 cd LARM-Locality-Aware-Roofline-Model-/src
@@ -22,27 +26,33 @@ Several options can be set in [Makefile](./src/Makefile)
 
 * `N_SAMPLES=`Number of sample to take for each memory benchmark. The samples scale is exponential, and bounds are automatically found according to memory sizes.
 
-* `PAPI=no` Change to yes to compile librfsampling. This library allows to use functions defined in [sampling.h](./src/sampling.h),
+* `PAPI=no` Change to yes to compile librfsampling. This library allows to use functions defined in [sampling.h](src/sampling.h),
 in order to output performance results from an application code, drawable on the roofline chart.
 
 * `OMP_FLAG=` Change to your compiler openmp flag to enable parallel benchmark.
 
 
-### Requirements
+###Requirements
 
 * This soft requires at least a recent enough hwloc library to be installed.
-* The library using hardware counters to export results also uses papi, but it is not compiled by default.
+* The library using hardware counters uses papi, but it is not compiled by default.
 * For now, it only works with intel processors but one can implement the interface MSC.h with other architectures code.
-* R to use the [plot script](./utils/plot_roofs.bash).
+Be aware that though an optional [generic implementation](LARM-Locality-Aware-Roofline-Model-/blob/master/src/MSC/generic.c) (not used by default) is present, peak floating point benchmarks are not reliable. Achieving peak
+performance with compiled code is a very hard task performed by very few finely tuned codes such as cblas_dgemm and can hardly be
+achieved in a generic way.
+* A gcc compiler on the machine running the validation benchmarks (`roofline -v`). Validation micro benchmarks are built, compiled and run at runtime. 
+* R to use the [plot script](LARM-Locality-Aware-Roofline-Model-/blob/master/utils/plot_roofs.bash).
 
 #### /!\ Important: 
 Generally speaking, if you want to get relevant results on such benchmarks, you have to assert that options like turbo-boost are disabled and
 the cpu frequency is set.
-Therefore, it is required to export the variable BENCHMARK_CPU_FREQ (The frequency of your CPU in Hertz)
+Therefore, it is required to export the variable CPU_FREQ (The frequency of your CPU in Hertz)
 ```
 export CPU_FREQ=2100000000
 ```
 Here you are ready to play
+
+###Usage
 
 * Display usage: `./roofline -h`
 
@@ -53,8 +63,24 @@ Here you are ready to play
 Validation consists in writing a list of load/store operations, interleaved with mul/add operations depending on the required operational intensity,
 compile and run each benchmark.
 
+* Run benchmark for precise types of micro operation: `./roofline -t "fma|load|store"`
+  * fma: use fuse multiply add instructions for fpeak benchmarks (if architecture is capable of it)
+  * mul: use multiply instructions for fpeak benchmarks.
+  * add: use addition instructions for fpeak benchmarks.
+  * mad: use interleaved additions/multiply instructions for fpeak benchmarks.
+  * load: use load instructions for bandwidth benchmarks.
+  * store: use store instructions for bandwidth benchmarks.
+  * 2ld1st: Interleave one store each two loads.
+  On some architectures, there are two loads channels on L1 cache and one store channel that can be used simulateously.
+  Using those simultaneously may yields better bandwidth.
+  * load_nt: use streaming load instructions for bandwidth benchmarks.
+  The streaming instructions gives usually better memory bandwidth above caches because they bypass caches.
+  It does not make much sense to use them for caches though you can.
+  In case you see better results with streaming instructions instead of regular instructions on caches, they are rather due to measures variation than better hardware efficiency.
+  * store_nt: use streaming store instructions for bandwidth benchmarks.
+  
 * plot help: `./utils/plot_roofs.bash -h`
 
-* plot output: `./utils/plot_roofs.bash -i input -t LOAD`
+* plot output: `./utils/plot_roofs.bash -i input -b`
 
 
