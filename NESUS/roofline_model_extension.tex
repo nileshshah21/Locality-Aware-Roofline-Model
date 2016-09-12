@@ -121,17 +121,22 @@
 %+++++++++++++++++++++++++++
 Emerging memory technologies (e.g heterogeneous memory architectures with non-volatile memory, on-package memory \dots), are
 required to address applications' needs and improve the performance at the cost of a growing hardware complexity.
-The memory wall makes memory management one of the main bottlenecks, and the variety expansion of allocable memories will
-definitely make data locality a performance hot spot, even on single chips.
+The variety of allocable memory is in expansion and add a new heterogeneity dimension to the existing architectural heterogeneity
+of NUMA clusters memories.
+The memory wall applies to each memory from this zoologie and will definitely make data locality a performance hot spot, 
+even on single chips.
+Those memories differ from each others by their specifications, but also by their interconnexion network.
+NUMA system's memory modules may have same characteristics but have different bandwidths and latency, depending on the location of
+the access request.
 
-We think we can leverage the Roofline Model to detect the latters accross on-chip's memories.
+The Roofline Model is able synthetise these informations in a single insightfull chart.
+We think we can leverage the Roofline Model to detect bandwidth bottlenecks accross such systems.
 For instance, a data allocated on low-bandwidth memory, may lead the application to become bandwidth bound.
-Our extension to heterogeneous and NUMA memory of the Cache Aware Roofline Model shows that in such sytems,
-memory bandwidth may vary from one pair (Core, memory) to another.
-Thus memory bound applications with bad data locality can be spotted by observing their performance variation beeing similar to
-memories performance differences.
 
-In our contribution, we developped a handy tool to build and validate the model on such systems.
+In our contribution, we developped a handy tool capable of benchmarking heterogeneous memory platforms and build the model for a
+large range of memories, as well as the caches.
+It can be used for the same purposes as the Cache Aware Roofline Model's, and extend it with data locality insights.
+We also prove the model on a NUMA system with tool's embedded micro-benchmarks.
 
 The remainder of this paper is organized as follow:
 
@@ -151,17 +156,25 @@ The original paper~\cite{Williams:2009:RIV:1498765.1498785} depict a machine wit
 executing the instructions dispatched from a common instruction channel.
 
 This idea is drawn on figure~\ref{fig:roofline_draw}.
-Depending on the operational intensity (i.e. the ratio of compute instructions (blue rectangles) over memory instructions (green rectangles)),
-one unit, the other or both may be saturated with instructions. The width of the memory channel is the bandwidth and the width
-of the compute channel is the floating point peak (fpeak) performance. The model assumes there can be no dependency between
-instructions (they can overlap perfectly) and instructions' lattency is hidden.
+Depending on the operational intensity (i.e. the ratio of compute instructions (blue rectangles) over memory instructions (green
+rectangles)), one unit, the other or both may be saturated with instructions. Here, only the memory unit is filled. 
+The width of the memory channel is the bandwidth and the width of the compute channel is the floating point peak~(fpeak)
+performance.
+The model assumes there can be no dependency between instructions (they can overlap perfectly) and instructions' lattency is
+hidden.
 
-On figure~\ref{fig:orig_model} is shown the graphical representation of the model.
+On figure~\ref{fig:orig_model} is shown the graphical representation of the model as it is built with our tool.
 The operational intensity stands on abscissa and the performance stands on the ordinate axis.
+Though we described channels' width with a number of instructions, we prefer metrics closer to the applications design than
+architecture design to hide its complexity.
+Depending on the architecture, the channel instruction size may vary but also the number of elements loaded/computed per
+instruction.
+Hence we use bytes as the unit element fetched from memory and flops as the unit element computed in Floating Point Unit~(FPU).
+Operational intensity is then in Flops per Byte, and performance is in GFlop\footnote{$10^9$ Flops} per second.
 Top horizontal lines show the fpeak performance for different type of compute instructions and
 oblique lines show the memory bandwidth for different types of memories. On this representation
 one can see that: the roofline model ($min(bandwidth*operational\_intensity, fpeak)$) shows whether a pattern of compute/memory
-instructions interleaving is either compute or memory bound if the maximum achievable performance is bound whether by the fpeak
+operation interleaving is either compute or memory bound if the maximum achievable performance is bound whether by the fpeak
 performance or the bandwidth.
 
 The model has been successfully used in
@@ -170,8 +183,18 @@ to prove bottlenecks, or measure achievable (or achieved) improvements.
 
 It has been applied to other memory subsystems~\cite{ilic2014cache}, energy~\cite{7493653}, and abstract runtime systems.
 
-Based on the Cache Aware Roofline Model~\cite{ilic2014cache} methodology, we applied and validated the model to heterogeneous
-memory subsystems.
+We base our methodology on the Cache Aware Roofline Model~\cite{ilic2014cache}.
+This model differs from the original model by the way of counting memory transactions.
+The latter counts memory transactions from the DRAM memory, whereas the former counts memory transactions completed by each
+Core unit.
+This new methodology allows to represent each memory on a same chart because the Bytes metrics is not architecture dependent
+anymore and applies to every memories.
+Another benefit of this method is that operational intensity now represents the algorithm operational intensity rather than memory
+operational intensity and does not changes when the data access layout is optimized to benefit from the cache hierarchy.
+This is translated on the roofline chart by a point \footnote{the application operational intensity and performance}, moving only
+vertically instead of moving to top right when data layout is optimized.
+
+Using this foundations, we applied and validated the model to heterogeneous memory subsystems.
 
 \section{Contribution}\label{sec:contrib}
 %+++++++++++++
@@ -182,21 +205,56 @@ memory subsystems.
   \label{fig:orig_model}
 \end{figure*}
 
-In our contribution, we developped a tool able to benchmark rooflines and validate them with micro kernels, compatible with intel
-chips.
+In our contribution, we developped micro-benchmarks for rooflines and their validation, compatible with intel chips.
+In this section we take a deep dive into architectures sepcificities, that lead model design choices.
 
-Each benchmark (rooflines, and validation) is made of assembly code using best architectures instructions available at compile
-time.
+\paragraph{Intra Core specific aspects}
+Processors usually implement vector operations, also named Single Instruction Multiple Data~(SIMD) operations.
+Depending on the architecture, we pick the operation able to perform on the largest possible vector. Those operation exists
+both for compute operations and memory transactions, and multiply the achievable performance of each involved units by the vector
+size. By compiling the benchmarks on target architecture, we ensure that largest vector size will be used for the benchmarks.
 
-In brief, the fpeak benchmark repeats compute instructions and outputs $\frac{n*iFlops}{time}$ where $n$ is the number of compute
-instructions and $iFlops$ is the number of floating point operations computed per instruction.
-
-The bandwidth benchmark repeats coallesced memory accesses on a private\footnote{Each thread have its own buffer's chunk} buffer of several sizes fitting the memory to benchmark and outputs $\frac{n*iBytes}{time}$ where $n$ is the number of memory instructions and $iBytes$ is the number of Bytes transferred per instruction.
-
-And the validation kernels interleave previously defined benchmarks instructions and output its performance and operational intensity.
-
+Moreover, there are several types of memory/compute intructions available on processors, they implement in hardware usual
+operations, and yields different throughput. For instance a core may compute multiplications~(mul) and an additions~(add) on
+separate FPUs and may also be able to overlap those operations when they do not have dependencies. In this case, the
+Core\footnote{smallest execution entity} can double its performance if the code is able to interleave its add and mul operation
+that do not have dependency. This principle also applies to memory since some architectures' Cores have 2 channels for load
+intructions and 1 for store instructions. Finally, two types of instructions with the same results can have different throughput.
+Both architecture design are pictured on figure~\ref{fig:unicore}.
+For instance streaming stores will bypass caches to write to memory whereas classic stores will write in the first level cache and
+let the hardware replacement protocol handle write back to memory.
+Our tool proposes several types of usual operations to benchmark the platform according to applications characteristics.
 We can find several arithmetic floating point operation peaks (addition, multiplication, overlapping multiply add, and fuse
 multiply add), as well as several bandwidth types (load, store, non temporal load, non temporal store, interleaving of 2 loads and one store), and for several memory levels (L1, L2, L3, (caches \dots), NUMA memories, MCDRAM \dots) detectable with hwloc~\cite{6903671} library.
+
+Since processors have multiple Cores and complex memory hierarchy, several benchmarks scenari may be considered.
+We will first describe the sequential scenario we use, then the parallel scenario for platform benchmarking.
+
+\paragraph{Memory Benchmark for Uni-Core Architecture}
+\begin{figure}
+  \centering
+  \includegraphics[width=.3\textwidth]{pictures/unicore}
+  \caption{Uni-Core machine topology. MC refers as the memory controller. INS refers as the instruction cache.}
+  \label{fig:unicore}
+\end{figure}
+
+Both the Roofline Model and The Cache Aware Roofline model are single threaded models.
+From the Core to the DRAM memory, the memory subsystem is a stack of memories of increasing sizes from bottom to top.
+Our benchmark strategy to benchmark the cache hierarchy will be to perform memory operations on increasing size buffers.
+
+On heterogeneous memory subsystems, the DRAM memory level consists in several memories which are not stacked and do not
+overlap. They are linked to the cache stack by a common set of memory controllers. This model representation is given on
+figure~\ref{fig:unicore}
+At this level, the memory subsystem may be bound, by one memory bandwidth, the interconection network bandwidth,
+or the memory controllers bandwidth.
+Usually, local memory bandwidth is far below its theoretical bandwidth, and is bound by the memory controllers' bandwidth, whereas
+remote memories bandwidth are bound by the interconnection network bandwidth.
+Because their is one set of shared memory controllers, which is a local bottleneck, splitting data among several memories does not
+yield a better bandwidth than using the local DRAM only.
+Therefore, our strategy to benchmak memories will be to benchmark each memory separately, performing memory operations on a large
+enough buffer allocated on target memory.
+
+\paragraph{Memory Benchmark for Multi-Core Architecture}
 
 \begin{figure}
   \centering
@@ -205,11 +263,10 @@ multiply add), as well as several bandwidth types (load, store, non temporal loa
   \label{fig:joe0}
 \end{figure}
 
-Figure~\ref{fig:joe0} shows a model of such a machine given by hwloc.
+Figure~\ref{fig:joe0} shows a model of the multi-core architecture we used for our model as given by hwloc.
 Nested boxes represent hierarchical inclusiveness of ressources in the machine.
-Our benchmark can work both in sequential and in parallel.
-In the former, one benchamrk thread is spawn on first Core (left most) of the machine.
-In the latter, one benchmark thread per Core of the first NUMA memory node is spawn, and threads measure (Flops and Bytes) are
+For this scenario, we spawn one benchmark thread per Core of the first NUMA memory node.
+Threads measure (Flops and Bytes) are
 accumulated.
 The parallel model representation obtained from machine~\ref{fig:joe0} is shown on figure~\ref{fig:orig_model}.
 The system yields a load bandwidth of 761GB/s for the total of its 7 L1 caches per Node, whereas the shared local memory
