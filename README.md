@@ -33,8 +33,11 @@ in order to output performance results from an application code, drawable on the
 ### Requirements
 
 * This soft requires at least a recent enough hwloc library to be installed.
-* The library using hardware counters to export results also uses papi, but it is not compiled by default.
+* The library using hardware counters uses papi, but it is not compiled by default.
 * For now, it only works with intel processors but one can implement the interface MSC.h with other architectures code.
+Be aware that though a generic implementation is present, peak floating point benchmarks are not reliable. Achieving peak
+performance with compiled code is a very hard task performed by very few finely tuned codes such as cblas_dgemm and can hardly be
+achieved in a generic way.
 * R to use the [plot script](./utils/plot_roofs.bash).
 
 #### /!\ Important: 
