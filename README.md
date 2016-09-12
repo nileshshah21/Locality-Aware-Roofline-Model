@@ -35,10 +35,10 @@ in order to output performance results from an application code, drawable on the
 * This soft requires at least a recent enough hwloc library to be installed.
 * The library using hardware counters uses papi, but it is not compiled by default.
 * For now, it only works with intel processors but one can implement the interface MSC.h with other architectures code.
-Be aware that though an optional [generic implementation](blob/master/src/MSC/generic.c) (not used by default) is present, peak floating point benchmarks are not reliable. Achieving peak
+Be aware that though an optional [generic implementation](LARM-Locality-Aware-Roofline-Model-/blob/master/src/MSC/generic.c) (not used by default) is present, peak floating point benchmarks are not reliable. Achieving peak
 performance with compiled code is a very hard task performed by very few finely tuned codes such as cblas_dgemm and can hardly be
 achieved in a generic way.
-* R to use the [plot script](blob/master/utils/plot_roofs.bash).
+* R to use the [plot script](LARM-Locality-Aware-Roofline-Model-/blob/master/utils/plot_roofs.bash).
 
 #### /!\ Important: 
 Generally speaking, if you want to get relevant results on such benchmarks, you have to assert that options like turbo-boost are disabled and
