@@ -175,6 +175,13 @@ memory subsystems.
 
 \section{Contribution}\label{sec:contrib}
 %+++++++++++++
+\begin{figure*}
+  \centering
+  \includegraphics[width=\textwidth]{pictures/roofline_model}
+  \caption{The roofline chart on a Xeon E5 2650L v4 processors with 4 NUMA memories spreads on two different packages. On ordinate, the performance is in $10^{^9}$ floating point operations per second. On abscissa, operational intensity is the number of floating point operations per bytes loaded.}
+  \label{fig:orig_model}
+\end{figure*}
+
 In our contribution, we developped a tool able to benchmark rooflines and validate them with micro kernels, compatible with intel
 chips.
 
@@ -193,7 +200,7 @@ multiply add), as well as several bandwidth types (load, store, non temporal loa
 
 \begin{figure}
   \centering
-  \includegraphics[width=\textwidth]{pictures/Xeon_E5_2650L_v4}
+  \includegraphics[width=.5\textwidth]{pictures/Xeon_E5_2650L_v4}
   \caption{Machine topology, with hidden caches}
   \label{fig:joe0}
 \end{figure}
@@ -216,14 +223,6 @@ We can also notice that for L1 (black line), the points does not stick very well
 does not measure the bandwidths, but instead validate rooflines. They consist of micro-benchmarks of different known operational
 intensities, interleaving memory and compute instruction to reach rooflines, and show how realistic the model is with those
 metrics, by measuring each micro-benchmark's performance.
-
-\begin{figure}
-  \centering
-  \includegraphics[width=\textwidth]{pictures/roofline_model}
-  \caption{Example of the roofline chart with several bounds. Units are not instructions but rather, more standard unit, e.g flops
-    for floating point operations (maybe several per instructions) and bytes transferred from memory (several per instruction).}
-  \label{fig:orig_model}
-\end{figure}
 
 \section{Conclusion and future work}\label{sec:conclusion}
 %+++++++++++++++++++++++++++++++++++
