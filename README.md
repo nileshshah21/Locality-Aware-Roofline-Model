@@ -1,4 +1,4 @@
-# LARM (Locality Aware Roofline Model)
+#LARM (Locality Aware Roofline Model)
 ### Benchmark and plot your system bounds on the roofline model.
   The ever growing complexity of high performance computing systems imposes significant challenges to exploit as much as
   possible their computational and communication resources.
@@ -14,7 +14,7 @@
 
 This plot shows load instructions' rooflines (lines) and validation kernels (points) hitting the measured bandwidth.
 
-### Installation
+###Set Up
 ```
 git clone https://github.com/NicolasDenoyelle/LARM-Locality-Aware-Roofline-Model-.git
 cd LARM-Locality-Aware-Roofline-Model-/src
@@ -32,7 +32,7 @@ in order to output performance results from an application code, drawable on the
 * `OMP_FLAG=` Change to your compiler openmp flag to enable parallel benchmark.
 
 
-### Requirements
+###Requirements
 
 * This soft requires at least a recent enough hwloc library to be installed.
 * The library using hardware counters uses papi, but it is not compiled by default.
