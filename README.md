@@ -1,14 +1,16 @@
 # LARM (Locality Aware Roofline Model)
-### Brief
-This repository holds fast tools to measure, validate and plot the different bandwidth of a CPU system.
-Benchmarks are hand-written assembly loops with known exact number of load,store,mul,add instructions.
-The only measured things is the number of cycles elapsed. 
-For each memory(including cache) in the memory hierarchy a buffer is loaded a fixed number of time, then the median value is saved.
-For each memory, several size fitting the memory space are loaded, and again, the median value is saved as well as the standard deviation.
+### Benchmark and plot your system bounds on the roofline model.
+  The ever growing complexity of high performance computing systems imposes significant challenges to exploit as much as
+  possible their computational and communication resources.
+  Recently, the Cache-aware Roofline Model has has gained popularity due to its simplicity modeling multi-cores with complex memory
+  hierarchy, characterizing applications' bottlenecks, and quantifying achieved or remaining improvements.
+  With this project, we push this model a step further to model NUMA and heterogeneous memories with a handy tool.
 
+  The repository contain the material to build the tool to benchmark your platform, to build a library to collect roofline metrics of your application, and finally a script to present the results.
+  
 ![](roofline_chart.png?raw=true)
 
-This plot output shows load instructions' rooflines (lines) and validation kernels (points) hitting the measured bandwidth.
+This plot shows load instructions' rooflines (lines) and validation kernels (points) hitting the measured bandwidth.
 
 ### Installation
 ```
