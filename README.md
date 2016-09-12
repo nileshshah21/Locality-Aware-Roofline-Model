@@ -61,6 +61,6 @@ compile and run each benchmark.
 
 * plot help: `./utils/plot_roofs.bash -h`
 
-* plot output: `./utils/plot_roofs.bash -i input -t LOAD`
+* plot output: `./utils/plot_roofs.bash -i input -b`
 
 
