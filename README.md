@@ -70,6 +70,9 @@ compile and run each benchmark.
   * mad: use interleaved additions/multiply instructions for fpeak benchmarks.
   * load: use load instructions for bandwidth benchmarks.
   * store: use store instructions for bandwidth benchmarks.
+  * 2ld1st: Interleace one store each two loads.
+  On some architectures, there are two loads channels on L1 cache and one store channel that can be used simulateously.
+  Using those simultaneously may yields better bandwidth.
   * load_nt: use streaming load instructions for bandwidth benchmarks.
   The streaming instructions gives usually better memory bandwidth above caches because they bypass caches.
   It does not make much sense to use them for caches though you can.
