@@ -38,6 +38,7 @@ in order to output performance results from an application code, drawable on the
 Be aware that though an optional [generic implementation](LARM-Locality-Aware-Roofline-Model-/blob/master/src/MSC/generic.c) (not used by default) is present, peak floating point benchmarks are not reliable. Achieving peak
 performance with compiled code is a very hard task performed by very few finely tuned codes such as cblas_dgemm and can hardly be
 achieved in a generic way.
+* A gcc compiler on the machine running the validation benchmarks (`roofline -v`). Validation micro benchmarks are built, compiled and run at runtime. 
 * R to use the [plot script](LARM-Locality-Aware-Roofline-Model-/blob/master/utils/plot_roofs.bash).
 
 #### /!\ Important: 
