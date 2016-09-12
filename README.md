@@ -76,7 +76,7 @@ compile and run each benchmark.
   * load_nt: use streaming load instructions for bandwidth benchmarks.
   The streaming instructions gives usually better memory bandwidth above caches because they bypass caches.
   It does not make much sense to use them for caches though you can.
-  In case you see better results with streaming instructions instead of regular instructions, they are rather due to measures variation than better hardware efficiency.
+  In case you see better results with streaming instructions instead of regular instructions on caches, they are rather due to measures variation than better hardware efficiency.
   * store_nt: use streaming store instructions for bandwidth benchmarks.
   
 * plot help: `./utils/plot_roofs.bash -h`
