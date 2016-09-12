@@ -24,7 +24,7 @@ Several options can be set in [Makefile](./src/Makefile)
 
 * `N_SAMPLES=`Number of sample to take for each memory benchmark. The samples scale is exponential, and bounds are automatically found according to memory sizes.
 
-* `PAPI=no` Change to yes to compile librfsampling. This library allows to use functions defined in [sampling.h](./src/sampling.h),
+* `PAPI=no` Change to yes to compile librfsampling. This library allows to use functions defined in [sampling.h](src/sampling.h),
 in order to output performance results from an application code, drawable on the roofline chart.
 
 * `OMP_FLAG=` Change to your compiler openmp flag to enable parallel benchmark.
@@ -35,10 +35,10 @@ in order to output performance results from an application code, drawable on the
 * This soft requires at least a recent enough hwloc library to be installed.
 * The library using hardware counters uses papi, but it is not compiled by default.
 * For now, it only works with intel processors but one can implement the interface MSC.h with other architectures code.
-Be aware that though an optional [generic implementation](./src/MSC/generic.c) (not used by default) is present, peak floating point benchmarks are not reliable. Achieving peak
+Be aware that though an optional [generic implementation](src/MSC/generic.c) (not used by default) is present, peak floating point benchmarks are not reliable. Achieving peak
 performance with compiled code is a very hard task performed by very few finely tuned codes such as cblas_dgemm and can hardly be
 achieved in a generic way.
-* R to use the [plot script](./utils/plot_roofs.bash).
+* R to use the [plot script](utils/plot_roofs.bash).
 
 #### /!\ Important: 
 Generally speaking, if you want to get relevant results on such benchmarks, you have to assert that options like turbo-boost are disabled and
