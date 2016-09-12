@@ -7,7 +7,9 @@
   With this project, we push this model a step further to model NUMA and heterogeneous memories with a handy tool.
 
   The repository contain the material to build the tool to benchmark your platform, to build a library to collect roofline metrics of your application, and finally a script to present the results.
-  
+
+  The tool is able to benchmarks severals types of micro-operations: mul, add, fma, mad, load, load_nt, store, store_nt, 2ld1st, copy, explained later.
+
 ![](roofline_chart.png?raw=true)
 
 This plot shows load instructions' rooflines (lines) and validation kernels (points) hitting the measured bandwidth.
@@ -50,6 +52,8 @@ export CPU_FREQ=2100000000
 ```
 Here you are ready to play
 
+###usage
+
 * Display usage: `./roofline -h`
 
 * Running benchmark: `./roofline`
@@ -59,6 +63,19 @@ Here you are ready to play
 Validation consists in writing a list of load/store operations, interleaved with mul/add operations depending on the required operational intensity,
 compile and run each benchmark.
 
+* Run benchmark for precise types of micro operation: `./roofline -t "fma|load|store"`
+  * fma: use fuse multiply add instructions for fpeak benchmarks (if architecture is capable of it)
+  * mul: use multiply instructions for fpeak benchmarks.
+  * add: use addition instructions for fpeak benchmarks.
+  * mad: use interleaved additions/multiply instructions for fpeak benchmarks.
+  * load: use load instructions for bandwidth benchmarks.
+  * store: use store instructions for bandwidth benchmarks.
+  * load_nt: use streaming load instructions for bandwidth benchmarks.
+  The streaming instructions gives usually better memory bandwidth above caches because they bypass caches.
+  It does not make much sense to use them for caches though you can.
+  In case you see better results with streaming instructions instead of regular instructions, they are rather due to measures variation than better hardware efficiency.
+  * store_nt: use streaming store instructions for bandwidth benchmarks.
+  
 * plot help: `./utils/plot_roofs.bash -h`
 
 * plot output: `./utils/plot_roofs.bash -i input -b`
