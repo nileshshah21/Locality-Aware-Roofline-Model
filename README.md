@@ -52,7 +52,7 @@ export CPU_FREQ=2100000000
 ```
 Here you are ready to play
 
-###usage
+###Usage
 
 * Display usage: `./roofline -h`
 
