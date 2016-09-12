@@ -1,34 +1,120 @@
-\documentclass[runningheads,a4paper]{llncs}
-\usepackage{amssymb}
+\documentclass[twoside,twocolumn,8pt]{extarticle}
+
+
+% ------
+% Fonts and typesetting settings
+\usepackage[sc]{mathpazo}
 \usepackage[T1]{fontenc}
-\usepackage[utf8]{inputenc}
+\linespread{1.05} % Palatino needs more space between lines
+\usepackage{microtype}
+
+
+% ------
+% Page layout
+\usepackage[hmarginratio=1:1,top=10mm,columnsep=20pt,left=0.8in, right=0.8in]{geometry}
+\usepackage[font=it]{caption}
+\usepackage{paralist}
+\usepackage{multicol}
+
+% ------
+% Lettrines
+\usepackage{lettrine}
+
+
+% ------
+% Abstract
+\usepackage{abstract}
+	\renewcommand{\abstractnamefont}{\normalfont\bfseries}
+	\renewcommand{\abstracttextfont}{\normalfont\itshape}
+
+
+% ------
+% Titling (section/subsection)
+\usepackage{titlesec}
+\renewcommand\thesection{\Roman{section}}
+\titleformat{\section}[block]{\large\scshape\centering}{\thesection.}{1em}{}
+
 \usepackage{graphicx}
-\usepackage{wrapfig}
-\usepackage{verbatim}
-\usepackage{caption}
+% ------
+% Header/footer
+
+
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+
+\setlength\headheight{90.0pt}
+\addtolength{\textheight}{-90.0pt}
+
+\fancypagestyle{firststyle}
+{
+   	\fancyhead[L]{\includegraphics[height=5.5em]{pictures/nesus.pdf}}
+	\fancyhead[C]{}
+	\fancyfoot{}
+	\fancyhead[R]{\small{Book paper template $\bullet$ October 2016 $\bullet$ Vol. I, No. 1}}
+	\fancyfoot[RO,LE]{\thepage}
+}
+	\fancyhead[R]{}
+	\fancyhead[L]{}
+	\fancyfoot{}
+	\fancyhead[C]{\small{Book paper template $\bullet$ October 2016 $\bullet$ Vol. I, No. 1}}
+	\fancyfoot[RO,LE]{\thepage}
+
+
+% ------
+% Clickable URLs (optional)
 \usepackage{hyperref}
 
-% #rubber: set arguments --shell-escape
+% ------
+% Maketitle metadata
+\title{\vspace{-10mm}%
+	\fontsize{24pt}{10pt}\selectfont
+	\textbf{Modeling Emerging Complex Memory Hierarchies With The Roofline Model}
+	}
+	
+		
+\author{%
+	\large
+	\textsc{Nicolas Denoyelle \and Aleksandar Ilic} \\[2mm]
+	\normalsize{	Inria - France -- INESC-ID -- Portugal}\\
+	\normalsize{	\href{mailto:Nicolas.Denoyelle@inria.fr}{Nicolas.Denoyelle@inria.fr} \href{mailto:ilic@sips.inesc-id.pt}{ilic@sips.inesc-id.pt}}
+	\vspace{-5mm}
+	}
+
+\date{}
+
+\providecommand{\keywords}[1]{\textbf{\textit{Keywords}} #1}
+
+%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{document}
 
 
-\title{Roofline Model applied to NUMA and Heterogeneous Memories}
-\titlerunning{Roofline Model for Heterogeneous and NUMA Memories}
-\author{Nicolas Denoyelle \and Aleksandar Ilic}
-\institute{Inria - France -- INESC-ID -- Portugal\\
-  Nicolas.Denoyelle@inria.fr, ilic@sips.inesc-id.pt}
 
-\maketitle
+\twocolumn[
+  \begin{@twocolumnfalse}
+
+%\maketitle
+
+\thispagestyle{firststyle}
+
 
 \begin{abstract}
-
-The ever growing complexity of high performance computing systems imposes significant challenges to exploit as much as
-possible their computational and communication resources.
-Recently, the Cache-aware Roofline Model has has gained popularity due to its simplicity modeling multi-cores with complex memory
-hierarchy, characterizing applications' bottlenecks, and quantifying achieved or remaining improvements.
-In this short paper we push this model a step further to model NUMA and heterogeneous memories with a handy tool, and spot data
-locality bottlenecks on such systems.
-
+\noindent The ever growing complexity of high performance computing systems imposes significant challenges to exploit as much as
+  possible their computational and communication resources.
+  Recently, the Cache-aware Roofline Model has has gained popularity due to its simplicity modeling multi-cores with complex memory
+  hierarchy, characterizing applications' bottlenecks, and quantifying achieved or remaining improvements.
+  In this short paper we push this model a step further to model NUMA and heterogeneous memories with a handy tool, and spot data
+  locality bottlenecks on such systems.
 \end{abstract}
 
+
+\keywords{Roofline Model, heterogeneous memory, NUMA, Cache}
+
+ \hrulefill
+\bigskip 
+
+
+\end{@twocolumnfalse}
+]
+
 \end{document}
+

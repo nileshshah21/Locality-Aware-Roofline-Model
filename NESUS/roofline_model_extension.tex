@@ -1,27 +1,104 @@
-\documentclass[runningheads,a4paper]{llncs}
-\usepackage{amssymb}
+\documentclass[twoside,twocolumn,8pt]{extarticle}
+
+
+% ------
+% Fonts and typesetting settings
+\usepackage[sc]{mathpazo}
 \usepackage[T1]{fontenc}
-\usepackage[utf8]{inputenc}
+\linespread{1.05} % Palatino needs more space between lines
+\usepackage{microtype}
+
+
+% ------
+% Page layout
+\usepackage[hmarginratio=1:1,top=10mm,columnsep=20pt,left=0.8in, right=0.8in]{geometry}
+\usepackage[font=it]{caption}
+\usepackage{paralist}
+\usepackage{multicol}
+
+% ------
+% Lettrines
+\usepackage{lettrine}
+
+
+% ------
+% Abstract
+\usepackage{abstract}
+	\renewcommand{\abstractnamefont}{\normalfont\bfseries}
+	\renewcommand{\abstracttextfont}{\normalfont\itshape}
+
+
+% ------
+% Titling (section/subsection)
+\usepackage{titlesec}
+\renewcommand\thesection{\Roman{section}}
+\titleformat{\section}[block]{\large\scshape\centering}{\thesection.}{1em}{}
+
 \usepackage{graphicx}
-\usepackage{wrapfig}
-\usepackage{verbatim}
-\usepackage{caption}
+% ------
+% Header/footer
+
+
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+
+\setlength\headheight{90.0pt}
+\addtolength{\textheight}{-90.0pt}
+
+\fancypagestyle{firststyle}
+{
+   	\fancyhead[L]{\includegraphics[height=5.5em]{pictures/nesus.pdf}}
+	\fancyhead[C]{}
+	\fancyfoot{}
+	\fancyhead[R]{\small{Book paper template $\bullet$ October 2016 $\bullet$ Vol. I, No. 1}}
+	\fancyfoot[RO,LE]{\thepage}
+}
+	\fancyhead[R]{}
+	\fancyhead[L]{}
+	\fancyfoot{}
+	\fancyhead[C]{\small{Book paper template $\bullet$ October 2016 $\bullet$ Vol. I, No. 1}}
+	\fancyfoot[RO,LE]{\thepage}
+
+
+% ------
+% Clickable URLs (optional)
 \usepackage{hyperref}
 
-% #rubber: set arguments --shell-escape
+% ------
+% Maketitle metadata
+\title{\vspace{-10mm}%
+	\fontsize{24pt}{10pt}\selectfont
+	\textbf{Modeling Emerging Complex Memory Hierarchies With The Roofline Model}
+	}
+	
+		
+\author{%
+	\large
+	\textsc{Nicolas Denoyelle \and Aleksandar Ilic} \\[2mm]
+	\normalsize{	Inria - France -- INESC-ID -- Portugal}\\
+	\normalsize{	\href{mailto:Nicolas.Denoyelle@inria.fr}{Nicolas.Denoyelle@inria.fr} \href{mailto:ilic@sips.inesc-id.pt}{ilic@sips.inesc-id.pt}}
+	\vspace{-5mm}
+	}
+
+\date{}
+
+\providecommand{\keywords}[1]{\textbf{\textit{Keywords}} #1}
+
+%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{document}
 
 
-\title{Roofline Model applied to NUMA and Heterogeneous Memories}
-\titlerunning{Roofline Model for Heterogeneous and NUMA Memories}
-\author{Nicolas Denoyelle \and Aleksandar Ilic}
-\institute{Inria - France -- INESC-ID -- Portugal\\
-  Nicolas.Denoyelle@inria.fr, ilic@sips.inesc-id.pt}
 
-\maketitle
+\twocolumn[
+  \begin{@twocolumnfalse}
+
+%\maketitle
+
+\thispagestyle{firststyle}
+
 
 \begin{abstract}
-  The ever growing complexity of high performance computing systems imposes significant challenges to exploit as much as
+\noindent The ever growing complexity of high performance computing systems imposes significant challenges to exploit as much as
   possible their computational and communication resources.
   Recently, the Cache-aware Roofline Model has has gained popularity due to its simplicity modeling multi-cores with complex memory
   hierarchy, characterizing applications' bottlenecks, and quantifying achieved or remaining improvements.
@@ -29,7 +106,19 @@
   locality bottlenecks on such systems.
 \end{abstract}
 
-\section{Introduction}
+
+\keywords{Roofline Model, heterogeneous memory, NUMA, Cache}
+
+ \hrulefill
+\bigskip 
+
+
+\end{@twocolumnfalse}
+]
+
+
+\section{Introduction}\label{sec:Intro}
+%+++++++++++++++++++++++++++
 Emerging memory technologies (e.g heterogeneous memory architectures with non-volatile memory, on-package memory \dots), are
 required to address applications' needs and improve the performance at the cost of a growing hardware complexity.
 The memory wall makes memory management one of the main bottlenecks, and the variety expansion of allocable memories will
@@ -49,15 +138,14 @@ The remainder of this paper is organized as follow:
 The section~\ref{sec:state_of_art} will describe the Roofline Model and its main technical variations.
 Finally section~\ref{sec:contrib} will briefly describe our implementation to measure memory bandwidths, and validate the model.
 
-\section{The Roofline Model Then and Now}
-\label{sec:state_of_art}
-
-\begin{wrapfigure}{R}{40mm}
+\section{The Roofline Model Then and Now}\label{sec:state_of_art}
+%+++++++++++++
+\begin{figure}
   \centering
   \includegraphics[width=30mm]{pictures/model_drawing}
   \caption{Roofline model draw}
   \label{fig:roofline_draw}
-\end{wrapfigure}
+\end{figure}
 
 The original paper~\cite{Williams:2009:RIV:1498765.1498785} depict a machine with two subsystems: a memory and a compute unit,
 executing the instructions dispatched from a common instruction channel.
@@ -85,9 +173,8 @@ It has been applied to other memory subsystems~\cite{ilic2014cache}, energy~\cit
 Based on the Cache Aware Roofline Model~\cite{ilic2014cache} methodology, we applied and validated the model to heterogeneous
 memory subsystems.
 
-\section{Contribution}
-\label{sec:contrib}
-
+\section{Contribution}\label{sec:contrib}
+%+++++++++++++
 In our contribution, we developped a tool able to benchmark rooflines and validate them with micro kernels, compatible with intel
 chips.
 
@@ -138,14 +225,12 @@ metrics, by measuring each micro-benchmark's performance.
   \label{fig:orig_model}
 \end{figure}
 
-\section{Conclusion and future work}
-
+\section{Conclusion and future work}\label{sec:conclusion}
+%+++++++++++++++++++++++++++++++++++
 In this short paper we prestented the Roofline Model and an extension to heterogeneous memory's sytem using the Cache Aware
 Roofline Model methodology. Later on we will validate the interest of this representation with applications. 
 
-
-\bibliographystyle{splncs03}
+\bibliographystyle{plain}
 \bibliography{references}
 
 \end{document}
-

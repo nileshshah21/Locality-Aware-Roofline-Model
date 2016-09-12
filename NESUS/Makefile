@@ -2,7 +2,7 @@
 
 TARGET=roofline_model_extension
 
-all: $(TARGET).pdf abstract.pdf
+all: $(TARGET).pdf
 
 abstract.pdf: abstract.tex
 	pdflatex $<
