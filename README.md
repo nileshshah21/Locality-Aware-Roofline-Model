@@ -43,7 +43,7 @@ achieved in a generic way.
 #### /!\ Important: 
 Generally speaking, if you want to get relevant results on such benchmarks, you have to assert that options like turbo-boost are disabled and
 the cpu frequency is set.
-Therefore, it is required to export the variable BENCHMARK_CPU_FREQ (The frequency of your CPU in Hertz)
+Therefore, it is required to export the variable CPU_FREQ (The frequency of your CPU in Hertz)
 ```
 export CPU_FREQ=2100000000
 ```
