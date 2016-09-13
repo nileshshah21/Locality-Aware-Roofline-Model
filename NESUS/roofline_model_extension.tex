@@ -143,7 +143,8 @@ We also prove the model on a NUMA system with tool's embedded micro-benchmarks.
 The remainder of this paper is organized as follow:
 
 The section~\ref{sec:state_of_art} will describe the Roofline Model and its main technical variations.
-Finally section~\ref{sec:contrib} will briefly describe our implementation to measure memory bandwidths, and validate the model.
+Finally section~\ref{sec:contrib} describes design choices to model the new hierarchy, and shows the model validation on a NUMA
+platform.
 
 \section{The Roofline Model Then and Now}\label{sec:state_of_art}
 %+++++++++++++
@@ -232,7 +233,9 @@ For instance streaming stores will bypass caches to write to memory whereas clas
 let the hardware replacement protocol handle write back to memory.
 Our tool proposes several types of usual operations to benchmark the platform according to applications characteristics.
 We can find several arithmetic floating point operation peaks (addition, multiplication, overlapping multiply add, and fuse
-multiply add), as well as several bandwidth types (load, store, non temporal load, non temporal store, interleaving of 2 loads and one store), and for several memory levels (L1, L2, L3, (caches \dots), NUMA memories, MCDRAM \dots) detectable with hwloc~\cite{6903671} library.
+multiply add), as well as several bandwidth types (load, store, non temporal load, non temporal store, interleaving of 2 loads and
+one store), and for several memory levels (L1, L2, L3, (caches \dots), NUMA memories, MCDRAM \dots) detectable with
+hwloc~\cite{6903671} library.
 
 Since processors have multiple Cores and complex memory hierarchy, several benchmarks scenarios may be considered.
 We will first describe the sequential scenario we use, then the parallel scenario for platform benchmarking.
