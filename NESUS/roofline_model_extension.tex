@@ -248,7 +248,7 @@ figure~\ref{fig:unicore}
 At this level, the memory subsystem may be bound, by one memory bandwidth, the interconection network bandwidth,
 or the memory controllers bandwidth.
 Usually, local memory bandwidth is bound by the sequential accesses to it when only one thread is performing memory transaction,
-whereas remote memories bandwidth are bound by the interconnection network bandwidth.
+whereas remote memories bandwidth may be bound by the interconnection network bandwidth or memory bandwidth also.
 Splitting data among several memories does not yield a better bandwidth than using the local DRAM only.
 Therefore, our strategy to benchmak memories will be to benchmark each memory separately, performing memory operations on a large
 enough buffer allocated on target memory.
@@ -258,7 +258,7 @@ enough buffer allocated on target memory.
 \begin{figure}
   \centering
   \includegraphics[width=.5\textwidth]{pictures/Xeon_E5_2650L_v4}
-  \caption{Xeon E5 2650L v4 topology, with hidden caches stacks above cores.}
+  \caption{Xeon E5 2650L v4 topology.}
   \label{fig:joe0}
 \end{figure}
 
