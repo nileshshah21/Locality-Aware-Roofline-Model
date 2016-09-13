@@ -265,8 +265,8 @@ whereas remote memories bandwidth may also be bound by the interconnection netwo
 Because of this, splitting data among several memories does not yield a better bandwidth than using the local DRAM only.
 Therefore, our strategy to benchmark memories will be to benchmark each memory separately, performing memory operations on a large
 enough buffer allocated on target memory.
-From a core point of view, every memory may have the same bandwidth if memories are the same and neither the interconnection
-network nor the memory controllers are a bottleneck.
+From a core point of view, every memory may have the same bandwidth if memories are the same and the interconnection
+network is not a bottleneck.
 
 \paragraph{Memory Benchmark for Multi-Core Architecture}\mbox{}\\
 
@@ -281,11 +281,11 @@ Figure~\ref{fig:joe0} shows a model of the multi-core architecture we used for o
 Nested boxes represent hierarchical inclusiveness of resources in the machine.
 This system is equipped with two blades of two processors each.
 In this case the memory bandwidth from two Cores of the same NUMANode (i.e. chip) to a single memory is the same.
-The memory bandwidth of a local memory is still bound whether by the memory controllers, or by the local memory, but remote memory
-bandwidths are almost always bound to the interconnection network bandwidth and differs from local memory bandwidth.
+The memory bandwidth of a local memory is still bound whether by the memory controllers, but remote memory bandwidths are almost
+always bound by the interconnection network bandwidth and differs from local memory bandwidth.
 It increases when the number of used cores increases but does not scale up to the number of cores on the same chip.
 Since the local memory controllers are a bottleneck it does not yields a better bandwidth to use several memories for a
-benchmark and it makes sense to benchmark each memory separately.
+benchmark and it makes sense to benchmark each memory separately again.
 The choice of the optimal number of threads is something that cannot be determined analytically and we choose to
 set it to the number of Core on the chip (which is not optimal) because applications usually run on full machines.
 
@@ -302,7 +302,7 @@ On figure~\ref{fig:orig_model}, the lines shows the top measures.
 One can notice, on L3 a wider line with less opacity showing the measured bandwidth deviation.
 For each memory we use different sizes of buffers fitting the memory, and depending on the buffer size, the bandwidth may vary.
 We can also notice that for L1 (black line), the points does not stick very well to lines around the ridge. Actually the points
-does not measure the bandwidths, but instead validate rooflines. They consist of micro-benchmarks of different known operational
+does not measure the bandwidths, but instead validate rooflines. They consist of micro-benchmarks of different operational
 intensities, interleaving memory and compute instruction to reach rooflines, and show how realistic the model is with those
 metrics, by measuring each micro-benchmark's performance.
 
