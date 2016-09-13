@@ -260,8 +260,8 @@ overlap. They are linked to the cache stack by a common set of memory controller
 figure~\ref{fig:unicore}
 At this level, the memory subsystem may be bound, by one memory bandwidth, the interconnection network bandwidth,
 or the memory controllers bandwidth.
-Usually, local memory bandwidth is bound by the sequential accesses to it when only one thread is performing memory transaction,
-whereas remote memories bandwidth may be bound by the interconnection network bandwidth or memory bandwidth also.
+Usually, local memory bandwidth is bound by the sequential accesses to the local memory controllers,
+whereas remote memories bandwidth may also be bound by the interconnection network bandwidth.
 Because of this, splitting data among several memories does not yield a better bandwidth than using the local DRAM only.
 Therefore, our strategy to benchmark memories will be to benchmark each memory separately, performing memory operations on a large
 enough buffer allocated on target memory.
