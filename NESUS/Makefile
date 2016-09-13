@@ -15,3 +15,7 @@ $(TARGET).pdf: $(TARGET).tex
 
 clean:
 	rm -f *.log *.out *.aux *.bbl *.blg
+
+cleanall: clean
+	rm -f abstract.pdf $(TARGET).pdf
+

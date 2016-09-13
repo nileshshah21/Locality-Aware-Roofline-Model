@@ -247,10 +247,9 @@ overlap. They are linked to the cache stack by a common set of memory controller
 figure~\ref{fig:unicore}
 At this level, the memory subsystem may be bound, by one memory bandwidth, the interconection network bandwidth,
 or the memory controllers bandwidth.
-Usually, local memory bandwidth is far below its theoretical bandwidth, and is bound by the memory controllers' bandwidth, whereas
-remote memories bandwidth are bound by the interconnection network bandwidth.
-Because their is one set of shared memory controllers, which is a local bottleneck, splitting data among several memories does not
-yield a better bandwidth than using the local DRAM only.
+Usually, local memory bandwidth and is bound by the sequential accesses to it when only one thread is performing transactions
+with it, whereas remote memories bandwidth are bound by the interconnection network bandwidth.
+Splitting data among several memories does not yield a better bandwidth than using the local DRAM only.
 Therefore, our strategy to benchmak memories will be to benchmark each memory separately, performing memory operations on a large
 enough buffer allocated on target memory.
 
@@ -259,20 +258,28 @@ enough buffer allocated on target memory.
 \begin{figure}
   \centering
   \includegraphics[width=.5\textwidth]{pictures/Xeon_E5_2650L_v4}
-  \caption{Machine topology, with hidden caches}
+  \caption{Xeon E5 2650L v4 topology, with hidden caches stacks above cores.}
   \label{fig:joe0}
 \end{figure}
 
 Figure~\ref{fig:joe0} shows a model of the multi-core architecture we used for our model as given by hwloc.
 Nested boxes represent hierarchical inclusiveness of ressources in the machine.
-For this scenario, we spawn one benchmark thread per Core of the first NUMA memory node.
-Threads measure (Flops and Bytes) are
-accumulated.
+This system is equiped with two blades of two processors each.
+In this case the memory bandwidth from two Cores of the same NUMANode to a single memory is the same.
+The memory bandwidth of a local memory is now bound by the memory controllers.
+It increases when the number of used cores increases but does not scale up to the number of cores on the same chip.
+Since the local memory controllers are a bottleneck it does not yields a better bandwidth to use several memories for a
+benchmark and it makes sense to benchmark each memory separately.
+The choice of the optimal number of threads is not something that can be determined other than empirically and we choose to
+set it to the number of Core on the chip (which is not optimal) because applications are usually run on full machines.
+
+
+In brief we set the number of threads to the number of core of a single memory node. Then we run same benchmarks as the sequential
+benchmark per thread. Finally we sum the results of each threads.
+
 The parallel model representation obtained from machine~\ref{fig:joe0} is shown on figure~\ref{fig:orig_model}.
 The system yields a load bandwidth of 761GB/s for the total of its 7 L1 caches per Node, whereas the shared local memory
 (NUMANode:0) yields a bandwidth of 36GB/s for the same type of micro-operations.
-Remote memories' bandwidth are obtained by running the same benchmark as local memory, but explicitly allocating the data on remote
- memories.
 On figure~\ref{fig:orig_model}, the lines shows the top measures.
 One can notice, on L3 a wider line with less opacity showing the measured bandwidth deviation.
 For each memory we use different sizes of buffers fitting the memory, and depending on the buffer size, the bandwidth may vary.
