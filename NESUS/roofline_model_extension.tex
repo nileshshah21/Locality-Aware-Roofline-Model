@@ -3,6 +3,8 @@
 
 % ------
 % Fonts and typesetting settings
+\usepackage{amsmath}
+\usepackage{amssymb}
 \usepackage[sc]{mathpazo}
 \usepackage[T1]{fontenc}
 \linespread{1.05} % Palatino needs more space between lines
@@ -123,17 +125,17 @@ Emerging memory technologies (e.g heterogeneous memory architectures with non-vo
 required to address applications' needs and improve the performance at the cost of a growing hardware complexity.
 The variety of allocable memory is in expansion and add a new heterogeneity dimension to the existing architectural heterogeneity
 of NUMA clusters memories.
-The memory wall applies to each memory from this zoologie and will definitely make data locality a performance hot spot, 
+The memory wall applies to each memory from this zoology and will definitely make data locality a performance hot spot, 
 even on single chips.
-Those memories differ from each others by their specifications, but also by their interconnexion network.
+Those memories differ from each others by their specifications, but also by their interconnection network.
 NUMA system's memory modules may have same characteristics but have different bandwidths and latency, depending on the location of
 the access request.
 
-The Roofline Model is able synthetise these informations in a single insightfull chart.
-We think we can leverage the Roofline Model to detect bandwidth bottlenecks accross such systems.
+The Roofline Model is able aggregate these information in a single insightful chart.
+We think we can leverage the Roofline Model to detect bandwidth bottlenecks across such systems.
 For instance, a data allocated on low-bandwidth memory, may lead the application to become bandwidth bound.
 
-In our contribution, we developped a handy tool capable of benchmarking heterogeneous memory platforms and build the model for a
+In our contribution, we developed a handy tool capable of benchmarking heterogeneous memory platforms and build the model for a
 large range of memories, as well as the caches.
 It can be used for the same purposes as the Cache Aware Roofline Model's, and extend it with data locality insights.
 We also prove the model on a NUMA system with tool's embedded micro-benchmarks.
@@ -160,7 +162,7 @@ Depending on the operational intensity (i.e. the ratio of compute instructions (
 rectangles)), one unit, the other or both may be saturated with instructions. Here, only the memory unit is filled. 
 The width of the memory channel is the bandwidth and the width of the compute channel is the floating point peak~(fpeak)
 performance.
-The model assumes there can be no dependency between instructions (they can overlap perfectly) and instructions' lattency is
+The model assumes there can be no dependency between instructions (they can overlap perfectly) and instructions' latency is
 hidden.
 
 On figure~\ref{fig:orig_model} is shown the graphical representation of the model as it is built with our tool.
@@ -173,12 +175,17 @@ Hence we use bytes as the unit element fetched from memory and flops as the unit
 Operational intensity is then in Flops per Byte, and performance is in GFlop\footnote{$10^9$ Flops} per second.
 Top horizontal lines show the fpeak performance for different type of compute instructions and
 oblique lines show the memory bandwidth for different types of memories. On this representation
-one can see that: the roofline model ($min(bandwidth*operational\_intensity, fpeak)$) shows whether a pattern of compute/memory
+one can see that the Roofline Model~\eqref{eq:model}
+\begin{equation}
+  performance = min(bandwidth*operational\_intensity, fpeak)
+  \label{eq:model}
+\end{equation}
+shows whether a pattern of compute/memory
 operation interleaving is either compute or memory bound if the maximum achievable performance is bound whether by the fpeak
 performance or the bandwidth.
 
 The model has been successfully used in
-several~\cite{Kim20111201}~\cite{Rossinelli2164}~\cite{vanNieuwpoort:2009:UMH:1542275.1542337} applications optimizations, whether
+several~\cite{Kim20111201}~\cite{Rossinelli2164}~\cite{vanNieuwpoort:2009:UMH:1542275.1542337} applications' optimization, whether
 to prove bottlenecks, or measure achievable (or achieved) improvements.
 
 It has been applied to other memory subsystems~\cite{ilic2014cache}, energy~\cite{7493653}, and abstract runtime systems.
@@ -205,8 +212,8 @@ Using this foundations, we applied and validated the model to heterogeneous memo
   \label{fig:orig_model}
 \end{figure*}
 
-In our contribution, we developped micro-benchmarks for rooflines and their validation, compatible with intel chips.
-In this section we take a deep dive into architectures sepcificities, that lead model design choices.
+In our contribution, we developed micro-benchmarks for rooflines and their validation, compatible with Intel chips.
+In this section we take a deep dive into architectures specificities, that lead model design choices.
 
 \paragraph{Intra Core specific aspects}
 Processors usually implement vector operations, also named Single Instruction Multiple Data~(SIMD) operations.
@@ -214,12 +221,12 @@ Depending on the architecture, we pick the operation able to perform on the larg
 both for compute operations and memory transactions, and multiply the achievable performance of each involved units by the vector
 size. By compiling the benchmarks on target architecture, we ensure that largest vector size will be used for the benchmarks.
 
-Moreover, there are several types of memory/compute intructions available on processors, they implement in hardware usual
+Moreover, there are several types of memory/compute instructions available on processors, they implement in hardware usual
 operations, and yields different throughput. For instance a core may compute multiplications~(mul) and an additions~(add) on
 separate FPUs and may also be able to overlap those operations when they do not have dependencies. In this case, the
 Core\footnote{smallest execution entity} can double its performance if the code is able to interleave its add and mul operation
 that do not have dependency. This principle also applies to memory since some architectures' Cores have 2 channels for load
-intructions and 1 for store instructions. Finally, two types of instructions with the same results can have different throughput.
+instructions and 1 for store instructions. Finally, two types of instructions with the same results can have different throughput.
 Both architecture design are pictured on figure~\ref{fig:unicore}.
 For instance streaming stores will bypass caches to write to memory whereas classic stores will write in the first level cache and
 let the hardware replacement protocol handle write back to memory.
@@ -227,7 +234,7 @@ Our tool proposes several types of usual operations to benchmark the platform ac
 We can find several arithmetic floating point operation peaks (addition, multiplication, overlapping multiply add, and fuse
 multiply add), as well as several bandwidth types (load, store, non temporal load, non temporal store, interleaving of 2 loads and one store), and for several memory levels (L1, L2, L3, (caches \dots), NUMA memories, MCDRAM \dots) detectable with hwloc~\cite{6903671} library.
 
-Since processors have multiple Cores and complex memory hierarchy, several benchmarks scenari may be considered.
+Since processors have multiple Cores and complex memory hierarchy, several benchmarks scenarios may be considered.
 We will first describe the sequential scenario we use, then the parallel scenario for platform benchmarking.
 
 \paragraph{Memory Benchmark for Uni-Core Architecture}
@@ -245,12 +252,13 @@ Our benchmark strategy to benchmark the cache hierarchy will be to perform memor
 On heterogeneous memory subsystems, the DRAM memory level consists in several memories which are not stacked and do not
 overlap. They are linked to the cache stack by a common set of memory controllers. This model representation is given on
 figure~\ref{fig:unicore}
-At this level, the memory subsystem may be bound, by one memory bandwidth, the interconection network bandwidth,
+At this level, the memory subsystem may be bound, by one memory bandwidth, the interconnection network bandwidth,
 or the memory controllers bandwidth.
 Usually, local memory bandwidth is bound by the sequential accesses to it when only one thread is performing memory transaction,
 whereas remote memories bandwidth may be bound by the interconnection network bandwidth or memory bandwidth also.
+From a core point of view, they every memory may have the same bandwidth if memories are the same.
 Splitting data among several memories does not yield a better bandwidth than using the local DRAM only.
-Therefore, our strategy to benchmak memories will be to benchmark each memory separately, performing memory operations on a large
+Therefore, our strategy to benchmark memories will be to benchmark each memory separately, performing memory operations on a large
 enough buffer allocated on target memory.
 
 \paragraph{Memory Benchmark for Multi-Core Architecture}
@@ -263,10 +271,11 @@ enough buffer allocated on target memory.
 \end{figure*}
 
 Figure~\ref{fig:joe0} shows a model of the multi-core architecture we used for our model as given by hwloc.
-Nested boxes represent hierarchical inclusiveness of ressources in the machine.
-This system is equiped with two blades of two processors each.
+Nested boxes represent hierarchical inclusiveness of resources in the machine.
+This system is equipped with two blades of two processors each.
 In this case the memory bandwidth from two Cores of the same NUMANode to a single memory is the same.
-The memory bandwidth of a local memory is now bound by the memory controllers.
+The memory bandwidth of a local memory is still bound whether by the memory controllers, or by the local memory, but remote memory
+bandwidths are almost always bound to the interconnection network bandwidth and differs from local memory bandwidth.
 It increases when the number of used cores increases but does not scale up to the number of cores on the same chip.
 Since the local memory controllers are a bottleneck it does not yields a better bandwidth to use several memories for a
 benchmark and it makes sense to benchmark each memory separately.
@@ -276,8 +285,8 @@ set it to the number of Core on the chip (which is not optimal) because applicat
 In brief we set the number of threads to the number of core of a single memory node. Then we run same benchmarks as the sequential
 benchmark per thread. Finally we sum the results of each threads.
 
-This is a subjective benchmark from a memory node sight, but since machines with heterogeneous and NUMA memories are symetrics,
-it is straightforward that the result will be the same (or a permutation close) from the others nodes sight.
+This is a subjective benchmark from a memory node sight, but since most machines with heterogeneous and NUMA memories are
+symmetric, it is straightforward that the result will be the same (or a permutation close) from the others nodes sight.
 
 The parallel model representation obtained from machine~\ref{fig:joe0} is shown on figure~\ref{fig:orig_model}.
 The system yields a load bandwidth of 761GB/s for the total of its 7 L1 caches per Node, whereas the shared local memory
@@ -292,7 +301,7 @@ metrics, by measuring each micro-benchmark's performance.
 
 \section{Conclusion and future work}\label{sec:conclusion}
 %+++++++++++++++++++++++++++++++++++
-In this short paper we prestented the Roofline Model and an extension to heterogeneous memory's sytem using the Cache Aware
+In this short paper we presented the Roofline Model and an extension to heterogeneous memory's system using the Cache Aware
 Roofline Model methodology. Later on we will validate the interest of this representation with applications. 
 
 \bibliographystyle{plain}
