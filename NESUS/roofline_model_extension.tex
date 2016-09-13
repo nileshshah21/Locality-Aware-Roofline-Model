@@ -247,8 +247,8 @@ overlap. They are linked to the cache stack by a common set of memory controller
 figure~\ref{fig:unicore}
 At this level, the memory subsystem may be bound, by one memory bandwidth, the interconection network bandwidth,
 or the memory controllers bandwidth.
-Usually, local memory bandwidth and is bound by the sequential accesses to it when only one thread is performing transactions
-with it, whereas remote memories bandwidth are bound by the interconnection network bandwidth.
+Usually, local memory bandwidth is bound by the sequential accesses to it when only one thread is performing memory transaction,
+whereas remote memories bandwidth are bound by the interconnection network bandwidth.
 Splitting data among several memories does not yield a better bandwidth than using the local DRAM only.
 Therefore, our strategy to benchmak memories will be to benchmark each memory separately, performing memory operations on a large
 enough buffer allocated on target memory.
@@ -271,11 +271,13 @@ It increases when the number of used cores increases but does not scale up to th
 Since the local memory controllers are a bottleneck it does not yields a better bandwidth to use several memories for a
 benchmark and it makes sense to benchmark each memory separately.
 The choice of the optimal number of threads is not something that can be determined other than empirically and we choose to
-set it to the number of Core on the chip (which is not optimal) because applications are usually run on full machines.
-
+set it to the number of Core on the chip (which is not optimal) because applications usually run on full machines.
 
 In brief we set the number of threads to the number of core of a single memory node. Then we run same benchmarks as the sequential
 benchmark per thread. Finally we sum the results of each threads.
+
+This is a subjective benchmark from a memory node sight, but since machines with heterogeneous and NUMA memories are symetrics,
+it is straightforward that the result will be the same (or a permutation close) from the others nodes sight.
 
 The parallel model representation obtained from machine~\ref{fig:joe0} is shown on figure~\ref{fig:orig_model}.
 The system yields a load bandwidth of 761GB/s for the total of its 7 L1 caches per Node, whereas the shared local memory
