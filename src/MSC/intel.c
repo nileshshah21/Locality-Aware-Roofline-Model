@@ -952,10 +952,10 @@ int benchmark_types_supported(){
   supported = supported | ROOFLINE_FMA;
 #endif
 #if defined (__AVX512__ ) || defined (__AVX2__)
-  supported = supported | ROOFLINE_LOAD_NT
+  supported = supported | ROOFLINE_LOAD_NT;
 #endif
 #if defined (__AVX512__ ) || defined (__AVX2__)  || defined (__AVX2__) || defined (_AVX_) || defined (_SSE_4_1_) || defined (_SSE2_)
-    supported = supported | ROOFLINE_STORE_NT
+    supported = supported | ROOFLINE_STORE_NT;
 #endif
     return supported;
 }
