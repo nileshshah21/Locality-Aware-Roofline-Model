@@ -286,6 +286,7 @@ void roofline_bandwidth(FILE * output, hwloc_obj_t mem, int type){
 
 void roofline_flops(FILE * output, int type){
    int supported = benchmark_types_supported();
+   if(!(supported&type)){printf("Type %s is not supported on architecture where I was compiled\n", roofline_type_str(type)); return;}
    if(type & ROOFLINE_ADD & supported){roofline_fpeak(output,ROOFLINE_ADD);}
    if(type & ROOFLINE_MUL & supported){roofline_fpeak(output,ROOFLINE_MUL);}
    if(type & ROOFLINE_MAD & supported){roofline_fpeak(output,ROOFLINE_MAD);}
@@ -298,7 +299,8 @@ void roofline_oi(FILE * output, hwloc_obj_t mem, int type, double oi){
   const int mem_types[6] = {ROOFLINE_LOAD, ROOFLINE_LOAD_NT, ROOFLINE_STORE, ROOFLINE_STORE_NT, ROOFLINE_2LD1ST, ROOFLINE_COPY};
   const int flop_types[4] = {ROOFLINE_ADD, ROOFLINE_MUL, ROOFLINE_MAD, ROOFLINE_FMA};
   int supported = benchmark_types_supported();
-
+  if(!(supported&type)){printf("Type %s is not supported on architecture where I was compiled\n", roofline_type_str(type)); return;}
+   
   for(i=0;i<6;i++){
     mem_type = mem_types[i];
     if(type & mem_type & supported){

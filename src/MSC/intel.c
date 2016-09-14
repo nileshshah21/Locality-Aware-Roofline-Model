@@ -947,6 +947,16 @@ void (* roofline_oi_bench(const double oi, const int type))(const struct rooflin
 }
 
 int benchmark_types_supported(){
-    return ROOFLINE_LOAD|ROOFLINE_LOAD_NT|ROOFLINE_STORE|ROOFLINE_STORE_NT|ROOFLINE_2LD1ST|ROOFLINE_COPY|ROOFLINE_MUL|ROOFLINE_ADD|ROOFLINE_MAD|ROOFLINE_FMA;
+  int supported = ROOFLINE_LOAD|ROOFLINE_STORE|ROOFLINE_2LD1ST|ROOFLINE_COPY|ROOFLINE_MUL|ROOFLINE_ADD|ROOFLINE_MAD;
+#ifdef __FMA__
+  supported = supported | ROOFLINE_FMA;
+#endif
+#if defined (__AVX512__ ) || defined (__AVX2__)
+  supported = supported | ROOFLINE_LOAD_NT
+#endif
+#if defined (__AVX512__ ) || defined (__AVX2__)  || defined (__AVX2__) || defined (_AVX_) || defined (_SSE_4_1_) || defined (_SSE2_)
+    supported = supported | ROOFLINE_STORE_NT
+#endif
+    return supported;
 }
 
