@@ -234,17 +234,17 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int mem_type,
 	mem_instructions = fop_instructions = ppcm;
     }
     else if(mop_per_fop > 1){
-	fop_instructions = SIMD_N_REGS;
-	mem_instructions = fop_instructions * mop_per_fop;
-	if(mem_type == ROOFLINE_2LD1ST){mem_instructions = roofline_PPCM(mem_instructions,3);}
-	fop_instructions = mem_instructions / mop_per_fop;
-	for(i=0;i<mem_instructions;i++){
-	    dprint_MUOP(fd, mem_type, i, &offset, &regnum, "r11");
-	    if(i%mop_per_fop==0){dprint_FUOP(fd, flop_type, i/mop_per_fop, &regnum);}
-	}
+      fop_instructions = 2;
+      mem_instructions = fop_instructions * mop_per_fop;
+      if(mem_type == ROOFLINE_2LD1ST){mem_instructions = roofline_PPCM(mem_instructions,3);}
+      fop_instructions = mem_instructions / mop_per_fop;
+      for(i=0;i<mem_instructions;i++){
+	dprint_MUOP(fd, mem_type, i, &offset, &regnum, "r11");
+	if(i%mop_per_fop==0){dprint_FUOP(fd, flop_type, i/mop_per_fop, &regnum);}
+      }
     }
     else if(fop_per_mop > 1){
-        mem_instructions = SIMD_N_REGS;
+        mem_instructions = 8;
 	fop_instructions = mem_instructions * fop_per_mop;
 	if(mem_type == ROOFLINE_2LD1ST){
 	    mem_instructions = roofline_PPCM(mem_instructions, 3);
@@ -318,10 +318,13 @@ void (* roofline_oi_bench(const double oi, const int type))(const struct rooflin
     chunk_size = roofline_benchmark_write_oi_bench(fd, func_name, mem_type, flop_type, oi);
     /* Compile the roofline function */
     close(fd);
+    /* char cmd[1024]; */
+    /* snprintf(cmd, sizeof(cmd), "cat %s", c_path); */
+    /* system(cmd); */
     roofline_compile_lib(c_path, so_path);
     /* Load the roofline function */
     benchmark = roofline_load_lib(so_path, func_name);
-
+    
     unlink(c_path);
     unlink(so_path);
     free(c_path);
