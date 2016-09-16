@@ -78,7 +78,8 @@ static void dprint_FUOP(int fd, int type, int i, unsigned * regnum){
     dprint_FUOP_by_ins(fd, SIMD_MUL, regnum);
     break;
   case ROOFLINE_MAD:
-    i%2? dprint_FUOP_by_ins(fd, SIMD_MUL, regnum) : dprint_FUOP_by_ins(fd, SIMD_ADD, regnum);
+    if(i%2) return dprint_FUOP_by_ins(fd, SIMD_MUL, regnum);
+    else return dprint_FUOP_by_ins(fd, SIMD_ADD, regnum);
     break;
 #if defined (__FMA__)  && defined (__AVX__)
   case ROOFLINE_FMA:
@@ -88,6 +89,7 @@ static void dprint_FUOP(int fd, int type, int i, unsigned * regnum){
   default:
     break;
   }
+  *regnum = (*regnum+1)%SIMD_N_REGS;
 }
 
 
@@ -106,12 +108,12 @@ static void dprint_MUOP(int fd, int type, int i,  off_t * offset, unsigned * reg
 	dprintf(fd, "\"%s %%%%%s%d, %lu(%%%%%s)\\n\\t\"\\\n", SIMD_STORE_NT, SIMD_REG, *regnum, *offset, datareg);
 	break;
     case ROOFLINE_2LD1ST:
-	if(i%3) dprint_MUOP(fd,ROOFLINE_LOAD,i,offset,regnum,datareg);
-	else dprint_MUOP(fd,ROOFLINE_STORE,i,offset,regnum,datareg);
+	if(i%3) return dprint_MUOP(fd,ROOFLINE_LOAD,i,offset,regnum,datareg);
+	else return dprint_MUOP(fd,ROOFLINE_STORE,i,offset,regnum,datareg);
 	break;
     case ROOFLINE_COPY:
-	if(i%2) dprint_MUOP(fd,ROOFLINE_LOAD,i,offset,regnum,datareg);
-	else dprint_MUOP(fd,ROOFLINE_STORE,i,offset,regnum,datareg);
+	if(i%2) return dprint_MUOP(fd,ROOFLINE_LOAD,i,offset,regnum,datareg);
+	else return dprint_MUOP(fd,ROOFLINE_STORE,i,offset,regnum,datareg);
 	break;
     default:
 	break;
@@ -225,7 +227,7 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int mem_type,
 
     dprint_oi_bench_begin(fd, idx, name, flop_type);
     if(mop_per_fop == 1){
-	unsigned ppcm = SIMD_N_REGS/2;
+	unsigned ppcm = SIMD_N_REGS;
 	if(mem_type == ROOFLINE_2LD1ST){ppcm = roofline_PPCM(SIMD_N_REGS,3);}
 	for(i=0;i<ppcm;i++){
 	    dprint_MUOP(fd, mem_type, i, &offset, &regnum, "r11");
@@ -234,33 +236,26 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int mem_type,
 	mem_instructions = fop_instructions = ppcm;
     }
     else if(mop_per_fop > 1){
-      fop_instructions = 2;
-      mem_instructions = fop_instructions * mop_per_fop;
-      if(mem_type == ROOFLINE_2LD1ST){mem_instructions = roofline_PPCM(mem_instructions,3);}
+      mem_instructions = 6 * mop_per_fop;
       fop_instructions = mem_instructions / mop_per_fop;
       for(i=0;i<mem_instructions;i++){
-	dprint_MUOP(fd, mem_type, i, &offset, &regnum, "r11");
 	if(i%mop_per_fop==0){dprint_FUOP(fd, flop_type, i/mop_per_fop, &regnum);}
+	dprint_MUOP(fd, mem_type, i, &offset, &regnum, "r11");
       }
     }
     else if(fop_per_mop > 1){
-        mem_instructions = 8;
+        mem_instructions = 6;
 	fop_instructions = mem_instructions * fop_per_mop;
-	if(mem_type == ROOFLINE_2LD1ST){
-	    mem_instructions = roofline_PPCM(mem_instructions, 3);
-	    fop_instructions = mem_instructions*fop_per_mop;
-	}
 	for(i=0;i<fop_instructions;i++){
 	    if(i%fop_per_mop == 0) {dprint_MUOP(fd, mem_type, i, &offset, &regnum, "r11");}
 	    dprint_FUOP(fd, flop_type, i, &regnum);
 	}
     }
     dprint_oi_bench_end(fd, idx, offset);
+    long flops = fop_instructions*SIMD_FLOPS;
+    if(flop_type == ROOFLINE_FMA) flops *= 2;
     dprintf(fd, "out->instructions = in->loop_repeat * %u * in->stream_size / %lu;\n", mem_instructions+fop_instructions, offset);
-    if(flop_type == ROOFLINE_FMA)
-      dprintf(fd, "out->flops = in->loop_repeat * %u * in->stream_size / %lu;\n", fop_instructions*SIMD_FLOPS*2, offset);
-    else
-      dprintf(fd, "out->flops = in->loop_repeat * %u * in->stream_size / %lu;\n", fop_instructions*SIMD_FLOPS, offset);
+    dprintf(fd, "out->flops = in->loop_repeat * %ld * in->stream_size / %lu;\n", flops, offset);
     dprintf(fd, "out->bytes = in->loop_repeat * in->stream_size;\n");
     dprintf(fd, "}\n\n");
     free(idx);
