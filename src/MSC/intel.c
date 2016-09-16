@@ -227,17 +227,16 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int mem_type,
 
     dprint_oi_bench_begin(fd, idx, name, flop_type);
     if(mop_per_fop == 1){
-	unsigned ppcm = SIMD_N_REGS;
-	if(mem_type == ROOFLINE_2LD1ST){ppcm = roofline_PPCM(SIMD_N_REGS,3);}
-	for(i=0;i<ppcm;i++){
+        unsigned n_ins = SIMD_N_REGS*6;
+	for(i=0;i<n_ins;i++){
 	    dprint_MUOP(fd, mem_type, i, &offset, &regnum, "r11");
 	    dprint_FUOP(fd, flop_type, i, &regnum);
 	}
-	mem_instructions = fop_instructions = ppcm;
+	mem_instructions = fop_instructions = n_ins;
     }
     else if(mop_per_fop > 1){
-      mem_instructions = 6 * mop_per_fop;
-      fop_instructions = mem_instructions / mop_per_fop;
+      fop_instructions = 6;
+      mem_instructions = fop_instructions * mop_per_fop;
       for(i=0;i<mem_instructions;i++){
 	if(i%mop_per_fop==0){dprint_FUOP(fd, flop_type, i/mop_per_fop, &regnum);}
 	dprint_MUOP(fd, mem_type, i, &offset, &regnum, "r11");
