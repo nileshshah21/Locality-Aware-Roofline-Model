@@ -195,12 +195,14 @@ if("$DATA" != ""){
   misc["oi"] = ifelse(misc[,dbyte]==0, NA, as.numeric(misc[,dflop])/as.numeric(misc[,dbyte]))
   misc["perf"] = ifelse(misc[,dnano]==0, NA, as.numeric(misc[,dflop])/as.numeric(misc[,dnano]))
   types = unique(misc[,c(dtype, dinfo)])
+  legend_range = seq(nrow(bandwidths)+1, nrow(bandwidths)+nrow(types), by=1)
+  print(legend_range)
   for(i in 1:nrow(types)){
     points = subset(misc, misc[,dtype] == types[i,1] & misc[,dinfo] == types[i,2])
-    points(points[,"oi"], points[,"perf"], asp=1, pch=i, col=i)
+    points(points[,"oi"], points[,"perf"], asp=1, pch=legend_range[i], col=legend_range[i])
     par(new=TRUE);
   }
-  legend("topright", legend=apply(types, 1, function(t){paste(t[1], t[2], sep=" ")}), cex=.7, col=1:nrow(types), pch=1:nrow(types), bg="white")
+  legend("topright", legend=apply(types, 1, function(t){paste(t[1], t[2], sep=" ")}), cex=.7, col=legend_range, pch=legend_range, bg="white")
 }
 
 box()

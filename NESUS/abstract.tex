@@ -53,12 +53,6 @@
 	\fancyhead[R]{\small{Book paper template $\bullet$ October 2016 $\bullet$ Vol. I, No. 1}}
 	\fancyfoot[RO,LE]{\thepage}
 }
-	\fancyhead[R]{}
-	\fancyhead[L]{}
-	\fancyfoot{}
-	\fancyhead[C]{\small{Book paper template $\bullet$ October 2016 $\bullet$ Vol. I, No. 1}}
-	\fancyfoot[RO,LE]{\thepage}
-
 
 % ------
 % Clickable URLs (optional)
@@ -66,19 +60,19 @@
 
 % ------
 % Maketitle metadata
-\title{\vspace{-10mm}%
+\title{\vspace{-10mm}
 	\fontsize{24pt}{10pt}\selectfont
-	\textbf{Modeling Emerging Complex Memory Hierarchies With The Roofline Model}
+	\textbf{Automatic Cache Aware Roofline Model Building and Validation Using Topology Detection}
 	}
 	
 		
 \author{%
-	\large
-	\textsc{Nicolas Denoyelle \and Aleksandar Ilic} \\[2mm]
-	\normalsize{	Inria - France -- INESC-ID -- Portugal}\\
-	\normalsize{	\href{mailto:Nicolas.Denoyelle@inria.fr}{Nicolas.Denoyelle@inria.fr} \href{mailto:ilic@sips.inesc-id.pt}{ilic@sips.inesc-id.pt}}
-	\vspace{-5mm}
-	}
+  \large
+  \textsc{Nicolas Denoyelle \& Aleksandar Ilic}\\
+  \normalsize{	Inria - France -- INESC-ID -- Portugal}\\
+  \normalsize{	\href{mailto:Nicolas.Denoyelle@inria.fr}{Nicolas.Denoyelle@inria.fr} \href{mailto:ilic@sips.inesc-id.pt}{ilic@sips.inesc-id.pt}}
+  \vspace{-5mm}
+}
 
 \date{}
 
@@ -88,29 +82,21 @@
 \begin{document}
 
 
-
 \twocolumn[
-  \begin{@twocolumnfalse}
+\begin{@twocolumnfalse}
+  \maketitle
+  \thispagestyle{firststyle}
 
-%\maketitle
-
-\thispagestyle{firststyle}
-
-
-\begin{abstract}
-\noindent The ever growing complexity of high performance computing systems imposes significant challenges to exploit as much as
-  possible their computational and communication resources.
-  Recently, the Cache-aware Roofline Model has has gained popularity due to its simplicity modeling multi-cores with complex memory
-  hierarchy, characterizing applications' bottlenecks, and quantifying achieved or remaining improvements.
-  In this short paper we push this model a step further to model NUMA and heterogeneous memories with a handy tool, and spot data
-  locality bottlenecks on such systems.
-\end{abstract}
+  \begin{abstract}
+    \noindent The ever growing complexity of high performance computing systems imposes significant challenges to exploit as much as possible their computational and memory resources.
+    Recently, the Cache-aware Roofline Model has gained popularity due to its simplicity when modeling multi-cores with complex memory hierarchy, characterizing applications bottlenecks,
+    and quantifying achieved or remaining improvements. In this short paper we involve hwloc topology detection to build  the Cache Aware Roofline Model for modern processors in an open-source locality-aware tool.
+  \end{abstract}
 
 
-\keywords{Roofline Model, heterogeneous memory, NUMA, Cache}
-
- \hrulefill
-\bigskip 
+  \keywords{Roofline Model, heterogeneous memory, NUMA, Cache}
+  \hrulefill
+  \bigskip 
 
 
 \end{@twocolumnfalse}

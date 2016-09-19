@@ -79,7 +79,7 @@ keywords = "Roofline "
   publisher={IEEE}
 }
 
-@ARTICLE{7493653,
+@article{7493653,
 author={A. Ilic and F. Pratas and L. Sousa},
 journal={IEEE Transactions on Computers},
 title={Beyond the Roofline: Cache-aware Power and Energy-Efficiency Modeling for Multi-cores},
@@ -92,7 +92,7 @@ doi={10.1109/TC.2016.2582151},
 ISSN={0018-9340},
 month={},}
 
-@INPROCEEDINGS{6903671,
+@inproceedings{6903671,
 author={B. Goglin},
 booktitle={High Performance Computing Simulation (HPCS), 2014 International Conference on},
 title={Managing the topology of heterogeneous cluster nodes with hardware locality (hwloc)},
@@ -100,4 +100,61 @@ year={2014},
 pages={74-81},
 keywords={multiprocessing systems;parallel processing;CPU resource;CUDA;GPU;I/O device locality;InfiniBand interfaces;NUMA architecture;compute unified device architecture;graphics processing unit;hardware locality;heterogeneous cluster nodes;high performance computing;hwloc management;input-output device;locality information;memory resource;network interface;parallel applications;Graphics processing units;Hardware;Libraries;Performance evaluation;Sockets;Topology;I/O devices;affinities;clusters;hwloc;locality;topology},
 doi={10.1109/HPCSim.2014.6903671},
-month={July},}
+month={July},
+}
+
+@inproceedings{goglin:hal-01330194,
+  title = {{Exposing the Locality of Heterogeneous Memory Architectures to HPC Applications}},
+  author = {Goglin, Brice},
+  url = {https://hal.inria.fr/hal-01330194},
+  booktitle = {{1st ACM International Symposium on Memory Systems (MEMSYS16)}},
+  address = {Washington, DC, United States},
+  publisher = {{ACM}},
+  year = {2016},
+  month = Oct,
+  doi = {10.1145/2989081.2989115},
+  keywords = {heterogeneous memory ; locality ; affinity ; structural modeling ; user-space runtimes ; high-performance computing ; Linux},
+  pdf = {https://hal.inria.fr/hal-01330194/file/article.pdf},
+  hal_id = {hal-01330194},
+  hal_version = {v1},
+}
+
+@Inbook{Lo2015,
+author="Lo, Yu Jung
+and Williams, Samuel
+and Van Straalen, Brian
+and Ligocki, Terry J.
+and Cordery, Matthew J.
+and Wright, Nicholas J.
+and Hall, Mary W.
+and Oliker, Leonid",
+title="Roofline Model Toolkit: A Practical Tool for Architectural and Program Analysis ",
+bookTitle="High Performance Computing Systems. Performance Modeling, Benchmarking, and Simulation: 5th International Workshop, PMBS 2014, New Orleans, LA, USA, November 16, 2014. Revised Selected Papers",
+year="2015",
+publisher="Springer International Publishing",
+address="Cham",
+pages="129--148",
+isbn="978-3-319-17248-4",
+doi="10.1007/978-3-319-17248-4_7",
+url="http://dx.doi.org/10.1007/978-3-319-17248-4_7"
+}
+
+@misc{MulticoreTrend,
+  author={Avinash Sodan},
+  title={{Multi Core Trends in High Performance Computing}},
+  howpublished={\url{https://www.sics.se/sites/default/files/pub/sics.se/avinash_final_sweden_many_core_day_keynote_-_avinash_final_-_clean.pdf}},
+}
+
+@misc{CompilerSupport,
+  title={{GCC documentation on platform specific maccros}},
+  howpublished={\url{https://gcc.gnu.org/onlinedocs/gcc-6.2.0/gcc/x86-Built-in-Functions.html#x86-Built-in-Functions}},
+}
+
+
+@article{manyTaskRuntimeRooflneModel,
+  author={Joshua D. Suetterlein and Joshua Landwehr and Andres Marquez and Joseph Manzano and Guang R. GaoIlic},
+  title={{How Big Are Your Tasks: Extending the Roofline Model for Asynchronous Many-Task Runtimes}},
+  year={2016},
+  journal={IEEECluster},
+  publisher={IEEE},
+}
