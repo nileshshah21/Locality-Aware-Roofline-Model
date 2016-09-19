@@ -228,7 +228,7 @@ In addition, the proposed tools also permits to perform the CARM validation test
 variable arithmetic intensity. 
 The second component of the tool represents  a library with a set of API calls. These API calls are aimed at performing the
 automatic CARM characterization of a given user application, by instrumenting the application source code.
-To provide a wider cross-platform portability, this component relies on PAPI~\cite{dolog2003integrating} features to collect all
+To provide a wider cross-platform portability, this component relies on PAPI~\cite{mucci1999papi} features to collect all
 necessary CARM metrics via hardware performance counters, i.e., to determine the application arithmetic intensity and performance.
 The third component of the proposed tool is a command-line generating a visual plot of the CARM using platform analysis results. It
 enables a user to plot applications metrics extracted with the library on the Roofline chart. The model validation and bandwidth
@@ -279,7 +279,7 @@ tool   relies on several types of usual operations to benchmark the platform and
 for the Intel Ivy Bridge, it interleaves 2 LD and 1 ST instruction  when assessing the peak memory bandwidth, while 1 ADD and 1 MUL
 are interleaved for peak FP performance. 
 
-\paragraph*{CARM Experimental Results reproduction}
+\paragraph*{CARM Experimental Results Reproduction}
 \begin{figure*}
   \includegraphics[width=\textwidth]{pictures/roofline_model}
   \caption{CARM on i7 3770k with LART tool.}
