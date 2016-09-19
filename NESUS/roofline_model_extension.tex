@@ -155,7 +155,7 @@ the peak performance of computational units or by the capabilities of memory sys
 are two main approaches for Roofline modeling, namely: the Original Roofline Model (ORM)~\cite{Williams:2009:RIV:1498765.1498785}
 and the Cache-aware~Roofline~Model~(CARM)~\cite{ilic2014cache}.
 These two approaches provide different perspectives when describing the micro-architecture upper-bounds, and they are also
-differently constructed, validated, and used for application characterization and optimization [TComp].
+differently constructed, validated, and used for application characterization and optimization.
 
 The ORM targets the systems with a processing element (PE) connected to a single (slow) memory (usually, the DRAM). The ORM's
 PE encapsulates computational units and a set of fast memories (i.e., caches). As such, the ORM mainly considers the memory
@@ -228,7 +228,7 @@ Core sees  the cache hierarchy as a cache stack of increasing size\footnote{
   The processors uses a cache replacement policy that removes old data from
   close caches in favor of more frequently used ones. The replacement policy move data from bottom caches to top caches. Since the
   space close to cores is thinner than the far space, the cache stack as seen by each core has an increasing size from bottom to
-  top
+  top.
 }, perfectly suits the way how the CARM perceives the memory hierarchy 
 In addition, the hwloc library also allows a straightforward acquisition  of the cache and memory sizes via the  attributes of the
 Core parent nodes. These parameters are further used in the proposed tool  in order to instantiate the appropriate micro-benchmarks
