@@ -1,5 +1,6 @@
 #include <math.h>
 #include "roofline.h"
+#include "MSC/MSC.h"
 
 /* options */
 static char * output = NULL;            /* Where to print output */
@@ -7,6 +8,7 @@ static char * mem_str = NULL;           /* Do we restrict memory to one memory *
 static hwloc_obj_t mem = NULL;          /* Do we restrict memory to one memory */
 static int hyperthreading = 0;          /* If compiled with openmp do we use hyperthreading */
 static double oi = 0;                   /* -1 => perform validation benchmarks, >0 => perform validation benchmarks on value */
+static unsigned int roofline_types = 0;     /* What rooflines do we want in byte array */
 
 static void usage(char * argv0){
     printf("%s <options...>\n\n", argv0);
@@ -56,9 +58,20 @@ static void parse_args(int argc, char ** argv){
 	    output = argv[++i];
 	}
     }
-    if(roofline_types == 0){
-	roofline_types = ROOFLINE_2LD1ST|ROOFLINE_LOAD|ROOFLINE_STORE_NT|ROOFLINE_MAD;
+}
+
+static void bench_memory(FILE * out, hwloc_obj_t mem, int types){
+  if(types != 0){
+    roofline_bandwidth(out, mem, types);
+    if(oi<0){
+      double op_int = oi;
+      for(op_int = pow(2,-10); op_int < pow(2,6); op_int*=2){
+	roofline_oi(out, mem, types, op_int);
+      }
+    } else if(oi > 0){
+      roofline_oi(out, mem, types, oi);
     }
+  }
 }
 
 static FILE * open_output(char * out){
@@ -98,35 +111,11 @@ int main(int argc, char * argv[]){
     /* roofline every memory obj */
     if(mem == NULL){
 	while((mem = roofline_hwloc_get_next_memory(mem)) != NULL){
-	    if(oi>0){
-		roofline_oi(out, mem, roofline_types, oi);
-	    }
-	    else{
-		roofline_bandwidth(out, mem, roofline_types);
-	    }
-	}
-	while((mem = roofline_hwloc_get_next_memory(mem)) != NULL){
-	    if(oi<0){
-		double op_int = oi;
-		for(op_int = pow(2,-10); op_int < pow(2,6); op_int*=2){
-		    roofline_oi(out, mem, roofline_types, op_int);
-		}
-	    }
+	  bench_memory(out, mem, roofline_filter_types(mem, roofline_types));
 	}
     }
     else{
-	if(oi>0){
-	    roofline_oi(out, mem, roofline_types, oi);
-	}
-	else{
-	    roofline_bandwidth(out, mem, roofline_types);
-	    if(oi<0){
-		double op_int = oi;
-		for(op_int = pow(2,-10); op_int < pow(2,6); op_int*=2){
-		    roofline_oi(out, mem, roofline_types, op_int);
-		}
-	    }
-	}
+      bench_memory(out, mem, roofline_filter_types(mem, roofline_types));
     }
     
     fclose(out);

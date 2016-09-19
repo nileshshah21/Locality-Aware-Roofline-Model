@@ -268,29 +268,70 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, int type,
     free(in.stream);
 }
 
+int roofline_filter_types(hwloc_obj_t obj, int type){
+  int supported = benchmark_types_supported();
+  int obj_type = 0;
+  
+  if(obj->type == HWLOC_OBJ_L1CACHE){
+    int L1_possible = (ROOFLINE_2LD1ST|ROOFLINE_LOAD|ROOFLINE_STORE|ROOFLINE_COPY) & supported;
+    obj_type = type & L1_possible;
+    if(type & ROOFLINE_LOAD_NT) fprintf(stderr, "skip load_nt type not meaningful for %s\n", hwloc_type_name(obj->type));
+    if(type & ROOFLINE_STORE_NT) fprintf(stderr, "skip store_nt type not meaningful for %s\n", hwloc_type_name(obj->type));
+    if(obj_type == 0) obj_type = ROOFLINE_2LD1ST & supported;
+    if(obj_type == 0) obj_type = (ROOFLINE_LOAD|ROOFLINE_STORE) & supported;
+  }
+  
+  else if(obj->type == HWLOC_OBJ_NUMANODE){
+    int NUMA_possible = (ROOFLINE_LOAD|ROOFLINE_STORE|ROOFLINE_LOAD_NT|ROOFLINE_STORE_NT|ROOFLINE_COPY) & supported;
+    obj_type = type & NUMA_possible;
+    if(obj_type == 0) obj_type = (ROOFLINE_STORE_NT|ROOFLINE_LOAD_NT) & supported;
+    if(obj_type == 0) obj_type = (ROOFLINE_STORE|ROOFLINE_LOAD) & supported;
+  }
+  
+  else if(obj->type == HWLOC_OBJ_L2CACHE ||
+	  obj->type == HWLOC_OBJ_L3CACHE ||
+	  obj->type == HWLOC_OBJ_L4CACHE ||
+	  obj->type == HWLOC_OBJ_L5CACHE){
+    int CACHE_possible = (ROOFLINE_LOAD|ROOFLINE_STORE|ROOFLINE_COPY) & supported;
+    obj_type = type & CACHE_possible;
+    if(type & ROOFLINE_LOAD_NT) fprintf(stderr, "skip load_nt type not meaningful for %s\n", hwloc_type_name(obj->type));
+    if(type & ROOFLINE_STORE_NT) fprintf(stderr, "skip store_nt type not meaningful for %s\n", hwloc_type_name(obj->type));
+    if(obj_type == 0) obj_type = (ROOFLINE_STORE|ROOFLINE_LOAD) & supported;
+  }
+
+  else if (obj->type == HWLOC_OBJ_PU || obj->type == HWLOC_OBJ_CORE){
+    int FP_possible = (ROOFLINE_ADD|ROOFLINE_MAD|ROOFLINE_MUL|ROOFLINE_FMA) & supported;
+    obj_type = type & FP_possible;
+    if(obj_type == 0) obj_type = (ROOFLINE_ADD|ROOFLINE_MAD|ROOFLINE_FMA) & supported;
+  }
+
+  return obj_type;
+}
+
+
 void roofline_bandwidth(FILE * output, hwloc_obj_t mem, int type){
-    int supported = benchmark_types_supported();
-    if(type & ROOFLINE_LOAD & supported)
-	roofline_memory(output,mem,ROOFLINE_LOAD,bandwidth_benchmark);
-    if(type & ROOFLINE_LOAD_NT & supported)
-	roofline_memory(output,mem,ROOFLINE_LOAD_NT,bandwidth_benchmark);
-    if(type & ROOFLINE_STORE & supported)
-	roofline_memory(output,mem,ROOFLINE_STORE,bandwidth_benchmark);
-    if(type & ROOFLINE_STORE_NT & supported)
-	roofline_memory(output,mem,ROOFLINE_STORE_NT,bandwidth_benchmark);
-    if(type & ROOFLINE_2LD1ST & supported)
-	roofline_memory(output,mem,ROOFLINE_2LD1ST,bandwidth_benchmark);
-    if(type & ROOFLINE_COPY & supported)
-	roofline_memory(output,mem,ROOFLINE_COPY,bandwidth_benchmark);
+  type = roofline_filter_types(mem, type);
+  if(type & ROOFLINE_LOAD)
+    roofline_memory(output,mem,ROOFLINE_LOAD,bandwidth_benchmark);
+  if(type & ROOFLINE_LOAD_NT)
+    roofline_memory(output,mem,ROOFLINE_LOAD_NT,bandwidth_benchmark);
+  if(type & ROOFLINE_STORE)
+    roofline_memory(output,mem,ROOFLINE_STORE,bandwidth_benchmark);
+  if(type & ROOFLINE_STORE_NT)
+    roofline_memory(output,mem,ROOFLINE_STORE_NT,bandwidth_benchmark);
+  if(type & ROOFLINE_2LD1ST)
+    roofline_memory(output,mem,ROOFLINE_2LD1ST,bandwidth_benchmark);
+  if(type & ROOFLINE_COPY)
+    roofline_memory(output,mem,ROOFLINE_COPY,bandwidth_benchmark);
 }
 
 void roofline_flops(FILE * output, int type){
-   int supported = benchmark_types_supported();
-   if(!(supported&type)){printf("Type %s is not supported on architecture where I was compiled\n", roofline_type_str(type)); return;}
-   if(type & ROOFLINE_ADD & supported){roofline_fpeak(output,ROOFLINE_ADD);}
-   if(type & ROOFLINE_MUL & supported){roofline_fpeak(output,ROOFLINE_MUL);}
-   if(type & ROOFLINE_MAD & supported){roofline_fpeak(output,ROOFLINE_MAD);}
-   if(type & ROOFLINE_FMA & supported){roofline_fpeak(output,ROOFLINE_FMA);}
+  hwloc_obj_t core = hwloc_get_obj_by_type(topology, HWLOC_OBJ_CORE, 0);
+  type = roofline_filter_types(core, type);   
+  if(type & ROOFLINE_ADD){roofline_fpeak(output,ROOFLINE_ADD);}
+  if(type & ROOFLINE_MUL){roofline_fpeak(output,ROOFLINE_MUL);}
+  if(type & ROOFLINE_MAD){roofline_fpeak(output,ROOFLINE_MAD);}
+  if(type & ROOFLINE_FMA){roofline_fpeak(output,ROOFLINE_FMA);}
 }
 
 void roofline_oi(FILE * output, hwloc_obj_t mem, int type, double oi){

@@ -11,7 +11,6 @@ extern unsigned     n_threads;      /* The number of threads for benchmark */
 extern char *       compiler;       /* The compiler name to compile the roofline validation. */
 extern char *       omp_flag;       /* The openmp flag to compile the roofline validation. */
 extern int          per_thread;     /* Should results be printed with per thread value */
-extern unsigned int roofline_types; /* What rooflines do we want in byte array */
 
 int  roofline_lib_init(int with_hyperthreading);
 void roofline_lib_finalize(void);
@@ -60,6 +59,7 @@ void print_roofline_sample_output(struct roofline_sample_out * out);
 #define ROOFLINE_N_SAMPLES 8
 #endif
 
+int  roofline_filter_types(hwloc_obj_t obj, int type);
 void roofline_flops    (FILE * output, const int type);
 void roofline_bandwidth(FILE * output, hwloc_obj_t memory, const int type);
 void roofline_oi       (FILE * output, hwloc_obj_t memory, const int type, double oi);
