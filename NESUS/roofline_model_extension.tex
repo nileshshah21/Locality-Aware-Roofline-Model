@@ -1,5 +1,5 @@
 \documentclass[twoside,twocolumn,8pt]{extarticle}
-
+\usepackage{subfigure}
 
 % ------
 % Fonts and typesetting settings
@@ -132,10 +132,11 @@ memory hierarchy, which automatically builds the model and provides the applicat
 
 To  conduct a thorough evaluation of memory and compute capabilities of a given platform, the proposed tool also includes the
 necessary software support to detect both micro-architecture instruction set and cache topology. The former can be found with
-compiler support~\cite{CompilerSupport}, whereas the latter has only recently been mastered by hwloc (hardware locality)
-library~\cite{6903671}. By relying on this run-time detection of compute and memory resources, the proposed tool  automatically
-instantiates a set of custom platform-specific micro-benchmarks for deep evaluation of platform capabilities, upon which the
-Cache-aware Roofline Model is created. Furthermore, the proposed tool also includes a lightweight library to provide access to the
+compiler support~\cite{CompilerSupport}, whereas the latter has only been mastered in a portable way by hwloc (hardware locality)
+library~\cite{broquedis:inria-00429889}.
+By relying on this run-time detection of compute and memory resources, the proposed tool automatically instantiates a set of
+custom platform-specific micro-benchmarks for deep evaluation of platform capabilities, upon which the Cache-aware Roofline Model
+is created. Furthermore, the proposed tool also includes a lightweight library to provide access to the
 hardware counters and extract, at runtime, the application features to be mapped in the model. To the best of our knowledge, there
 are no existing cross-platform and open-source tools  that allow automating the process (i.e building the CARM and mapping
 applications in it). 
@@ -164,7 +165,26 @@ bandwidth as one of the potential execution bottlenecks. Depending on the "opera
 operations (flops) over the quantity of DRAM data (DRAMBytes), the applications can be characterized as compute-bound or
 memory-bound. The model is used in several works for application
 optimization~\cite{Kim20111201}~\cite{Rossinelli2164}~\cite{vanNieuwpoort:2009:UMH:1542275.1542337}, as well as to model other
-memory subsystems~\cite{manyTaskRuntimeRooflneModel}, energy~\cite{7493653}. 
+memory subsystems~\cite{manyTaskRuntimeRooflneModel}, energy~\cite{7493653}. We represented on the chart~\ref{fig:roofline_chart},
+where the "operational intensity" stands on abscissa and the performance stands in ordinate.
+The figure~\ref{fig:roofline_chart} shows that upon data layout optimization the performance and arithmetic intensity vary to hit
+one of the mentioned elements' roof.
+
+\begin{figure*}
+\begin{center}
+  \begin{minipage}[b]{0.49\textwidth}
+    \includegraphics[width=\textwidth]{pictures/roofline_chart}
+    \caption{ORM chart}
+    \label{fig:roofline_chart}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.49\textwidth}
+    \includegraphics[width=\textwidth]{pictures/CARM_chart}
+    \caption{CARM chart}
+    \label{fig:CARM_chart}
+  \end{minipage}
+  \end{center}
+\end{figure*}
 
 In contrast, the CARM perceives the memory transfers from a consistent micro-architecture point of view, i.e., a core, where
 the memory transactions are issued. As such, the CARM targets more contemporary systems where the PE encloses only compute units
@@ -172,7 +192,9 @@ and registers, while all other memory levels are separately and explicitly consi
 memory lines in the same plot, each corresponding to the realistically achievable bandwidth of a specific memory level to the core,
 i.e., cache levels and DRAM. When characterizing the applications, the CARM relies on the true "arithmetic intensity", i.e., the
 ratio of performed compute operations (flops) over the total volume of requested data (in bytes) by taking into account the
-complete memory hierarchy (i.e., caches and DRAM).
+complete memory hierarchy (i.e., caches and DRAM). This model is plot on chart ~\ref{fig:CARM_chart} and shows whether an
+application with a given arithmetic intensity is memory-bound or compute-bound if a straight vertical line hit a peak (FP) roof
+or a bandwidth roof.
 
 We base our methodology on the Cache Aware Roofline Model. 
 As explained above, this model differs from the original one, and we think that the CARM is able to give more insight on
@@ -196,7 +218,7 @@ The proposed LART is composed of 3 main components, namely:
 \item A model visualization tool to present the architecture bounds and applications metrics extraction.
 \end{itemize}
 
-The first component consists in a binary that automatically  builds the CARM for the specific processor micro-architecture where
+The first component consists in a program that automatically  builds the CARM for the specific processor micro-architecture where
 the tool is run. By relying on a set of hwloc features, the proposed tool automatically detects the memory hierarchy and processor
 compute capabilities, based on which specific micro-benchmarks are instantiated to deeply evaluate the bandwidth of each memory
 level,  as well as the peak floating point (FP) performance according to the CARM methodology.
@@ -204,8 +226,8 @@ In addition, the proposed tools also permits to perform the CARM validation test
 variable arithmetic intensity. 
 The second component of the tool represents  a library with a set of API calls. These API calls are aimed at performing the
 automatic CARM characterization of a given user application, by instrumenting the application source code.
-To provide a wider cross-platform portability, this component relies on PAPI features to collect all necessary CARM metrics via
-hardware performance counters, i.e., to determine the application arithmetic intensity and performance.
+To provide a wider cross-platform portability, this component relies on PAPI~\cite{dolog2003integrating} features to collect all
+necessary CARM metrics via hardware performance counters, i.e., to determine the application arithmetic intensity and performance.
 The third component of the proposed tool is a command-line generating a visual plot of the CARM using platform analysis results. It
 enables a user to plot applications metrics extracted with the library on the Roofline chart. The model validation and bandwidth
 deviation can also be seen and provide a straightforward evaluation of the confidence one can grant to the model.
@@ -218,7 +240,7 @@ deviation can also be seen and provide a straightforward evaluation of the confi
   \label{fig:topology_adriana}
 \end{figure}
 
-Discovering all the computing and memory resources in a computing platform has only been recently mastered with tools such as
+Discovering all the computing and memory resources in a computing platform can be performed with tools such as
 hwloc~\cite{goglin:hal-01330194}. Prior to hwloc,  the similar approaches were often less portable or they were not capable of
 exposing as many details about cache sharing etc. The hwloc framework models the machine topology as a tree and suits particularly
 well the caches structure.
@@ -263,8 +285,6 @@ are interleaved for peak FP performance.
 
 Figure~\ref{fig:LART_adriana}, shows an output of the CARM plot generated by the herein proposed tool for an Intel i7
 3770k (Ivy Bridge) processor, which topology is previously displayed in Figure~\ref{fig:topology_adriana}.
-The arithmetic intensity stands on abscissa and the performance stands in ordinate. The plot shows whether an application with a
-given arithmetic intensity is memory-bound or compute-bound if a straight vertical line hit a peak (FP) roof or a bandwidth roof.
 The black, red, green and blue oblique lines distinguish several regions of the attainable performance upper-bounds for AVX
 instructions, which are limited by the bandwidth of different memory levels , i.e., L1, L2, L3 and DRAM, respectively.
 The two horizontal lines represent the peak FP performance for multiplication/addition and multiplication with addition. 
