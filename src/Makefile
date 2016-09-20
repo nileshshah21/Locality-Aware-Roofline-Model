@@ -14,7 +14,7 @@ PAPI=no
 #                                              BUILD                                        #
 #############################################################################################
 CC=gcc
-OMP_FLAG= #-fopenmp
+OMP_FLAG=-fopenmp
 LDFLAGS=-lhwloc -ldl $(OMP_FLAG)
 CFLAGS=-g -Wall -Werror -Wextra -DCC=$(CC) -DOMP_FLAG=$(OMP_FLAG) -DBENCHMARK_MIN_DUR=$(LAST) -DROOFLINE_N_SAMPLES=$(N_SAMPLES)
 SRC=roofline.c utils.c stats.c progress.c
@@ -37,6 +37,9 @@ endif
 
 MSC.o: MSC/$(MSC).c
 	$(CC) -march=native -Wl,-rpath=$(PWD) -DCC=$(CC) $(CFLAGS) -c -o $@ $^ $(LDFLAGS)
+
+MSC.s: MSC/$(MSC).c
+	$(CC) -march=native -Wl,-rpath=$(PWD) -DCC=$(CC) $(CFLAGS) -S -o $@ $^ $(LDFLAGS)
 
 $(BIN): main.c $(OBJ)
 	$(CC) $(CFLAGS) -pedantic-errors $^ -o $@ $(LDFLAGS) -lhwloc -lm

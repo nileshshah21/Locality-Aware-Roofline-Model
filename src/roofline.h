@@ -78,21 +78,11 @@ void roofline_progress_print(struct roofline_progress_bar * bar);
 void roofline_progress_clean(void);
 
 /****************************************    Statistics    ****************************************/
-#define BENCHMARK_REPEAT 8
+#define BENCHMARK_REPEAT 8 /* Repeat fpeak benchmark */
 #ifndef BENCHMARK_MIN_DUR
 #define BENCHMARK_MIN_DUR 10 /* milliseconds */
 #endif
 
-int    comp_roofline_throughput(void * a, void * b);
-int    roofline_output_min(struct roofline_sample_out * samples, size_t n);
-int    roofline_output_max(struct roofline_sample_out * samples, size_t n);
-int    roofline_output_median(struct roofline_sample_out * samples, size_t n);
-double roofline_output_sd(struct roofline_sample_out * samples, unsigned n);
-double roofline_repeat_bench(void (* bench)(const struct roofline_sample_in *, struct roofline_sample_out *, int),
-			     struct roofline_sample_in * in,
-			     struct roofline_sample_out * out,
-			     const int type,
-			     int (* bench_stat)(struct roofline_sample_out * , size_t));
 unsigned roofline_PGCD(unsigned, unsigned);
 unsigned roofline_PPCM(unsigned, unsigned);
 
@@ -128,7 +118,7 @@ size_t      roofline_hwloc_get_instruction_cache_size(void);
 const char * roofline_type_str(int type);
 int          roofline_type_from_str(const char * type);
 void         roofline_print_header(FILE * output);
-void         roofline_print_sample(FILE * output, hwloc_obj_t obj, struct roofline_sample_out * sample_out, double sd, int type);
+void         roofline_print_sample(FILE * output, hwloc_obj_t obj, struct roofline_sample_out * sample_out, int type);
 
 /**
  * Compute a logarithmic array of sizes

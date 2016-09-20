@@ -60,16 +60,20 @@ static void parse_args(int argc, char ** argv){
     }
 }
 
-static void bench_memory(FILE * out, hwloc_obj_t mem, int types){
-  if(types != 0){
-    roofline_bandwidth(out, mem, types);
+static void bench_memory(FILE * out, hwloc_obj_t mem){
+  hwloc_obj_t core = hwloc_get_obj_by_type(topology, HWLOC_OBJ_CORE, 0);
+  int mem_type = roofline_filter_types(mem, roofline_types);
+  int flop_type = roofline_filter_types(core, roofline_types);
+
+  if(mem_type != 0){
+    roofline_bandwidth(out, mem, mem_type);
     if(oi<0){
       double op_int = oi;
       for(op_int = pow(2,-10); op_int < pow(2,6); op_int*=2){
-	roofline_oi(out, mem, types, op_int);
+	roofline_oi(out, mem, mem_type|flop_type, op_int);
       }
     } else if(oi > 0){
-      roofline_oi(out, mem, types, oi);
+      roofline_oi(out, mem, mem_type|flop_type, oi);
     }
   }
 }
@@ -111,11 +115,11 @@ int main(int argc, char * argv[]){
     /* roofline every memory obj */
     if(mem == NULL){
 	while((mem = roofline_hwloc_get_next_memory(mem)) != NULL){
-	  bench_memory(out, mem, roofline_filter_types(mem, roofline_types));
+	  bench_memory(out, mem);
 	}
     }
     else{
-      bench_memory(out, mem, roofline_filter_types(mem, roofline_types));
+      bench_memory(out, mem);
     }
     
     fclose(out);

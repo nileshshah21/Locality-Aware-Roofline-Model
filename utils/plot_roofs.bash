@@ -39,7 +39,6 @@ while getopts :o:i:t:d:m:f:hbpvs opt; do
 	i) INPUT=$OPTARG;;
 	f) FILTER="$OPTARG";;
 	t) TITLE="$OPTARG";;
-	b) BEST="TRUE";;
 	p) SINGLE="TRUE";;
 	v) VALIDATION="TRUE";;
 	s) DEVIATION="TRUE";;
@@ -62,38 +61,51 @@ output_R(){
     R --vanilla --silent --slave <<EOF
 #Columns id
 dobj        = 1;    #The obj column id
-dthroughput = 5;    #The instruction throughput
-ddev        = 6;    #The instruction throughput standard deviation
-dbandwidth  = 7;    #The bandwidth column id
-dgflops     = 8;    #The gflop/s column id
-doi         = 9;    #The oi column id
-dthreads    = 10;   #The number of threads
-dtype       = 11;   #The info column id
+dthroughput = 2;    #The instruction throughput
+dbandwidth  = 3;    #The bandwidth column id
+dgflops     = 4;    #The gflop/s column id
+doi         = 5;    #The oi column id
+dthreads    = 6;    #The number of threads
+dtype       = 7;    #The info column id
 
 filter <- function(df, col){
   subset(df, grepl("$FILTER", df[,col], perl=TRUE))
 }
 
 #load data
-d = filter(read.table("$INPUT",header=TRUE), dtype)
+d = filter(read.table("$INPUT",header=TRUE, stringsAsFactors=FALSE), dtype)
 
-fpeaks            = d[d[,dbandwidth]==0,] #The peak floating point performance
-bandwidths        = d[d[,dgflops]==0,]    #The bandwidths
-
-if($BEST){
-   top_bandwidth <- function(obj){
-      max_bdw = max(bandwidths[bandwidths[,dobj]==obj, dbandwidth])
-      which(bandwidths[,dbandwidth] == max_bdw & bandwidths[,dobj]==obj, arr.ind=TRUE)[1]
-   }
-   bandwidths = bandwidths[sapply(unique(bandwidths[,dobj]), top_bandwidth, simplify=array),]
+#get fpeaks
+fpeaks = data.frame(type=character(0), performance=numeric(0), sd=numeric(0), nthreads=integer(0), stringsAsFactors=FALSE)
+fpeak_samples = d[d[,dbandwidth]==0,]
+fpeak_types = unique(fpeak_samples[,dtype])
+for(i in 1:length(fpeak_types)){
+  ftype = fpeak_types[i]
+  fpeak_s = fpeak_samples[fpeak_samples[,dtype]==ftype,]
+  fpeaks[i, ] = c(ftype, median(fpeak_s[,dgflops]), sd(fpeak_s[,dgflops]), fpeak_s[1,dthreads])
 }
 
+fpeak_max = as.numeric(max(fpeaks[,2])) #the top peak performance
+print(fpeaks)
+
+#get bandwidths
+bandwidths = data.frame(obj=character(0), type=character(0), bandwidth=numeric(0), sd=numeric(0), nthreads=integer(0), stringsAsFactors=FALSE)
+bandwidths_samples = d[d[,dgflops]==0,]
+bandwidths_types = unique(bandwidths_samples[,c(dobj,dtype)])
+for(i in 1:nrow(bandwidths_types)){
+  bobj = bandwidths_types[i,1]
+  btype = bandwidths_types[i,2]
+  bandwidths_s = bandwidths_samples[bandwidths_samples[,dtype]==btype,]
+  bandwidths_s = bandwidths_s[bandwidths_s[,dobj]==bobj,]
+  bandwidths[i, ] = c(bobj, btype, median(bandwidths_s[,dbandwidth]), sd(bandwidths_s[,dbandwidth]), bandwidths_s[1,dthreads])
+}
+print(bandwidths)
+
+#check if results have to be presented per thread
 if($SINGLE){
-  fpeaks[,dgflops] = fpeaks[,dgflops]/fpeaks[,dthreads]
-  bandwidths[,dbandwidth] = bandwidths[,dbandwidth]/bandwidths[,dthreads]
+  fpeaks[2] = fpeaks[2]/fpeaks[4]
+  bandwidths[3] = bandwidths[3]/bandwidths[5]
 }
-
-fpeak_max         = max(fpeaks[,dgflops]) #the top peak performance
 
 #Logarithmic sequence of points
 lseq <- function(from=1, to=100000, length.out = 6) {
@@ -114,33 +126,32 @@ pdf("$OUTPUT", family = "Helvetica", title="roofline chart", width=10, height=5)
 
 #plot bandwidths roofs
 par(ann=FALSE)
-plot_bandwidth <- function(bandwidth, bytes_dev = 0, color = 1){
-  gflops     = sapply(oi*bandwidth, min, fpeak_max)
+plot_bandwidth <- function(val, sd = 0, color = 1){
+  gflops     = sapply(oi*val, min, fpeak_max)
   plot(oi, gflops, lty=1, type="l", log="xy", axes=FALSE, xlim=xlim, ylim=ylim, col=color, panel.first=abline(h=yticks, v=xticks,col = "darkgray", lty = 3))
   par(new=TRUE);
   if($DEVIATION){
-    xdev=dev*0.5*sqrt(1+1/(bandwidth*bandwidth))
-    coord.x = c(xmin*(1-xdev), fpeak_max/bandwidth*(1 - xdev), fpeak_max/bandwidth*(1 + xdev), xmin*(1+xdev))
+    xdev=sd*0.5*sqrt(1+1/(val*val))
+    coord.x = c(xmin*(1-xdev), fpeak_max/val*(1 - xdev), fpeak_max/bandwidth*(1 + xdev), xmin*(1+xdev))
     coord.y = c(xmin*bandwidth, fpeak_max, fpeak_max, xmin*bandwidth)
     polygon(coord.x,coord.y,col=adjustcolor(i,alpha.f=.25), lty="blank")
     par(new=TRUE);
   }
 }
+
+
 for(i in 1:nrow(bandwidths)){
-  bandwidth = bandwidths[i,dbandwidth];
-  dev = bandwidths[i,ddev]/bandwidths[i,dthroughput];
-  plot_bandwidth(bandwidth, bytes_dev = dev, col=i);
+  plot_bandwidth(as.numeric(bandwidths[i,3]), sd = as.numeric(bandwidths[i,4]), col=i);
 }
 
 #plot fpeak roofs
-abline(h = fpeaks[,dgflops], lty=3, col=1, lwd=2);
+abline(h = fpeaks[,2], lty=3, col=1, lwd=2);
 
 for (i in 1:nrow(fpeaks)){
-  j=1; flops = fpeaks[i,dgflops]
+  j=1; flops = as.numeric(fpeaks[i,2])
 
   while(j <= length(yticks)){
     if( (yticks[j]<2*flops) && (yticks[j]>flops) ){
-      print(sprintf("remove %s:%f", ylabels[j], yticks[j]))
       yticks = yticks[-c(j)]
       ylabels = ylabels[-c(j)]
       j = 1
@@ -153,19 +164,15 @@ for (i in 1:nrow(fpeaks)){
     j = j+1
   }
 }
-yticks = c(yticks, fpeaks[,dgflops])
-ylabels = c(ylabels, sprintf("%.2f", fpeaks[,dgflops]))
-axis(2, labels = fpeaks[,dtype], at = fpeaks[,dgflops], las=1, tick=FALSE, pos=xmin, padj=0, hadj=0)
+yticks = c(yticks, fpeaks[,2])
+ylabels = c(ylabels, sprintf("%.2f", as.numeric(fpeaks[,2])))
+axis(2, labels = fpeaks[,1], at = fpeaks[,2], las=1, tick=FALSE, pos=xmin, padj=0, hadj=0)
 
 #plot validation points
 if($VALIDATION){
   points = subset(d, d[,dgflops]!=0 & d[,dbandwidth]!=0)
-  if($BEST){
-    #keep only for best rooflines
-    points = merge(x = points, y=bandwidths[,c(dobj,dtype)], by.x=c(dobj,dtype), by.y=c(1,2))[, union(names(points), names(bandwidths[,c(dobj,dtype)]))]
-  }
   for(i in 1:nrow(bandwidths)){
-    valid = subset(points, points[,dtype]==bandwidths[i,dtype] & points[,dobj]==bandwidths[i,dobj])
+    valid = subset(points, points[,dtype]==bandwidths[i,2] & points[,dobj]==bandwidths[i,1])
     if($SINGLE){
       valid[,dgflops] = valid[,dgflops]/valid[,dthreads]
     }
@@ -178,7 +185,7 @@ if($VALIDATION){
 axis(1, at=xticks, labels=xlabels)
 axis(2, at=yticks, labels=ylabels, las=1)
 title(main = "$TITLE", xlab="Flops/Byte", ylab="GFlops/s")
-legend("bottomright", legend=paste(bandwidths[,dobj], paste(bandwidths[,dtype], sprintf("%.2f", bandwidths[,dbandwidth]), sep="="), "GB/s", sep=" "), cex=.7, lty=1, col=1:nrow(bandwidths), bg="white")
+legend("bottomright", legend=paste(bandwidths[,1], paste(bandwidths[,2], sprintf("%.2f", as.numeric(bandwidths[,3])), sep="="), "GB/s", sep=" "), cex=.7, lty=1, col=1:nrow(bandwidths), bg="white")
 
 #plot MISC points
 if("$DATA" != ""){
