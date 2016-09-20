@@ -103,9 +103,11 @@
   \noindent The ever growing complexity of high performance computing systems imposes significant challenges to exploit as much as
   possible their computational and memory resources. Recently, the Cache-aware Roofline Model has gained popularity due to its
   simplicity when modeling multi-cores with complex memory hierarchy, characterizing applications bottlenecks, and quantifying
-  achieved or remaining improvements. In this short paper we involve hwloc topology detection to build  the Cache Aware Roofline
-  Model for modern processors in an open-source locality-aware tool. The results we obtained on platform benchmarking with the
-  tool, reach near-theoretical bounds and show the model methodology effectiveness.
+  achieved or remaining improvements. In this short paper we involve hardware locality topology detection to build  the
+  Cache Aware Roofline Model for modern processors in an open-source locality-aware tool. The proposed tool also includes a set of
+  specific micro-benchmarks to assess the micro-architecture performance upper-bounds.
+  The experimental results show that by relying on the proposed tool, it was possible to  reach near-theoretical bounds of an Intel
+  3770K processor, thus proving the effectiveness of the modeling methodology.
 \end{abstract}
 
 
@@ -121,36 +123,38 @@
 
 \section{Introduction}\label{sec:Intro}
 %+++++++++++++++++++++++++++
-Since the advent of multi-core era, computer systems tend to incorporate an  increasing number of cores, while the memory bandwidth
-and memory space per core is decreasing~\cite{MulticoreTrend}. In order to address application needs and improve the overall
-performance, current computing platforms rely on memory hierarchies of increasing complexity. Reshaping applications data layout to
-take full advantage of those architectures can improve the overall performance by orders of magnitude at the cost of tremendous
-development efforts. The Cache Aware Roofline Model (CARM)~\cite{ilic2014cache} is able to aggregate this complexity in a single
-insightful model and guide application optimization to fit the micro-architecture performance upper-bounds. Its effectiveness
-motivated us to bring it to non expert developer a robust tool equipped with deep benchmarking of multi-core platforms with complex
-memory hierarchy, which automatically builds the model and provides the application optimization insights.\\
+Since the advent of multi-core era, computer systems tend to incorporate an  increasing number of cores, while the relative memory
+bandwidth and memory space per core is decreasing~\cite{MulticoreTrend}. In order to address application requirement and improve
+the overall performance, current computing platforms rely on memory hierarchies of increasing complexity. Reshaping applications
+data layout to take full advantage of those architectures can significantly improve the overall performance at the cost of
+tremendous development efforts. The Cache Aware Roofline Model (CARM)~\cite{ilic2014cache} is able to aggregate this complexity in
+a single insightful model, and guide application optimization to fit the micro-architecture performance upper-bounds. Its
+effectiveness motivated us to bring it to non expert developer a robust tool equipped with deep benchmarking of multi-core
+platforms with complex memory hierarchy, which automatically builds the model and provides the application optimization insights.\\
 
 To  conduct a thorough evaluation of memory and compute capabilities of a given platform, the proposed tool also includes the
-necessary software support to detect both micro-architecture instruction set and cache topology. The former can be found with
+necessary software support to identify both micro-architecture instruction set and cache topology. The former can be found with
 compiler support~\cite{CompilerSupport}, whereas the latter has only been mastered in a portable way by hwloc (hardware locality)
 library~\cite{broquedis:inria-00429889}.
 By relying on this run-time detection of compute and memory resources, the proposed tool automatically instantiates a set of
 custom platform-specific micro-benchmarks for deep evaluation of platform capabilities, upon which the Cache-aware Roofline Model
-is created. Furthermore, the proposed tool also includes a lightweight library to provide access to the
+is generated. Furthermore, the proposed tool also includes a lightweight library to provide access to the
 hardware counters and extract, at runtime, the application features to be mapped in the model. To the best of our knowledge, there
-are no existing cross-platform and open-source tools  that allow automating the process (i.e building the CARM and mapping
-applications in it). 
+are no existing cross-platform and open-source tools  that allow automating this process (i.e building the CARM and mapping
+applications in it).\\
 
 The remainder of this paper is organized as follow: 
-Section II describes the original Roofline Model and the Cache Aware Roofline Model.  Section III details our tool features and
-design choices to model the cache hierarchy, and take full advantage of the architecture.
+Section~\ref{sec:state_of_art} describes the original Roofline Model and the Cache Aware Roofline Model.
+Section~\ref{sec:contrib} details our tool features, design choices to model the cache hierarchy, and take full advantage of the
+architecture, and provides preliminary results.
+Section~\ref{sec:conclusion} concludes the paper.
 
 \section{The Roofline Model Then and Now}\label{sec:state_of_art}
 %+++++++++++++
 
 The Roofline modeling, in general, is an insightful approach to represent the performance upper-bounds of a processor
 micro-architecture. Since computations and memory transfers can be simultaneously performed, the Roofline modeling is based on the
-assumption that the overall execution time can be limited either by the time to perform computations or by the time to transfer the
+assumption that the overall execution time can be limited either by the time to perform computations or by the time to transfer
 data. Hence, from the micro-architecture perspective, the overall performance (typically expressed in flops/s) can be limited by
 the peak performance of computational units or by the capabilities of memory system (i.e., memory bandwidth). To this date, there
 are two main approaches for Roofline modeling, namely: the Original Roofline Model (ORM)~\cite{Williams:2009:RIV:1498765.1498785}
@@ -163,9 +167,8 @@ PE encapsulates computational units and a set of fast memories (i.e., caches). A
 transfers between the last level cache and the DRAM (commonly referred as DRAMBytes). Hence, it denotes the theoretical DRAM
 bandwidth as one of the potential execution bottlenecks. Depending on the "operational intensity", i.e., the ratio of compute
 operations (flops) over the quantity of DRAM data (DRAMBytes), the applications can be characterized as compute-bound or
-memory-bound. The model is used in several works for application
-optimization~\cite{Kim20111201}~\cite{Rossinelli2164}~\cite{vanNieuwpoort:2009:UMH:1542275.1542337}, as well as to model other
-memory subsystems~\cite{manyTaskRuntimeRooflneModel}, energy~\cite{7493653}.
+memory-bound. The model was used in several works for application
+optimization~\cite{Kim20111201}~\cite{Rossinelli2164}~\cite{vanNieuwpoort:2009:UMH:1542275.1542337}, as well as to model other.\\
 %% We represented on the chart~\ref{fig:roofline_chart},
 %% where the "operational intensity" stands on abscissa and the performance stands in ordinate.
 %% The figure~\ref{fig:roofline_chart} shows that upon data layout optimization the performance and arithmetic intensity vary to hit
@@ -188,21 +191,21 @@ memory subsystems~\cite{manyTaskRuntimeRooflneModel}, energy~\cite{7493653}.
 %% \end{figure*}
 
 In contrast, the CARM perceives the memory transfers from a consistent micro-architecture point of view, i.e., a core, where
-the memory transactions are issued. As such, the CARM targets more contemporary systems where the PE encloses only compute units
+the memory transactions are issued. As such, the CARM targets contemporary systems where the PE encloses only compute units
 and registers, while all other memory levels are separately and explicitly considered. For this purpose, the CARM includes several
 memory lines in the same plot, each corresponding to the realistically achievable bandwidth of a specific memory level to the core,
 i.e., cache levels and DRAM. When characterizing the applications, the CARM relies on the true "arithmetic intensity", i.e., the
 ratio of performed compute operations (flops) over the total volume of requested data (in bytes) by taking into account the
-complete memory hierarchy (i.e., caches and DRAM).
+complete memory hierarchy (i.e., caches and DRAM).\\
 %% This model is plot on chart ~\ref{fig:CARM_chart} and shows whether an
 %% application with a given arithmetic intensity is memory-bound or compute-bound if a straight vertical line hit a peak (FP) roof
 %% or a bandwidth roof.
 
-We base our methodology on the Cache Aware Roofline Model. 
-As explained above, this model differs from the original one, and we think that the CARM is able to give more insight on
-applications bottleneck analysis, and has more potential to be adapted to future memory designs. Moreover, the ORM has already a
-dedicated tool~\cite{Lo2015} for a similar purpose as our, but our approach is totally different and target a more consistent and
-concrete analysis.
+For these reasons, we base our methodology on the Cache Aware Roofline Model. 
+As explained above, the CARM differs from the original model, it is usually capable of providing deeper insights when analyzing the
+applications execution bottlenecks, and it also has potential to be adapted to future memory designs. Moreover, the ORM has already
+a dedicated tool~\cite{Lo2015} for a similar purpose as ours, but the approach adopted in the herein proposed tool significantly
+differs and it targets a more consistent and concrete analysis.
 
 \section{Locality-Aware Roofline Tool}\label{sec:contrib}
 %+++++++++++++
@@ -217,7 +220,7 @@ The proposed LART is composed of 3 main components, namely:
 \item A set of micro-benchmarks for automatic CARM construction on a given micro-architecture;
 \item The library for counter-based extraction  of CARM metrics from a user application (i.e., the number of performed flops and
   transferred bytes, as well as the overall execution time);
-\item A model visualization tool to present the architecture bounds and applications metrics extraction.
+\item A visualization tool to present the model with architecture bounds and applications metrics extraction.
 \end{itemize}
 
 The first component consists in a program that automatically  builds the CARM for the specific processor micro-architecture where
@@ -231,8 +234,9 @@ automatic CARM characterization of a given user application, by instrumenting th
 To provide a wider cross-platform portability, this component relies on PAPI~\cite{mucci1999papi} features to collect all
 necessary CARM metrics via hardware performance counters, i.e., to determine the application arithmetic intensity and performance.
 The third component of the proposed tool is a command-line generating a visual plot of the CARM using platform analysis results. It
-enables a user to plot applications metrics extracted with the library on the Roofline chart. The model validation and bandwidth
-deviation can also be seen and provide a straightforward evaluation of the confidence one can grant to the model.
+enables a user to plot applications metrics extracted with the above-referred library in the CARM chart.
+The model validation and bandwidth deviation can also be seen and provide a straightforward evaluation of the confidence one can
+grant to the model.
 
 \paragraph*{Building the model from a hierarchical topology}
 
@@ -247,37 +251,38 @@ hwloc~\cite{goglin:hal-01330194}. Prior to hwloc,  the similar approaches were o
 exposing as many details about cache sharing etc. The hwloc framework models the machine topology as a tree and suits particularly
 well the caches structure.
 As presented in Figure~\ref{fig:topology_adriana}, the view returned by the hwloc represents, express this structure with nested
-boxes. Each core as a private stack of 2 caches, and every cores share the last level cache and the memory. This model where each
-Core sees  the cache hierarchy as a cache stack of increasing size\footnote{
-  The processors uses a cache replacement policy that removes old data from
-  close caches in favor of more frequently used ones. The replacement policy move data from bottom caches to top caches. Since the
-  space close to cores is thinner than the far space, the cache stack as seen by each core has an increasing size from bottom to
-  top.
-}, perfectly suits the way how the CARM perceives the memory hierarchy 
-In addition, the hwloc library also allows a straightforward acquisition  of the cache and memory sizes via the  attributes of the
-Core parent nodes. These parameters are further used in the proposed tool  in order to instantiate the appropriate micro-benchmarks
-for different memory subsystem levels by using the state of the art technique (i.e buffer streaming of increasing sizes).
+boxes. Each core has a stack of 2 private caches, while all cores share the last level cache and the main memory (DRAM).
+This model where each Core sees  the cache hierarchy as a cache stack of increasing size\footnote{
+  The processors use a cache replacement policy where old data from closer caches is evicted in favor of more frequently used ones.
+  The replacement policy defines the method how data is moved from bottom caches to top ones(see in
+  Figure~\ref{fog:topology_adriana}). Since the size of the caches closer to cores is smaller than the one for the farther memory
+  levels, the cache stack as seen by each core has an increasing size from bottom to top.
+}, perfectly suits the way how the CARM perceives the memory hierarchy.
+In addition, the hwloc library also allows a straightforward identification of the cache and memory sizes via the  attributes of
+the Core parent nodes. These parameters are further used in the proposed tool  in order to instantiate the appropriate
+micro-benchmarks for different memory subsystem levels by using the state of the art technique (i.e. buffer streaming of
+increasing sizes).
 
 \paragraph*{Reaching the architecture upper-bounds}
 
-Nowadays, processors usually implement a variety of vector operations, also named as Single Instruction Multiple Data (SIMD)
-operations. Depending on the target micro-architecture,  the tool proposed herein is able to automatically detect the operation
-type that allows to fully exploit the micro-architecture capabilities  (typically, the widest vector instructions). These
+Nowadays, general purpose processors usually implement a variety of vector operations, also named as Single Instruction Multiple
+Data (SIMD) operations. Depending on the target micro-architecture,  the tool proposed herein is able to automatically detect the
+operation type that allows to fully exploit the micro-architecture capabilities  (typically, the widest vector instructions). These
 instructions refer to both compute operations and memory transactions, where the performance upper-bound of each involved unit is
-expressed as a function of the registers size (i.e the number of floating point  elements it contains) and the achievable
+expressed as a function of the register size (i.e the number of floating point  elements it contains) and the achievable
 throughput. By compiling the benchmarks on target architecture, we ensure that the largest vector size is used for the benchmarks
 by interpreting the compiler macros. 
 
-It is worth to emphasize that typically there are several types of memory/compute instructions on modern processors, lending
-different pipelines and separate hardware units capable of performing different operations simultaneously. For instance, a core
+It is worth to emphasize that typically there are several types of memory/compute instructions on modern processors, and separate
+hardware units capable of performing different operations simultaneously. For instance, a core
 may perform a multiplication (MUL) and an addition (ADD) on separate FPUs, which  can also be performed in parallel when there are
-no  dependencies among them. Hence, a core can provide significantly higher  performance for the codes that fully interleave add
+no  dependencies between them. Hence, a core can provide significantly higher  performance for the codes that fully interleave ADD
 and MUL operations. This principle also applies to the memory subsystem, where several ports can be dedicated in modern processors
-to simultaneously serve different number of load (LD) and store (ST) operations, e.g., 2 LD and 1 ST port in the newest Intel
-micro-architectures. Hence, in order to exercise the full  compute and memory capabilities of the target architecture, the proposed
-tool   relies on several types of usual operations to benchmark the platform and it picks by default the one used by the CARM, e.g.
-for the Intel Ivy Bridge, it interleaves 2 LD and 1 ST instruction  when assessing the peak memory bandwidth, while 1 ADD and 1 MUL
-are interleaved for peak FP performance. 
+to simultaneously serve different number of load (LD) and store (ST) operations, e.g., two LD and one ST 128-bit ports in the Intel
+Ivy Bridge micro-architecture. Hence, in order to exercise the full  compute and memory capabilities of the target architecture,
+the proposed tool relies on several types of operations to benchmark the platform and it selects by default the one used by
+the CARM, e.g.for the Intel Ivy Bridge, it interleaves 2 LD and 1 ST instruction  when assessing the peak memory bandwidth, while
+one ADD and one MUL are interleaved for peak FP performance. 
 
 \paragraph*{CARM Experimental Results Reproduction}
 \begin{figure*}
