@@ -283,8 +283,7 @@ int roofline_filter_types(hwloc_obj_t obj, int type){
   else if(obj->type == HWLOC_OBJ_NUMANODE){
     int NUMA_possible = (ROOFLINE_LOAD|ROOFLINE_STORE|ROOFLINE_LOAD_NT|ROOFLINE_STORE_NT|ROOFLINE_COPY) & supported;
     obj_type = type & NUMA_possible;
-    if(obj_type == 0) obj_type = (ROOFLINE_STORE_NT|ROOFLINE_LOAD_NT) & supported;
-    if(obj_type == 0) obj_type = (ROOFLINE_STORE|ROOFLINE_LOAD) & supported;
+    if(obj_type == 0) obj_type = (ROOFLINE_STORE_NT|ROOFLINE_LOAD_NT|ROOFLINE_STORE|ROOFLINE_LOAD) & supported;
   }
   
   else if(obj->type == HWLOC_OBJ_L2CACHE ||
