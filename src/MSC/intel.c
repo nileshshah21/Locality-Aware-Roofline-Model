@@ -11,6 +11,15 @@
 #include <dlfcn.h>
 #include "macros.h"
 
+static size_t oi_chunk_size = SIMD_CHUNK_SIZE;
+
+size_t get_chunk_size(int type){
+  int mem_type = type & (ROOFLINE_LOAD|ROOFLINE_LOAD_NT|ROOFLINE_STORE|ROOFLINE_STORE_NT|ROOFLINE_2LD1ST|ROOFLINE_COPY);
+  int flop_type = type & (ROOFLINE_ADD|ROOFLINE_MUL|ROOFLINE_MAD|ROOFLINE_FMA);
+  if(flop_type && mem_type) return oi_chunk_size;
+  else if(mem_type) return SIMD_CHUNK_SIZE;
+  else return 0;
+}
 
 /******************************** Flops loop instructions ***************************/
 
@@ -39,10 +48,7 @@ void fpeak_benchmark(const struct roofline_sample_in * in, struct roofline_sampl
 
 /******************************** Memory loop instructions ***************************/
 
-size_t chunk_size = SIMD_CHUNK_SIZE;
-
 void bandwidth_benchmark(const struct roofline_sample_in * in, struct roofline_sample_out * out, int type){
-  chunk_size = SIMD_CHUNK_SIZE;
   switch(type){
   case ROOFLINE_LOAD:
     asm_bandwidth(in, out, "load", asm_load);
@@ -243,12 +249,12 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int mem_type,
       }
     }
     else if(fop_per_mop > 1){
-        mem_instructions = 6;
-	fop_instructions = mem_instructions * fop_per_mop;
-	for(i=0;i<fop_instructions;i++){
-	    if(i%fop_per_mop == 0) {dprint_MUOP(fd, mem_type, i, &offset, &regnum, "r11");}
-	    dprint_FUOP(fd, flop_type, i, &regnum);
-	}
+      mem_instructions = 6;
+      fop_instructions = mem_instructions * fop_per_mop;
+      for(i=0;i<fop_instructions;i++){
+	if(i%fop_per_mop == 0) {dprint_MUOP(fd, mem_type, i, &offset, &regnum, "r11");}
+	dprint_FUOP(fd, flop_type, i, &regnum);
+      }
     }
     dprint_oi_bench_end(fd, idx, offset);
     long flops = fop_instructions*SIMD_FLOPS;
@@ -309,7 +315,7 @@ void (* roofline_oi_bench(const double oi, const int type))(const struct rooflin
     fd = open(c_path, O_WRONLY|O_CREAT, 0644);
     /* Write the appropriate roofline to the file */
     dprint_header(fd);
-    chunk_size = roofline_benchmark_write_oi_bench(fd, func_name, mem_type, flop_type, oi);
+    oi_chunk_size = roofline_benchmark_write_oi_bench(fd, func_name, mem_type, flop_type, oi);
     /* Compile the roofline function */
     close(fd);
     /* char cmd[1024]; */

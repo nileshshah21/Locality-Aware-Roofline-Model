@@ -214,7 +214,7 @@ static void dprint_FUOP_by_ins(int fd, const char * op, unsigned * regnum){
 
 /*  unroll several instructions of above roofline_*_ins(parameter mem_uop) macro functions */
 #if defined (__AVX512__)
-#define SIMD_CHUNK_SIZE 768
+#define SIMD_CHUNK_SIZE 1920
 
 #define simd_mov(op1, op2, op3, op4, op5, op6,  datareg)	\
   op1("0",datareg,"0")						\
@@ -228,10 +228,28 @@ static void dprint_FUOP_by_ins(int fd, const char * op, unsigned * regnum){
   op3("512",datareg,"8")					\
   op4("576",datareg,"9")					\
   op5("640",datareg,"10")					\
-  op6("704",datareg,"11")
-
+  op6("704",datareg,"11")					\
+  op1("768",datareg,"12")					\
+  op2("832",datareg,"13")					\
+  op3("896",datareg,"14")					\
+  op4("960",datareg,"15")					\
+  op5("1024",datareg,"16")					\
+  op6("1088",datareg,"17")					\
+  op1("1152",datareg,"18")					\
+  op2("1216",datareg,"19")					\
+  op3("1280",datareg,"20")					\
+  op4("1344",datareg,"21")					\
+  op5("1408",datareg,"22")					\
+  op6("1472",datareg,"23")					\
+  op1("1536",datareg,"24")					\
+  op2("1600",datareg,"25")					\
+  op3("1664",datareg,"26")					\
+  op4("1728",datareg,"27")					\
+  op5("1792",datareg,"28")					\
+  op6("1856",datareg,"29")
+  
 #elif defined (__AVX__)
-#define SIMD_CHUNK_SIZE 384
+#define SIMD_CHUNK_SIZE 1536
 #define simd_mov(op1, op2, op3, op4, op5, op6,  datareg)	\
   op1("0",datareg,"0")						\
   op2("32",datareg,"1")						\
@@ -244,23 +262,95 @@ static void dprint_FUOP_by_ins(int fd, const char * op, unsigned * regnum){
   op3("256",datareg,"8")					\
   op4("288",datareg,"9")					\
   op5("320",datareg,"10")					\
-  op6("352",datareg,"11")
-
-#elif defined (__SSE__) || defined (__SSE2__) || defined (__SSE4_1__)
-#define SIMD_CHUNK_SIZE 192
-#define simd_mov(op1, op2, op3, op4, op5, op6,  datareg)	\
-  op1("0",datareg,"0")						\
-  op2("16",datareg,"1")						\
-  op3("32",datareg,"2")						\
-  op4("48",datareg,"3")						\
-  op5("64",datareg,"4")						\
-  op6("80",datareg,"5")						\
-  op1("96",datareg,"6")						\
-  op2("112",datareg,"7")					\
-  op3("128",datareg,"8")					\
-  op4("144",datareg,"9")					\
-  op5("160",datareg,"10")					\
-  op6("176",datareg,"11")
+  op6("352",datareg,"11")					\
+  op1("384",datareg,"12")					\
+  op2("416",datareg,"13")					\
+  op3("448",datareg,"14")					\
+  op4("480",datareg,"15")					\
+  op5("512",datareg,"0")					\
+  op6("544",datareg,"1")					\
+  op1("576",datareg,"2")					\
+  op2("608",datareg,"3")					\
+  op3("640",datareg,"4")					\
+  op4("672",datareg,"5")					\
+  op5("704",datareg,"6")					\
+  op6("736",datareg,"7")					\
+  op1("768",datareg,"8")					\
+  op2("800",datareg,"9")					\
+  op3("832",datareg,"10")					\
+  op4("864",datareg,"11")					\
+  op5("896",datareg,"12")					\
+  op6("928",datareg,"13")					\
+  op1("960",datareg,"14")					\
+  op2("992",datareg,"15")					\
+  op3("1024",datareg,"0")					\
+  op4("1056",datareg,"1")					\
+  op5("1088",datareg,"2")					\
+  op6("1120",datareg,"3")					\
+  op1("1152",datareg,"4")					\
+  op2("1184",datareg,"5")					\
+  op3("1216",datareg,"6")					\
+  op4("1248",datareg,"7")					\
+  op5("1280",datareg,"8")					\
+  op6("1312",datareg,"9")					\
+  op1("1344",datareg,"10")					\
+  op2("1376",datareg,"11")					\
+  op3("1408",datareg,"12")					\
+  op4("1440",datareg,"13")					\
+  op5("1472",datareg,"14")					\
+  op6("1504",datareg,"15")
+  
+#elif 384 (__SSE__) || defined (__SSE2__) || defined (__SSE4_1__)
+#define SIMD_CHUNK_SIZE 768
+#define _mov(op1, op2, op3, op4, op5, op6,  datareg)	\
+  op1("0",datareg,"0")					\
+  op2("16",datareg,"1")					\
+  op3("32",datareg,"2")					\
+  op4("48",datareg,"3")					\
+  op5("64",datareg,"4")					\
+  op6("80",datareg,"5")					\
+  op1("96",datareg,"6")					\
+  op2("112",datareg,"7")				\
+  op3("128",datareg,"8")				\
+  op4("144",datareg,"9")				\
+  op5("160",datareg,"10")				\
+  op6("176",datareg,"11")				\
+  op1("192",datareg,"12")				\
+  op2("208",datareg,"13")				\
+  op3("224",datareg,"14")				\
+  op4("240",datareg,"15")				\
+  op5("256",datareg,"0")				\
+  op6("272",datareg,"1")				\
+  op1("288",datareg,"2")				\
+  op2("304",datareg,"3")				\
+  op3("320",datareg,"4")				\
+  op4("336",datareg,"5")				\
+  op5("352",datareg,"6")				\
+  op6("368",datareg,"7")				\
+  op1("384",datareg,"8")				\
+  op2("400",datareg,"9")				\
+  op3("416",datareg,"10")				\
+  op4("432",datareg,"11")				\
+  op5("448",datareg,"12")				\
+  op6("464",datareg,"13")				\
+  op1("480",datareg,"14")				\
+  op2("496",datareg,"15")				\
+  op3("512",datareg,"0")				\
+  op4("528",datareg,"1")				\
+  op5("544",datareg,"2")				\
+  op6("560",datareg,"3")				\
+  op1("576",datareg,"4")				\
+  op2("592",datareg,"5")				\
+  op3("608",datareg,"6")				\
+  op4("624",datareg,"7")				\
+  op5("640",datareg,"8")				\
+  op6("656",datareg,"9")				\
+  op1("672",datareg,"10")				\
+  op2("688",datareg,"11")				\
+  op3("704",datareg,"12")				\
+  op4("720",datareg,"13")				\
+  op5("736",datareg,"14")				\
+  op6("752",datareg,"15")
 #endif
 
 #define asm_load				\
@@ -334,6 +424,7 @@ static void dprint_FUOP_by_ins(int fd, const char * op, unsigned * regnum){
     parallel_start							\
       size_split(size);							\
     stream_pos(stream);							\
+    zero_simd();							\
     rdtsc(c_high0, c_low0);						\
     __asm__ __volatile__ (						\
       "loop_"type_name"_repeat:\n\t"					\
@@ -346,7 +437,6 @@ static void dprint_FUOP_by_ins(int fd, const char * op, unsigned * regnum){
       "jnz buffer_"type_name"_increment\n\t"				\
       "sub $1, %0\n\t"							\
       "jnz loop_"type_name"_repeat\n\t"					\
-      "CPUID\n\t"							\
       :: "r" (in->loop_repeat), "r" (stream), "r" (size)		\
       : "%r11", "%r12", SIMD_CLOBBERED_REGS, "memory");			\
     rdtsc(c_high1, c_low1);						\
