@@ -404,44 +404,47 @@ static void dprint_FUOP_by_ins(int fd, const char * op, unsigned * regnum){
 #define reg_mv "%%r11"
 
 #ifdef _OPENMP
-#define parallel_start _Pragma("omp parallel firstprivate(stream, size)") {
-#define parallel_end }
+#define parallel_start _Pragma("omp parallel firstprivate(stream, size)")
+#define parallel_end
 #define rdtsc(c_high,c_low) _Pragma("omp barrier") _Pragma("omp master") roofline_rdtsc(c_high, c_low)
 #define size_split(size) size /= omp_get_num_threads()
 #define stream_pos(stream) stream = stream + omp_get_thread_num()*size/sizeof(*stream)
+#define get_thread_num() omp_get_thread_num()
 #else
 #define parallel_start
 #define parallel_end
 #define rdtsc(c_high,c_low) roofline_rdtsc(c_high, c_low)
 #define size_split(size) size = size
 #define stream_pos(stream) stream = stream
+#define get_thread_num() 0
 #endif
 
 #define asm_bandwidth(in, out, type_name, ...) do{			\
     uint64_t c_low0=0, c_low1=0, c_high0=0, c_high1=0;			\
     ROOFLINE_STREAM_TYPE * stream = in->stream;				\
     size_t size = in->stream_size;					\
-    parallel_start							\
+    parallel_start{							\
+      roofline_hwloc_cpubind();						\
       size_split(size);							\
-    stream_pos(stream);							\
-    zero_simd();							\
-    rdtsc(c_high0, c_low0);						\
-    __asm__ __volatile__ (						\
-      "loop_"type_name"_repeat:\n\t"					\
-      "mov %1, "reg_mv"\n\t"						\
-      "mov %2, %%r12\n\t"						\
-      "buffer_"type_name"_increment:\n\t"				\
-      simd_mov(__VA_ARGS__, reg_mv)					\
-      "add $"roofline_stringify(SIMD_CHUNK_SIZE)", "reg_mv"\n\t"	\
-      "sub $"roofline_stringify(SIMD_CHUNK_SIZE)", %%r12\n\t"		\
-      "jnz buffer_"type_name"_increment\n\t"				\
-      "sub $1, %0\n\t"							\
-      "jnz loop_"type_name"_repeat\n\t"					\
-      :: "r" (in->loop_repeat), "r" (stream), "r" (size)		\
-      : "%r11", "%r12", SIMD_CLOBBERED_REGS, "memory");			\
-    rdtsc(c_high1, c_low1);						\
-    parallel_end							\
-      out->ts_start = roofline_rdtsc_diff(c_high0, c_low0);		\
+      stream_pos(stream);						\
+      zero_simd();							\
+      rdtsc(c_high0, c_low0);						\
+      __asm__ __volatile__ (						\
+	"loop_"type_name"_repeat:\n\t"					\
+	"mov %1, "reg_mv"\n\t"						\
+	"mov %2, %%r12\n\t"						\
+	"buffer_"type_name"_increment:\n\t"				\
+	simd_mov(__VA_ARGS__, reg_mv)					\
+	"add $"roofline_stringify(SIMD_CHUNK_SIZE)", "reg_mv"\n\t"	\
+	"sub $"roofline_stringify(SIMD_CHUNK_SIZE)", %%r12\n\t"		\
+	"jnz buffer_"type_name"_increment\n\t"				\
+	"sub $1, %0\n\t"						\
+	"jnz loop_"type_name"_repeat\n\t"				\
+	:: "r" (in->loop_repeat), "r" (stream), "r" (size)		\
+	: "%r11", "%r12", SIMD_CLOBBERED_REGS, "memory");		\
+      rdtsc(c_high1, c_low1);						\
+    }									\
+    out->ts_start = roofline_rdtsc_diff(c_high0, c_low0);		\
     out->ts_end = roofline_rdtsc_diff(c_high1, c_low1);			\
     out->bytes = in->stream_size*in->loop_repeat;			\
     out->instructions = out->bytes/SIMD_BYTES;				\
