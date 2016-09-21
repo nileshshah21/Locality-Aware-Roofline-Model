@@ -76,36 +76,42 @@ filter <- function(df, col){
 d = filter(read.table("$INPUT",header=TRUE, stringsAsFactors=FALSE), dtype)
 
 #get fpeaks
-fpeaks = data.frame(type=character(0), performance=numeric(0), sd=numeric(0), nthreads=integer(0), stringsAsFactors=FALSE)
 fpeak_samples = d[d[,dbandwidth]==0,]
 fpeak_types = unique(fpeak_samples[,dtype])
+fpeaks = data.frame(type=character(0), performance=numeric(0), sd=numeric(0), nthreads=integer(0), stringsAsFactors=FALSE)
 for(i in 1:length(fpeak_types)){
   ftype = fpeak_types[i]
   fpeak_s = fpeak_samples[fpeak_samples[,dtype]==ftype,]
-  fpeaks[i, ] = c(ftype, median(fpeak_s[,dgflops]), sd(fpeak_s[,dgflops]), fpeak_s[1,dthreads])
+  fpeaks[i,1] = ftype
+  fpeaks[i,2] = median(fpeak_s[,dgflops])
+  fpeaks[i,3] = sd(fpeak_s[,dgflops])
+  fpeaks[i,4] = fpeak_s[1,dthreads]
 }
-
 fpeak_max = as.numeric(max(fpeaks[,2])) #the top peak performance
-print(fpeaks)
 
 #get bandwidths
-bandwidths = data.frame(obj=character(0), type=character(0), bandwidth=numeric(0), sd=numeric(0), nthreads=integer(0), stringsAsFactors=FALSE)
 bandwidths_samples = d[d[,dgflops]==0,]
 bandwidths_types = unique(bandwidths_samples[,c(dobj,dtype)])
+bandwidths = data.frame(obj=character(0), type=character(0), bandwidth=numeric(0), sd=numeric(0), nthreads=integer(0), stringsAsFactors=FALSE)
 for(i in 1:nrow(bandwidths_types)){
   bobj = bandwidths_types[i,1]
   btype = bandwidths_types[i,2]
   bandwidths_s = bandwidths_samples[bandwidths_samples[,dtype]==btype,]
   bandwidths_s = bandwidths_s[bandwidths_s[,dobj]==bobj,]
-  bandwidths[i, ] = c(bobj, btype, median(bandwidths_s[,dbandwidth]), sd(bandwidths_s[,dbandwidth]), bandwidths_s[1,dthreads])
+  bandwidths[i,1] = bobj
+  bandwidths[i,2] = btype
+  bandwidths[i,3] = median(bandwidths_s[,dbandwidth])
+  bandwidths[i,4] = sd(bandwidths_s[,dbandwidth])
+  bandwidths[i,5] = bandwidths_s[1,dthreads]
 }
-print(bandwidths)
-
 #check if results have to be presented per thread
 if($SINGLE){
-  fpeaks[2] = fpeaks[2]/fpeaks[4]
-  bandwidths[3] = bandwidths[3]/bandwidths[5]
+  for( i in 1: nrow(fpeaks) ){fpeaks[i,2] = as.numeric(fpeaks[i,2])/as.numeric(fpeaks[i,4])}
+  for( i in 1: nrow(bandwidths) ){bandwidths[i,3] = as.numeric(bandwidths[i,3])/as.numeric(bandwidths[i,5])}
 }
+
+print(fpeaks)
+print(bandwidths)
 
 #Logarithmic sequence of points
 lseq <- function(from=1, to=100000, length.out = 6) {
@@ -202,12 +208,13 @@ if("$DATA" != ""){
   misc["oi"] = ifelse(misc[,dbyte]==0, NA, as.numeric(misc[,dflop])/as.numeric(misc[,dbyte]))
   misc["perf"] = ifelse(misc[,dnano]==0, NA, as.numeric(misc[,dflop])/as.numeric(misc[,dnano]))
   types = unique(misc[,c(dtype, dinfo)])
+  legend_range = seq(nrow(bandwidths)+1, nrow(bandwidths)+nrow(types), by=1)
   for(i in 1:nrow(types)){
     points = subset(misc, misc[,dtype] == types[i,1] & misc[,dinfo] == types[i,2])
-    points(points[,"oi"], points[,"perf"], asp=1, pch=i, col=i)
+    points(points[,"oi"], points[,"perf"], asp=1, pch=legend_range[i], col=legend_range[i])
     par(new=TRUE);
   }
-  legend("topright", legend=apply(types, 1, function(t){paste(t[1], t[2], sep=" ")}), cex=.7, col=1:nrow(types), pch=1:nrow(types), bg="white")
+  legend("topright", legend=apply(types, 1, function(t){paste(t[1], t[2], sep=" ")}), cex=.7, col=legend_range, pch=legend_range, bg="white")
 }
 
 box()
