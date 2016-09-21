@@ -205,11 +205,13 @@ void roofline_sampling_start(struct roofline_sample * out){
 
 void roofline_sampling_stop(struct roofline_sample * out){
   struct timespec t;
+  long fp_op;
   clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t);
   PAPI_stop(out->eventset,out->values);
   out->nanoseconds = (t.tv_nsec + 1e9*t.tv_sec) - out->nanoseconds;
-  out->flops = out->values[0] + 2 * out->values[1] + 3 * out->values[2];
-  out->bytes  = out->values[3]*BYTES;
+  out->flops = out->values[0] + 2 * out->values[1] + 4 * out->values[2];
+  fp_op = out->values[0] + out->values[1] + out->values[2];
+  out->bytes  = 8*out->values[3]*(4*out->values[2] + 2*out->values[1] + out->values[0])/fp_op;
 }
 
 
