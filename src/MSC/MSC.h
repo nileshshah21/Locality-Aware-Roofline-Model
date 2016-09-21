@@ -1,7 +1,6 @@
 #include "../roofline.h"
 
-extern size_t chunk_size;
-
+size_t get_chunk_size(int type);
 int  benchmark_types_supported();
 void fpeak_benchmark(    const struct roofline_sample_in * in, struct roofline_sample_out * out, int type);
 void bandwidth_benchmark(const struct roofline_sample_in * in, struct roofline_sample_out * out, int type);

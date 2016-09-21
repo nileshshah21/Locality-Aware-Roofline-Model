@@ -130,6 +130,10 @@ struct roofline_sample * new_roofline_sample(int type){
   return s;
 }
 
+void roofline_sample_set(struct roofline_sample * s, int type, long flops, long bytes){
+  s->flops = flops; s->bytes=bytes; s->type = type;
+}
+
 void delete_roofline_sample(struct roofline_sample * s){
   PAPI_destroy_eventset(&(s->eventset));
   free(s);
