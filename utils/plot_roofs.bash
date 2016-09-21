@@ -87,7 +87,6 @@ for(i in 1:length(fpeak_types)){
   fpeaks[i,3] = sd(fpeak_s[,dgflops])
   fpeaks[i,4] = fpeak_s[1,dthreads]
 }
-fpeak_max = as.numeric(max(fpeaks[,2])) #the top peak performance
 
 #get bandwidths
 bandwidths_samples = d[d[,dgflops]==0,]
@@ -124,6 +123,7 @@ xticks = lseq(xmin,xmax,log(xmax/xmin,base=2) + 1)
 xlabels = sapply(xticks, function(i) as.expression(bquote(2^ .(round(log(i,base=2))))))
 oi = lseq(xmin,xmax,500)
 
+fpeak_max = as.numeric(max(fpeaks[,2])) #the top peak performance
 ymax = 10^ceiling(log10(fpeak_max)); ymin = ymax/10000; ylim = c(ymin,ymax)
 yticks = lseq(ymin, ymax, log10(ymax/ymin))
 ylabels = sapply(yticks, function(i) as.expression(bquote(10^ .(round(log10(i))))))
