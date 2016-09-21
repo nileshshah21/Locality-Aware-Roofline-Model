@@ -160,11 +160,10 @@ static inline void roofline_print_header(){
 }
 
 void roofline_sampling_init(const char * output){
-  printf("roofline sampling library initialization...\n");
   if(output == NULL){
     output_file = stdout;
   }
-  else if((output_file = fopen(output,"a+")) == NULL){
+  else if((output_file = fopen(output,"w+")) == NULL){
     perror("fopen");
     exit(EXIT_FAILURE);
   }
@@ -175,22 +174,19 @@ void roofline_sampling_init(const char * output){
   /* Check SSE */
   eax = 1;
   __asm__ __volatile__ ("CPUID\n\t": "=c" (ecx), "=d" (edx): "a" (eax));
-  if ((edx & 1 << 25) || (edx & 1 << 26)) {BYTES = 16; printf("SSE support found\n");}
+  if ((edx & 1 << 25) || (edx & 1 << 26)) {BYTES = 16;}
 
   /* Check AVX */
-  if ((ecx & 1 << 28) || (edx & 1 << 26)) {BYTES = 32; printf("AVX support found\n");}
+  if ((ecx & 1 << 28) || (edx & 1 << 26)) {BYTES = 32;}
   eax = 7; ecx = 0;
   __asm__ __volatile__ ("CPUID\n\t": "=b" (ebx), "=c" (ecx): "a" (eax), "c" (ecx));
-  if ((ebx & 1 << 5)) {BYTES = 32; printf("AVX2 support found\n");}
+  if ((ebx & 1 << 5)) {BYTES = 32;}
 
   /* AVX512 foundation. Not checked */
-  if ((ebx & 1 << 16)) {BYTES = 64; printf("AVX512 support found\n");}
+  if ((ebx & 1 << 16)) {BYTES = 64;}
     
   PAPI_call_check(PAPI_library_init(PAPI_VER_CURRENT), PAPI_VER_CURRENT, "PAPI version mismatch\n");
   PAPI_call_check(PAPI_is_initialized(), PAPI_LOW_LEVEL_INITED, "PAPI initialization failed\n");
-  printf("PAPI library initialization done\n");
-
-  printf("library initialization done\n");  
   roofline_print_header(output_file, "info");
 }
 
