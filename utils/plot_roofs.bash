@@ -87,6 +87,10 @@ for(i in 1:length(fpeak_types)){
   fpeaks[i,3] = sd(fpeak_s[,dgflops])
   fpeaks[i,4] = fpeak_s[1,dthreads]
 }
+<<<<<<< HEAD
+=======
+fpeak_max = as.numeric(max(fpeaks[,2])) #the top peak performance
+>>>>>>> work
 
 #get bandwidths
 bandwidths_samples = d[d[,dgflops]==0,]
