@@ -300,7 +300,7 @@ static void dprint_FUOP_by_ins(int fd, const char * op, unsigned * regnum){
   op5("1472",datareg,"14")					\
   op6("1504",datareg,"15")
   
-#elif 384 (__SSE__) || defined (__SSE2__) || defined (__SSE4_1__)
+#elif (__SSE__) || defined (__SSE2__) || defined (__SSE4_1__)
 #define SIMD_CHUNK_SIZE 768
 #define _mov(op1, op2, op3, op4, op5, op6,  datareg)	\
   op1("0",datareg,"0")					\
