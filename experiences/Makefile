@@ -1,15 +1,23 @@
 CC=gcc
 OMP_FLAG=-fopenmp
-LDFLAGS=-lrfsampling
-CFLAGS=-Wall -Wextra -Werror
+LDFLAGS=-lm -lrfsampling -lgslcblas #-L/opt-x86_64/intel/mkl/lib/intel64/ -lmkl_rt -lpthread -lm -ldl 
+CFLAGS=-g
 
-run: main.c kernels.o
+all: run
+
+KERNELS_C= ddot.c triad.c scale.c
+KERNELS_O= $(patsubst %.c,%.o,$(KERNELS_C))
+
+%.o: %.c
+	$(CC) $(CFLAGS) -mtune=native -march=native -O2 -c $< -o $@ $(OMP_FLAG)
+
+%.s: %.c
+	$(CC) $(CFLAGS) -mtune=native -march=native -O2 -S $< -o $@ $(OMP_FLAG)
+
+run: main.c $(KERNELS_O)
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS) $(OMP_FLAG)
 
-kernels.o: kernels.c
-	$(CC) -mtune=native -march=native -O8 -c $< -o $@ $(OMP_FLAG)
-
 clean:
-	rm -f run kernels.o
+	rm -f run *.o *.s
 
 
