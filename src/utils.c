@@ -63,12 +63,12 @@ const char * roofline_type_str(int type){
   if(type & ROOFLINE_LOAD_NT) return "load_nt";
   if(type & ROOFLINE_STORE) return "store";
   if(type & ROOFLINE_STORE_NT) return "store_nt";
-  if(type & ROOFLINE_2LD1ST) return "2ld1st";
+  if(type & ROOFLINE_2LD1ST) return "2LD1ST";
   if(type & ROOFLINE_COPY) return "copy";
-  if(type & ROOFLINE_ADD) return "add";
-  if(type & ROOFLINE_MUL) return "mul";
-  if(type & ROOFLINE_MAD) return "mad";
-  if(type & ROOFLINE_FMA) return "fma";
+  if(type & ROOFLINE_ADD) return "ADD";
+  if(type & ROOFLINE_MUL) return "MUL";
+  if(type & ROOFLINE_MAD) return "MAD";
+  if(type & ROOFLINE_FMA) return "FMA";
   return "";
 }
 
