@@ -1,21 +1,14 @@
-.PHONY: all force clean cleanall
+PAPER=roofline_model_extension
 
-TARGET=roofline_model_extension
-
-all: $(TARGET).pdf
-
-abstract.pdf: abstract.tex
-	pdflatex $<
-
-$(TARGET).pdf: $(TARGET).tex
-	pdflatex $(TARGET)
-	bibtex $(TARGET)
-	pdflatex $(TARGET)
-	pdflatex $(TARGET)
+$(PAPER).pdf: $(PAPER).tex
+	pdflatex $(PAPER).tex
+	bibtex $(PAPER)
+	pdflatex $(PAPER).tex
+	pdflatex $(PAPER).tex
 
 clean:
 	rm -f *.log *.out *.aux *.bbl *.blg
 
 cleanall: clean
-	rm -f abstract.pdf $(TARGET).pdf
+	rm -f abstract.pdf $(PAPER).pdf
 
