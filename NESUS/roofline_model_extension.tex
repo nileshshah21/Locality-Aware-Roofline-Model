@@ -22,7 +22,6 @@
 % Lettrines
 \usepackage{lettrine}
 
-
 % ------
 % Abstract
 \usepackage{abstract}
@@ -65,6 +64,8 @@
 % ------
 % Clickable URLs (optional)
 \usepackage{hyperref}
+
+\usepackage[]{algorithm2e}
 
 % ------
 % Maketitle metadata
@@ -168,27 +169,18 @@ transfers between the last level cache and the DRAM (commonly referred as DRAMBy
 bandwidth as one of the potential execution bottlenecks. Depending on the "operational intensity", i.e., the ratio of compute
 operations (flops) over the quantity of DRAM data (DRAMBytes), the applications can be characterized as compute-bound or
 memory-bound. The model was used in several works for application
-optimization~\cite{Kim20111201}~\cite{Rossinelli2164}~\cite{vanNieuwpoort:2009:UMH:1542275.1542337}, as well as to model other.\\
-%% We represented on the chart~\ref{fig:roofline_chart},
-%% where the "operational intensity" stands on abscissa and the performance stands in ordinate.
-%% The figure~\ref{fig:roofline_chart} shows that upon data layout optimization the performance and arithmetic intensity vary to hit
-%% one of the mentioned elements' roof.
+optimization~\cite{Kim20111201}~\cite{Rossinelli2164}~\cite{vanNieuwpoort:2009:UMH:1542275.1542337}, as well as to model other.
 
-%% \begin{figure*}
-%% \begin{center}
-%%   \begin{minipage}[b]{0.49\textwidth}
-%%     \includegraphics[width=\textwidth]{pictures/roofline_chart}
-%%     \caption{ORM chart}
-%%     \label{fig:roofline_chart}
-%%   \end{minipage}
-%%   \hfill
-%%   \begin{minipage}[b]{0.49\textwidth}
-%%     \includegraphics[width=\textwidth]{pictures/CARM_chart}
-%%     \caption{CARM chart}
-%%     \label{fig:CARM_chart}
-%%   \end{minipage}
-%%   \end{center}
-%% \end{figure*}
+\begin{figure}
+  \centering
+  \includegraphics[width=.48\textwidth]{pictures/roofline_chart.png}
+  \caption{ORM chart}
+  \label{fig:roofline_chart}
+\end{figure}
+
+Figure~\ref{fig:roofline_chart} represents the ORM for a hypothetical computing platform. The axes of the chart are presented in
+log-log scale, where the "operational intensity" (in flops/DRAMByte) stands on abscissa and the performance (in flops/s) stands
+in ordinate.\\
 
 In contrast, the CARM perceives the memory transfers from a consistent micro-architecture point of view, i.e., a core, where
 the memory transactions are issued. As such, the CARM targets contemporary systems where the PE encloses only compute units
@@ -197,9 +189,19 @@ memory lines in the same plot, each corresponding to the realistically achievabl
 i.e., cache levels and DRAM. When characterizing the applications, the CARM relies on the true "arithmetic intensity", i.e., the
 ratio of performed compute operations (flops) over the total volume of requested data (in bytes) by taking into account the
 complete memory hierarchy (i.e., caches and DRAM).\\
-%% This model is plot on chart ~\ref{fig:CARM_chart} and shows whether an
-%% application with a given arithmetic intensity is memory-bound or compute-bound if a straight vertical line hit a peak (FP) roof
-%% or a bandwidth roof.
+
+\begin{figure}
+  \centering
+  \includegraphics[width=.48\textwidth]{pictures/CARM_chart.png}
+  \caption{CARM chart}
+  \label{fig:CARM_chart}
+\end{figure}
+
+Fig.~\ref{fig:CARM_chart} shows the CARM general layout for a hypothetical micro-architecture with a single cache level and DRAM.
+The CARM axes are presented in the log-log scale, where the x-axis refers to the arithmetic intensity (in flops/byte) and the
+y-axis to the performance (in flops/s). As presented in Fig.~\ref{fig:CARM_chart} (see dashed line), the CARM allows visualizing
+whether an application with a given arithmetic intensity is memory-bound or compute-bound by observing if a straight vertical line
+hits a peak (FP) roof or a bandwidth roof.
 
 For these reasons, we base our methodology on the Cache Aware Roofline Model. 
 As explained above, the CARM differs from the original model, it is usually capable of providing deeper insights when analyzing the
@@ -213,7 +215,8 @@ differs and it targets a more consistent and concrete analysis.
 Our main contribution consists in the development of the open-source tool named Locality Aware Roofline Tool (LART)\footnote{available at: https://github.com/NicolasDenoyelle/LARM-Locality-Aware-Roofline-Model-}, which
 exploits hwloc topology detection to automatically build the Cache Aware Roofline Model (CARM).
 
-\paragraph*{Main tool features.}\mbox{}\\
+\subsection{Main tool features.}
+\label{sub:tool_features}
 
 The proposed LART is composed of 3 main components, namely:
 \begin{itemize}
@@ -234,14 +237,15 @@ automatic CARM characterization of a given user application, by instrumenting th
 To provide a wider cross-platform portability, this component relies on PAPI~\cite{mucci1999papi} features to collect all
 necessary CARM metrics via hardware performance counters, i.e., to determine the application arithmetic intensity and performance.
 The third component of the proposed tool is a command-line generating a visual plot of the CARM using platform analysis results. It
-enables a user to plot applications metrics extracted with the above-referred library in the CARM chart.
+enables a user to plot application metrics extracted with the above-referred library in the CARM chart.
 The model validation and bandwidth deviation can also be seen and provide a straightforward evaluation of the confidence one can
 grant to the model.
 
-\paragraph*{Building the model from a hierarchical topology}\mbox{}\\
+\subsection{Building the model from a hierarchical topology}
+\label{sub:model_build}
 
 \begin{figure}
-  \includegraphics[width=.5\textwidth]{pictures/i7_3770k.pdf}
+  \includegraphics[width=.48\textwidth]{pictures/i7_3770k.pdf}
   \caption{Topology of Intel Ivy Bridge processor model i7 3770k as seen by hwloc}
   \label{fig:topology_adriana}
 \end{figure}
@@ -255,15 +259,47 @@ boxes. Each core has a stack of 2 private caches, while all cores share the last
 This model where each Core sees  the cache hierarchy as a cache stack of increasing size\footnote{
   The processors use a cache replacement policy where old data from closer caches is evicted in favor of more frequently used ones.
   The replacement policy defines the method how data is moved from bottom caches to top ones(see in
-  Figure~\ref{fog:topology_adriana}). Since the size of the caches closer to cores is smaller than the one for the farther memory
+  Figure~\ref{fig:topology_adriana}). Since the size of the caches closer to cores is smaller than the one for the farther memory
   levels, the cache stack as seen by each core has an increasing size from bottom to top.
 }, perfectly suits the way how the CARM perceives the memory hierarchy.
 In addition, the hwloc library also allows a straightforward identification of the cache and memory sizes via the  attributes of
 the Core parent nodes. These parameters are further used in the proposed tool  in order to instantiate the appropriate
 micro-benchmarks for different memory subsystem levels by using the state of the art technique (i.e. buffer streaming of
 increasing sizes).
+The floating point peak performance is determined by executing a set of flop instructions in parallel on each core detected by
+hwloc. However, determining the bandwidth for different levels of memory hierarchy  is more challenging, since it is required
+detecting the cache hierarchy structure with hwloc. This "topology aware" benchmarking technique is detailed in
+algorithm~\ref{alg:benchmarks}.
+For each cache level and memory, the proposed tool automatically  determines an upper bound and lower bound size, which are
+subsequently used to build buffers of varying size fitting only the target cache. Afterwards, a specifically developed bandwidth
+benchmark is performed several times, the median value of all benchmarked sizes is reported as the experimentally determined bandwidth
+for the target memory level.
 
-\paragraph*{Reaching the architecture upper-bounds}\mbox{}\\
+\begin{algorithm}
+ \KwData{topology, repeat}
+ n\_threads = hwloc\_get\_nbobjs\_by\_type(topology, HWLOC\_OBJ\_CORE)\;
+ Core0 = hwloc\_get\_obj\_by\_type(topology, HWLOC\_OBJ\_CORE, 0)\;
+ \tcc{See subsection~\ref{sub:arch_bounds} for benchmark details}
+ fpeak = median(parallel\_flop\_uops(repeat))\;
+ \tcc{Cache here is a memory subsystem.}
+ \ForEach{cache in ancestors(topology, Core0)}{
+   min\_size = cache.size * hwloc\_get\_nbobj\_inside\_cpuset\_by\_type(topology, cache.cpuset, HWLOC\_OBJ\_CORE)\;
+   max\_size = ancestor\_cache(topology, cache).size\;
+   \For{size in min\_size:max\_size}{
+     buffer = array\_of\_size(size/n\_threads)\;
+     \tcc{See subsection~\ref{sub:arch_bounds} for benchmark details}
+     time = parallel\_mem\_uops(copy(buffer))\;
+     bandwidths[size] = buffer.size*n\_threads/time\;
+   }
+   cache.bandwidth = median(bandwidths)\;
+ }
+ \caption{Memory subsystem benchmark algorithm}
+ \label{alg:benchmarks}
+\end{algorithm}
+
+
+\subsection{Reaching the architecture upper-bounds}
+\label{sub:arch_bounds}
 
 Nowadays, general purpose processors usually implement a variety of vector operations, also named as Single Instruction Multiple
 Data (SIMD) operations. Depending on the target micro-architecture,  the tool proposed herein is able to automatically detect the
@@ -271,7 +307,26 @@ operation type that allows to fully exploit the micro-architecture capabilities 
 instructions refer to both compute operations and memory transactions, where the performance upper-bound of each involved unit is
 expressed as a function of the register size (i.e the number of floating point  elements it contains) and the achievable
 throughput. By compiling the benchmarks on target architecture, we ensure that the largest vector size is used for the benchmarks
-by interpreting the compiler macros. 
+by interpreting the compiler macros.
+For instance, figure~\ref{src:fpeak} presents a set of instruction for MUL roof measure on architecture supporting AVX SIMD
+instructions. Each MUL instruction~(vmulpd) is performed using a single register~(ymm) for both MUL operands, i.e., it is equivalent
+to squared value. By ensuring the use of a single register per FP operation, the register dependencies among different instructions
+are avoided, which allows exercising the full potential of FP units in terms of the achievable throughput.
+
+\begin{figure}
+  \centering
+\begin{verbatim}
+loop:
+ vmulpd %%ymm0, %%ymm0, %%ymm0
+ vmulpd %%ymm1, %%ymm1, %%ymm1
+ ...
+ vmulpd %%ymm15, %%ymm15, %%ymm15
+sub $1, (%[n_times])
+jnz loop
+\end{verbatim}
+\caption{assembly sample for MUL fpeak benchmark}
+\label{src:fpeak}
+\end{figure}
 
 It is worth to emphasize that typically there are several types of memory/compute instructions on modern processors, and separate
 hardware units capable of performing different operations simultaneously. For instance, a core
@@ -282,11 +337,33 @@ to simultaneously serve different number of load (LD) and store (ST) operations,
 Ivy Bridge micro-architecture. Hence, in order to exercise the full  compute and memory capabilities of the target architecture,
 the proposed tool relies on several types of operations to benchmark the platform and it selects by default the one used by
 the CARM, e.g.for the Intel Ivy Bridge, it interleaves 2 LD and 1 ST instruction  when assessing the peak memory bandwidth, while
-one ADD and one MUL are interleaved for peak FP performance. 
+one ADD and one MUL are interleaved for peak FP performance.
+Figure~\ref{src:bandwidth} shows a 2~LD and 1~ST instruction set as used in our bandwidth benchmarks for architecture supporting
+AVX SIMD instructions.
 
-\paragraph*{LART Reproducing CARM Experimental Results on Intel Ivy Bridge}\mbox{}\\
+\begin{figure}
+  \centering
+\begin{verbatim}
+loop:
+vmovapd (%[buf]), %%ymm0
+vmovapd 32(%[buf]), %%ymm1
+vmovapd %%ymm2, 64(%[buf])
+vmovapd 96(%[buf]), %%ymm3
+vmovapd 128(%[buf]), %%ymm4
+vmovapd %%ymm2, 150(%[buf])
+add $182, %[buf]
+sub $182, %[buf_size]
+jnz loop
+\end{verbatim}
+\caption{assembly sample for 2LD 1ST bandwidth benchmark}
+\label{src:bandwidth}
+\end{figure}
+
+\subsection{LART Reproducing CARM Experimental Results on Intel Ivy Bridge}
+\label{sub:CARM_reproduction}
+
 \begin{figure*}
-  \includegraphics[width=\textwidth]{pictures/roofline_model}
+  \includegraphics[width=\textwidth]{pictures/roofline_model.pdf}
   \caption{CARM on i7 3770k with LART tool.}
   \label{fig:LART_adriana}
 \end{figure*}
