@@ -333,9 +333,9 @@ void (* roofline_oi_bench(const double oi, const int type))(const struct rooflin
   oi_chunk_size = roofline_benchmark_write_oi_bench(fd, func_name, mem_type, flop_type, oi);
   /* Compile the roofline function */
   close(fd);
-  char cmd[1024];
-  snprintf(cmd, sizeof(cmd), "cat %s", c_path);
-  system(cmd);
+  /* char cmd[1024]; */
+  /* snprintf(cmd, sizeof(cmd), "cat %s", c_path); */
+  /* system(cmd); */
   roofline_compile_lib(c_path, so_path);
   /* Load the roofline function */
   benchmark = roofline_load_lib(so_path, func_name);
