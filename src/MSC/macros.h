@@ -202,15 +202,14 @@
 #endif
 
 #if defined (__AVX__)  || defined (__AVX2__)  ||defined (__AVX512__)
-static void dprint_FUOP_by_ins(int fd, const char * op, unsigned * regnum){
+static void dprint_FUOP_by_ins(int fd, const char * op, int regmin, unsigned * regnum, int regmax){
   dprintf(fd, "\"%s %%%%%s%d, %%%%%s%d, %%%%%s%d\\n\\t\"\\\n",
 	  op, SIMD_REG, *regnum, SIMD_REG, *regnum, SIMD_REG, *regnum);
-  *regnum = (*regnum+1)%SIMD_N_REGS;
+  *regnum = regmin + ((*regnum)+1)%(regmax-regmin);
 }
 #else 
 static void dprint_FUOP_by_ins(int fd, const char * op, unsigned * regnum){
   dprintf(fd, "\"%s %%%%%s%d, %%%%%s%d\\n\\t\"\\\n", op, SIMD_REG, *regnum, SIMD_REG, *regnum);
-  *regnum = (*regnum+1)%SIMD_N_REGS;
 }
 #endif
 

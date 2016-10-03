@@ -78,24 +78,23 @@ void bandwidth_benchmark(const struct roofline_sample_in * in, struct roofline_s
 static void dprint_FUOP(int fd, int type, int i, unsigned regmin, unsigned * regnum, unsigned regmax){
   switch(type){
   case ROOFLINE_ADD:
-    dprint_FUOP_by_ins(fd, SIMD_ADD, regnum);
+    dprint_FUOP_by_ins(fd, SIMD_ADD, regmin, regnum, regmax);
     break;
   case ROOFLINE_MUL:
-    dprint_FUOP_by_ins(fd, SIMD_MUL, regnum);
+    dprint_FUOP_by_ins(fd, SIMD_MUL, regmin, regnum, regmax);
     break;
   case ROOFLINE_MAD:
-    if(i%2) return dprint_FUOP_by_ins(fd, SIMD_MUL, regnum);
-    else return dprint_FUOP_by_ins(fd, SIMD_ADD, regnum);
+    if(i%2) return dprint_FUOP_by_ins(fd, SIMD_MUL, regmin, regnum, regmax);
+    else return dprint_FUOP_by_ins(fd, SIMD_ADD, regmin, regnum, regmax);
     break;
 #if defined (__FMA__)  && defined (__AVX__)
   case ROOFLINE_FMA:
-    dprint_FUOP_by_ins(fd, SIMD_FMA, regnum);
+    dprint_FUOP_by_ins(fd, SIMD_FMA, regmin, regnum, regmax);
     break;
 #endif
   default:
     break;
   }
-  *regnum = regmin + (*regnum+1)%(regmax-regmin);
 }
 
 
@@ -125,7 +124,7 @@ static void dprint_MUOP(int fd, int type, int i, off_t * offset, const unsigned 
     break;
   }
   *offset+=SIMD_BYTES;
-  *regnum = regmin + (*regnum+1)%(regmax-regmin);
+  *regnum = regmin + ((*regnum)+1)%(regmax-regmin);
 }
 
 static void  dprint_header(int fd) {
@@ -236,9 +235,9 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int mem_type,
   dprint_oi_bench_begin(fd, idx, name, flop_type);
   if(mop_per_fop == 1){
     unsigned n_ins = SIMD_N_REGS*6;
-    mem_regs[0] = 0; mem_regs[1] = 0; mem_regs[2] =  SIMD_N_REGS/2;
-    flop_regs[0] = 1+SIMD_N_REGS/2; flop_regs[1] = 1+SIMD_N_REGS/2; flop_regs[2] = SIMD_N_REGS;
-    flop_regnum = &(flop_regs[1]);
+    /* mem_regs[0] = 0; mem_regs[1] = 0; mem_regs[2] =  SIMD_N_REGS/2; */
+    /* flop_regs[0] = 1+SIMD_N_REGS/2; flop_regs[1] = 1+SIMD_N_REGS/2; flop_regs[2] = SIMD_N_REGS; */
+    /* flop_regnum = &(flop_regs[1]); */
     for(i=0;i<n_ins;i++){
       dprint_MUOP(fd, mem_type, i, &offset, mem_regs[0], mem_regnum, mem_regs[2], "r11");
       dprint_FUOP(fd, flop_type, i, flop_regs[0], flop_regnum, flop_regs[2]);
@@ -246,12 +245,12 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int mem_type,
     mem_instructions = fop_instructions = n_ins;
   }
   else if(mop_per_fop > 1){
-    if(mop_per_fop<SIMD_N_REGS){
-      mem_regs[0] = 0; mem_regs[1] = 0; mem_regs[2] =  mop_per_fop;
-      flop_regs[0] = 1+mop_per_fop; flop_regs[1] = 1+mop_per_fop; flop_regs[2] =  SIMD_N_REGS;
-      flop_regnum = &(flop_regs[1]);
-    }
-    fop_instructions = 6;
+    /* if(mop_per_fop<SIMD_N_REGS){ */
+    /*   mem_regs[0] = 0; mem_regs[1] = 0; mem_regs[2] =  mop_per_fop; */
+    /*   flop_regs[0] = 1+mop_per_fop; flop_regs[1] = 1+mop_per_fop; flop_regs[2] =  SIMD_N_REGS; */
+    /*   flop_regnum = &(flop_regs[1]); */
+    /* } */
+    fop_instructions = SIMD_N_REGS;
     mem_instructions = fop_instructions * mop_per_fop;
     for(i=0;i<mem_instructions;i++){
       if(i%mop_per_fop==0){dprint_FUOP(fd, flop_type, i/mop_per_fop, flop_regs[0], flop_regnum, flop_regs[2]);}
@@ -259,13 +258,13 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int mem_type,
     }
   }
   else if(fop_per_mop > 1){
-    if(fop_per_mop<SIMD_N_REGS){
-      flop_regs[0] = 0; flop_regs[1] = 0; flop_regs[2] =  fop_per_mop;
-      mem_regs[0] = 1+fop_per_mop; mem_regs[1] = 1+fop_per_mop; mem_regs[2] =  SIMD_N_REGS;
-      flop_regnum = &(flop_regs[1]);
-    }
+    /* if(fop_per_mop<SIMD_N_REGS){ */
+    /*   flop_regs[0] = 0; flop_regs[1] = 0; flop_regs[2] =  fop_per_mop; */
+    /*   mem_regs[0] = 1+fop_per_mop; mem_regs[1] = 1+fop_per_mop; mem_regs[2] =  SIMD_N_REGS; */
+    /*   flop_regnum = &(flop_regs[1]); */
+    /* } */
     
-    mem_instructions = 6;
+    mem_instructions = SIMD_N_REGS;
     fop_instructions = mem_instructions * fop_per_mop;
     for(i=0;i<fop_instructions;i++){
       if(i%fop_per_mop == 0) {dprint_MUOP(fd, mem_type, i, &offset, mem_regs[0], mem_regnum, mem_regs[2], "r11");}
@@ -334,9 +333,9 @@ void (* roofline_oi_bench(const double oi, const int type))(const struct rooflin
   oi_chunk_size = roofline_benchmark_write_oi_bench(fd, func_name, mem_type, flop_type, oi);
   /* Compile the roofline function */
   close(fd);
-  /* char cmd[1024]; */
-  /* snprintf(cmd, sizeof(cmd), "cat %s", c_path); */
-  /* system(cmd); */
+  char cmd[1024];
+  snprintf(cmd, sizeof(cmd), "cat %s", c_path);
+  system(cmd);
   roofline_compile_lib(c_path, so_path);
   /* Load the roofline function */
   benchmark = roofline_load_lib(so_path, func_name);
