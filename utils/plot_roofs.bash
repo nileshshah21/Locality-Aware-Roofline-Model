@@ -124,6 +124,7 @@ xticks = lseq(xmin,xmax,log(xmax/xmin,base=2) + 1)
 xlabels = sapply(xticks, function(i) as.expression(bquote(2^ .(round(log(i,base=2))))))
 oi = lseq(xmin,xmax,500)
 
+fpeak_max = as.numeric(max(fpeaks[,2])) #the top peak performance
 ymax = 10^ceiling(log10(fpeak_max)); ymin = ymax/10000; ylim = c(ymin,ymax)
 yticks = lseq(ymin, ymax, log10(ymax/ymin))
 ylabels = sapply(yticks, function(i) as.expression(bquote(10^ .(round(log10(i))))))
@@ -182,7 +183,14 @@ if($VALIDATION){
     if($SINGLE){
       valid[,dgflops] = valid[,dgflops]/valid[,dthreads]
     }
-    points(valid[,doi], valid[,dgflops], asp=1, pch=i, col=i)
+    if(!$DEVIATION){
+      ois = unique(valid[,doi])
+      for(oi in ois){
+        points(oi, median(subset(valid[,dgflops], valid[,doi] == oi)), asp=1, pch=i, col=i)
+      }
+    } else {
+      points(valid[,doi], valid[,dgflops], asp=1, pch=i, col=i)
+    }
     par(new=TRUE);
   }
 }
@@ -209,11 +217,27 @@ if("$DATA" != ""){
   misc["perf"] = ifelse(misc[,dnano]==0, NA, as.numeric(misc[,dflop])/as.numeric(misc[,dnano]))
   types = unique(misc[,c(dtype, dinfo)])
   legend_range = seq(nrow(bandwidths)+1, nrow(bandwidths)+nrow(types), by=1)
+<<<<<<< HEAD
   for(i in 1:nrow(types)){
     points = subset(misc, misc[,dtype] == types[i,1] & misc[,dinfo] == types[i,2])
     points(points[,"oi"], points[,"perf"], asp=1, pch=legend_range[i], col=legend_range[i])
     par(new=TRUE);
   }
+=======
+  medians = data.frame(arithmetic_intensity=numeric(0), performance=numeric(0), bandwidth=numeric(0), type=character(0), id=character(0), stringsAsFactors=FALSE)
+  for(i in 1:nrow(types)){
+    points      = subset(misc, misc[,dtype] == types[i,1] & misc[,dinfo] == types[i,2])
+    points      = points[order(points[,"perf"]),]
+    median      = points[nrow(points)/2,"perf"]
+    oi          = points[nrow(points)/2,"oi"]
+    bandwidth   = points[nrow(points)/2,dbyte]/points[nrow(points)/2,dnano]
+    medians[i,] = c(oi,median,bandwidth,as.character(types[i,1]),as.character(types[i,2]))
+    if(!$DEVIATION){points(oi, median, asp=1, pch=legend_range[i], col=legend_range[i])} 
+    else{points(points[,"oi"], points[,"perf"], asp=1, pch=legend_range[i], col=legend_range[i])}
+    par(new=TRUE);
+  }
+  print(medians)
+>>>>>>> master
   legend("topright", legend=apply(types, 1, function(t){paste(t[1], t[2], sep=" ")}), cex=.7, col=legend_range, pch=legend_range, bg="white")
 }
 

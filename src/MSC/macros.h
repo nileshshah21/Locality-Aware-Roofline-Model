@@ -118,24 +118,32 @@
   op2 " %%" SIMD_REG"15, %%" SIMD_REG"15\n\t"  
 #endif
 
-#define zero_simd()							\
-  __asm__ __volatile__ (						\
-    "pxor %%"SIMD_CLOBBERED_REG"0, %%"SIMD_CLOBBERED_REG"0\n\t"		\
-    "pxor %%"SIMD_CLOBBERED_REG"1, %%"SIMD_CLOBBERED_REG"1\n\t"		\
-    "pxor %%"SIMD_CLOBBERED_REG"2, %%"SIMD_CLOBBERED_REG"2\n\t"		\
-    "pxor %%"SIMD_CLOBBERED_REG"3, %%"SIMD_CLOBBERED_REG"3\n\t"		\
-    "pxor %%"SIMD_CLOBBERED_REG"4, %%"SIMD_CLOBBERED_REG"4\n\t"		\
-    "pxor %%"SIMD_CLOBBERED_REG"5, %%"SIMD_CLOBBERED_REG"5\n\t"		\
-    "pxor %%"SIMD_CLOBBERED_REG"6, %%"SIMD_CLOBBERED_REG"6\n\t"		\
-    "pxor %%"SIMD_CLOBBERED_REG"7, %%"SIMD_CLOBBERED_REG"7\n\t"		\
-    "pxor %%"SIMD_CLOBBERED_REG"8, %%"SIMD_CLOBBERED_REG"8\n\t"		\
-    "pxor %%"SIMD_CLOBBERED_REG"9, %%"SIMD_CLOBBERED_REG"9\n\t"		\
-    "pxor %%"SIMD_CLOBBERED_REG"10, %%"SIMD_CLOBBERED_REG"10\n\t"	\
-    "pxor %%"SIMD_CLOBBERED_REG"11, %%"SIMD_CLOBBERED_REG"11\n\t"	\
-    "pxor %%"SIMD_CLOBBERED_REG"12, %%"SIMD_CLOBBERED_REG"12\n\t"	\
-    "pxor %%"SIMD_CLOBBERED_REG"13, %%"SIMD_CLOBBERED_REG"13\n\t"	\
-    "pxor %%"SIMD_CLOBBERED_REG"14, %%"SIMD_CLOBBERED_REG"14\n\t"	\
-    "pxor %%"SIMD_CLOBBERED_REG"15, %%"SIMD_CLOBBERED_REG"15\n\t"	\
+#if defined (__AVX512__)
+#define zero_reg(regnum) "vpxorq %%" SIMD_REG regnum ", %%" SIMD_REG regnum ",%%" SIMD_REG regnum "\n\t"
+#elif defined(__AVX2__)
+#define zero_reg(regnum) "vpxor %%ymm" regnum ", %%ymm" regnum ",%%ymm" regnum "\n\t"
+#elif defined (__AVX__) || defined (__SSE__) || defined (__SSE4_1__) || defined (__SSE2__)
+#define zero_reg(regnum) "pxor %%xmm" regnum ", %%xmm" regnum "\n\t"
+#endif
+
+#define zero_simd()				\
+  __asm__ __volatile__ (			\
+    zero_reg("0")				\
+    zero_reg("1")				\
+    zero_reg("2")				\
+    zero_reg("3")				\
+    zero_reg("4")				\
+    zero_reg("5")				\
+    zero_reg("6")				\
+    zero_reg("7")				\
+    zero_reg("8")				\
+    zero_reg("9")				\
+    zero_reg("10")				\
+    zero_reg("11")				\
+    zero_reg("12")				\
+    zero_reg("13")				\
+    zero_reg("14")				\
+    zero_reg("15")				\
     :::SIMD_CLOBBERED_REGS)
 
 
@@ -194,15 +202,14 @@
 #endif
 
 #if defined (__AVX__)  || defined (__AVX2__)  ||defined (__AVX512__)
-static void dprint_FUOP_by_ins(int fd, const char * op, unsigned * regnum){
+static void dprint_FUOP_by_ins(int fd, const char * op, int regmin, unsigned * regnum, int regmax){
   dprintf(fd, "\"%s %%%%%s%d, %%%%%s%d, %%%%%s%d\\n\\t\"\\\n",
 	  op, SIMD_REG, *regnum, SIMD_REG, *regnum, SIMD_REG, *regnum);
-  *regnum = (*regnum+1)%SIMD_N_REGS;
+  *regnum = regmin + ((*regnum)+1)%(regmax-regmin);
 }
 #else 
 static void dprint_FUOP_by_ins(int fd, const char * op, unsigned * regnum){
   dprintf(fd, "\"%s %%%%%s%d, %%%%%s%d\\n\\t\"\\\n", op, SIMD_REG, *regnum, SIMD_REG, *regnum);
-  *regnum = (*regnum+1)%SIMD_N_REGS;
 }
 #endif
 
