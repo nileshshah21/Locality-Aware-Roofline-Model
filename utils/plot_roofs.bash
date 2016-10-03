@@ -216,28 +216,21 @@ if("$DATA" != ""){
   misc["oi"] = ifelse(misc[,dbyte]==0, NA, as.numeric(misc[,dflop])/as.numeric(misc[,dbyte]))
   misc["perf"] = ifelse(misc[,dnano]==0, NA, as.numeric(misc[,dflop])/as.numeric(misc[,dnano]))
   types = unique(misc[,c(dtype, dinfo)])
-  legend_range = seq(nrow(bandwidths)+1, nrow(bandwidths)+nrow(types), by=1)
-<<<<<<< HEAD
-  for(i in 1:nrow(types)){
-    points = subset(misc, misc[,dtype] == types[i,1] & misc[,dinfo] == types[i,2])
-    points(points[,"oi"], points[,"perf"], asp=1, pch=legend_range[i], col=legend_range[i])
-    par(new=TRUE);
-  }
-=======
   medians = data.frame(arithmetic_intensity=numeric(0), performance=numeric(0), bandwidth=numeric(0), type=character(0), id=character(0), stringsAsFactors=FALSE)
+  legend_range = seq(nrow(bandwidths)+1, nrow(bandwidths)+nrow(types), by=1)
   for(i in 1:nrow(types)){
     points      = subset(misc, misc[,dtype] == types[i,1] & misc[,dinfo] == types[i,2])
     points      = points[order(points[,"perf"]),]
-    median      = points[nrow(points)/2,"perf"]
-    oi          = points[nrow(points)/2,"oi"]
-    bandwidth   = points[nrow(points)/2,dbyte]/points[nrow(points)/2,dnano]
+    idx         = ceiling(nrow(points)/2)
+    median      = points[idx,"perf"]
+    oi          = points[idx,"oi"]
+    bandwidth   = points[idx,dbyte]/points[idx,dnano]
     medians[i,] = c(oi,median,bandwidth,as.character(types[i,1]),as.character(types[i,2]))
     if(!$DEVIATION){points(oi, median, asp=1, pch=legend_range[i], col=legend_range[i])} 
     else{points(points[,"oi"], points[,"perf"], asp=1, pch=legend_range[i], col=legend_range[i])}
     par(new=TRUE);
   }
   print(medians)
->>>>>>> master
   legend("topright", legend=apply(types, 1, function(t){paste(t[1], t[2], sep=" ")}), cex=.7, col=legend_range, pch=legend_range, bg="white")
 }
 
