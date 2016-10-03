@@ -120,10 +120,10 @@
 
 #if defined (__AVX512__)
 #define zero_reg(regnum) "vpxorq %%" SIMD_REG regnum ", %%" SIMD_REG regnum ",%%" SIMD_REG regnum "\n\t"
-#elif defined (__AVX__) || defined(__AVX2__)
-#define zero_reg(regnum) "vpxor %%" SIMD_REG regnum ", %%" SIMD_REG regnum ",%%" SIMD_REG regnum "\n\t"
-#elif defined (__SSE__) || defined (__SSE4_1__) || defined (__SSE2__)
-#define zero_reg(regnum) "pxor %%" SIMD_REG regnum ", %%" SIMD_REG regnum "\n\t"
+#elif defined(__AVX2__)
+#define zero_reg(regnum) "vpxor %%ymm" regnum ", %%ymm" regnum ",%%ymm" regnum "\n\t"
+#elif defined (__AVX__) || defined (__SSE__) || defined (__SSE4_1__) || defined (__SSE2__)
+#define zero_reg(regnum) "pxor %%xmm" regnum ", %%xmm" regnum "\n\t"
 #endif
 
 #define zero_simd()				\
