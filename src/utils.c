@@ -334,6 +334,7 @@ hwloc_obj_t roofline_hwloc_get_next_memory(hwloc_obj_t obj){
   if(obj->type==HWLOC_OBJ_NODE){
     node0 = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NODE, 0);
     ancestor = node0->parent;
+    /* find node outside of common ancestor to avoid repeating symetries */
     while(!hwloc_bitmap_isincluded(obj->cpuset, ancestor->cpuset)) ancestor = ancestor->parent;
     if(ancestor == root) return NULL;
     tmp = obj;
