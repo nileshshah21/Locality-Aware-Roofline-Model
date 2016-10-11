@@ -236,7 +236,9 @@ if("$DATA" != ""){
     else{points(points[,"oi"], points[,"perf"], asp=1, pch=legend_range[i], col=legend_range[i])}
     par(new=TRUE);
   }
-  print(medians)
+  if($VERBOSE){
+    print(medians)
+  }
   legend("topright", legend=apply(types, 1, function(t){paste(t[1], t[2], sep=" ")}), cex=.7, col=legend_range, pch=legend_range, bg="white")
 }
 
