@@ -323,32 +323,21 @@ hwloc_obj_t roofline_hwloc_get_under_memory(hwloc_obj_t obj){
 
 
 hwloc_obj_t roofline_hwloc_get_next_memory(hwloc_obj_t obj){
-  hwloc_obj_t tmp,root, node0, ancestor;
+  hwloc_obj_t root;
   root = hwloc_get_root_obj(topology);
     
   /* If current_obj is not set, start from the bottom of the topology to return the first memory */
-  if(obj == NULL){
-    obj = hwloc_get_obj_by_depth(topology,hwloc_topology_get_depth(topology)-1,0);
-  }
+  if(obj == NULL) obj = hwloc_get_obj_by_depth(topology,hwloc_topology_get_depth(topology)-1,0);
+  
   /* If current_mem_obj is a node, then next memory is a node at same depth */
-  if(obj->type==HWLOC_OBJ_NODE){
-    node0 = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NODE, 0);
-    ancestor = node0->parent;
-    /* find node outside of common ancestor to avoid repeating symetries */
-    while(!hwloc_bitmap_isincluded(obj->cpuset, ancestor->cpuset)) ancestor = ancestor->parent;
-    if(ancestor == root) return NULL;
-    tmp = obj;
-    while(tmp && hwloc_bitmap_isincluded(tmp->cpuset, ancestor->cpuset)) tmp = tmp->next_cousin;
-    return tmp;
-  }
+  if(obj->type==HWLOC_OBJ_NODE) return obj->next_cousin;
   
   /* obj is not a node or there is no remaining node, then climb the topology on left side */
   while(obj != root){
     obj = hwloc_get_obj_by_depth(topology,obj->depth-1,0);
-    if(roofline_hwloc_obj_is_memory(obj)){
-      return obj;
-    }
+    if(roofline_hwloc_obj_is_memory(obj)) return obj;
   }
+  
   /* No memory left in topology */
   return NULL;
 }
