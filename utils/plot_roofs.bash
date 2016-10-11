@@ -1,7 +1,7 @@
  #!/bin/bash 
 #################################################################################################################################
 # This is a script to plot results output by main benchmark.                                                                    #
-# usage: plot_roofs.sh -o <output> -f <format> -t <filter(for input info col)> -i <input>                                       #
+# usage: plot_roofs.sh -o <output> -t <title> -f <filter(for input info col)> -i <input>                                        #
 #                                                                                                                               #
 # Author: Nicolas Denoyelle (nicolas.denoyelle@inria.fr)                                                                        #
 # Date: 12/11/2015 (FR format)                                                                                                  #
@@ -13,13 +13,13 @@ usage(){
     printf "options:\n"
     printf "\t-o <output file(pdf)>\n"
     printf "\t-f <perl regular expression to filter input rows. (Match is done on info column)> \n"
-    printf "\t-b (if several bandwidths matches on a resource, the best only is kept)\n"
     printf "\t-i <input file given by roofline utility>\n"
     printf "\t-d <input data-file given by roofline library to plot applications on the roofline chart>\n"
-    printf "\t-t <plot title>\n"
+    printf "\t-t <title>\n"
     printf "\t-p (per_thread: divide roofs' value by the number of threads)\n"
     printf "\t-v (plot validation points if any)\n"
-    printf "\t-s (plot bandwidths deviation around median)\n" 
+    printf "\t-s (plot bandwidths deviation around median)\n"
+    printf "\t-v (verbose summary of roofs)\n" 
     exit
 }
 
@@ -29,9 +29,11 @@ BEST="FALSE"
 SINGLE="FALSE"
 VALIDATION="FALSE"
 DEVIATION="FALSE"
+VERBOSE="FALSE"
+
 #################################################################################################################################
 ## Parse options
-while getopts :o:i:t:d:m:f:hbpvs opt; do
+while getopts :o:i:t:d:m:f:hbpvsq opt; do
     case $opt in
 	o) OUTPUT=$OPTARG;;
 	d) DATA=$OPTARG;;
@@ -42,6 +44,7 @@ while getopts :o:i:t:d:m:f:hbpvs opt; do
 	p) SINGLE="TRUE";;
 	v) VALIDATION="TRUE";;
 	s) DEVIATION="TRUE";;
+	q) VERBOSE="TRUE";;
 	h) usage;;
 	:) echo "Option -$OPTARG requires an argument."; exit;;
     esac
@@ -111,8 +114,10 @@ if($SINGLE){
   for( i in 1: nrow(bandwidths) ){bandwidths[i,3] = as.numeric(bandwidths[i,3])/as.numeric(bandwidths[i,5])}
 }
 
-print(fpeaks)
-print(bandwidths)
+if($VERBOSE){
+  print(fpeaks)
+  print(bandwidths)
+}
 
 #Logarithmic sequence of points
 lseq <- function(from=1, to=100000, length.out = 6) {
