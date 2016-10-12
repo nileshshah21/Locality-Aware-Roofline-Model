@@ -17,7 +17,7 @@ struct roofline_progress_bar progress_bar;   /* Global progress bar of the bench
 
 
 #if defined(_OPENMP)
-int roofline_lib_init(int with_hyperthreading)
+int roofline_lib_init(hwloc_topology_t topo, int with_hyperthreading)
 #else
     int roofline_lib_init(__attribute__ ((unused)) int with_hyperthreading)
 #endif
@@ -37,15 +37,18 @@ int roofline_lib_init(int with_hyperthreading)
     return -1;    
 #endif
 
-    /* Initialize topology */
-    if(hwloc_topology_init(&topology) ==-1){
+    if(topo != NULL) hwloc_topology_dup(&topology, topo);
+    else{
+      /* Initialize topology */
+      if(hwloc_topology_init(&topology) ==-1){
 	fprintf(stderr, "hwloc_topology_init failed.\n");
 	return -1;
-    }
-    hwloc_topology_set_icache_types_filter(topology, HWLOC_TYPE_FILTER_KEEP_ALL);
-    if(hwloc_topology_load(topology) ==-1){
+      }
+      hwloc_topology_set_icache_types_filter(topology, HWLOC_TYPE_FILTER_KEEP_ALL);
+      if(hwloc_topology_load(topology) ==-1){
 	fprintf(stderr, "hwloc_topology_load failed.\n");
 	return -1;
+      }
     }
 
     /* Get first node and number of threads */

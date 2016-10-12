@@ -12,7 +12,7 @@ extern char *       compiler;       /* The compiler name to compile the roofline
 extern char *       omp_flag;       /* The openmp flag to compile the roofline validation. */
 extern int          per_thread;     /* Should results be printed with per thread value */
 
-int  roofline_lib_init(int with_hyperthreading);
+int  roofline_lib_init(hwloc_topology_t topology, int with_hyperthreading);
 void roofline_lib_finalize(void);
 
 /************************************ Benchmark memory and fpu  **********************************/

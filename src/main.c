@@ -92,7 +92,7 @@ int main(int argc, char * argv[]){
     FILE * out;
     parse_args(argc,argv);
 
-    if(roofline_lib_init(hyperthreading)==-1)
+    if(roofline_lib_init(NULL, hyperthreading)==-1)
 	errEXIT("roofline library init failure");
 
     if(mem_str != NULL){
