@@ -209,7 +209,7 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, int type,
     }
     
     /* bind memory */
-    roofline_hwloc_membind(memory);
+    if(memory->type == HWLOC_OBJ_NODE) roofline_hwloc_membind(memory);
 
     /* Set lower bound size as 4 times under memories size to be sure it won't hold in lower memories whatever the number of threads */
     child  = roofline_hwloc_get_under_memory(memory);
