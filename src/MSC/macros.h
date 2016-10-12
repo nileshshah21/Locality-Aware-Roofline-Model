@@ -2,6 +2,24 @@
 #include "../roofline.h"
 #include "MSC.h"
 
+#ifdef _OPENMP
+extern hwloc_obj_t first_node;
+#define STR(x) #x
+#define STRINGIFY(x) STR(x) 
+#define CONCATENATE(X,Y) X ( Y )
+#define omp_parallel_private(x) _Pragma(STRINGIFY(CONCATENATE(omp parallel proc_bind(close) firstprivate, x)))
+#define omp_parallel _Pragma("omp parallel proc_bind(close)")
+#define rdtsc(c_high,c_low) _Pragma("omp barrier") _Pragma("omp master") roofline_rdtsc(c_high, c_low)
+#define size_split(size) ((size) / omp_get_num_threads())
+#define stream_pos(stream,size) (stream) + omp_get_thread_num()*(size)/sizeof(*stream)
+#else
+#define omp_parallel_private(x)
+#define omp_parallel
+#define rdtsc(c_high,c_low) roofline_rdtsc(c_high, c_low)
+#define size_split(size) (size)
+#define stream_pos(stream,size) (stream)
+#endif
+
 #if defined (__AVX512__)
 #define SIMD_REG           "zmm"       /* Name of the vector(simd) register (asm) */
 #define SIMD_N_REGS        32          /* Number of vector(simd) registers */
@@ -147,59 +165,26 @@
     :::SIMD_CLOBBERED_REGS)
 
 
-#if defined(_OPENMP)
-
 #define asm_flops(in, out, type_str, op1, op2) do{			\
+    __attribute__ ((unused)) int unused;				\
     volatile uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0;		\
-    zero_simd();							\
-    _Pragma("omp parallel")						\
-    {									\
-      _Pragma("omp barrier")						\
-	_Pragma("omp master")						\
-	roofline_rdtsc(c_high, c_low);					\
+    omp_parallel{							\
+      zero_simd();							\
+      rdtsc(c_high, c_low);						\
       __asm__ __volatile__ (						\
 	"loop_flops_"type_str"_repeat:\n\t"				\
 	simd_fp(op1,op2)						\
 	"sub $1, %0\n\t"						\
 	"jnz loop_flops_"type_str"_repeat\n\t"				\
 	:: "r" (in->loop_repeat)	: SIMD_CLOBBERED_REGS);		\
-      _Pragma("omp barrier")						\
-	_Pragma("omp master")						\
-      {									\
-	roofline_rdtsc(c_high1, c_low1);				\
-	out->ts_start = roofline_rdtsc_diff(c_high, c_low);		\
-	out->ts_end = roofline_rdtsc_diff(c_high1, c_low1);		\
-	out->instructions = omp_get_num_threads()*16*in->loop_repeat;	\
-	out->flops = out->instructions * SIMD_FLOPS;			\
-      }									\
-    }} while(0)
-
-#else
-       
-#define asm_flops(in, out, type_str, op1, op2) do{			\
-    volatile uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0;		\
-    zero_simd();							\
-    __asm__ __volatile__ (						\
-      "CPUID\n\t"							\
-      "RDTSC\n\t"							\
-      "mov %%rdx, %0\n\t"						\
-      "mov %%rax, %1\n\t"						\
-      "loop_flops_"type_str"_repeat:\n\t"				\
-      "sub $1, %4\n\t"							\
-      simd_fp(op1,op2)							\
-      "jnz loop_flops_"type_str"_repeat\n\t"				\
-      "CPUID\n\t"							\
-      "RDTSC\n\t"							\
-      "movq %%rdx, %2\n\t"						\
-      "movq %%rax, %3\n\t"						\
-      : "=&r" (c_high), "=&r" (c_low), "=&r" (c_high1), "=&r" (c_low1)	\
-      : "r" (in->loop_repeat) : "%rax", "%rbx", "%rcx", "%rdx", SIMD_CLOBBERED_REGS); \
+      rdtsc(c_high1, c_low1);						\
+    }									\
     out->ts_start = roofline_rdtsc_diff(c_high, c_low);			\
     out->ts_end = roofline_rdtsc_diff(c_high1, c_low1);			\
-    out->instructions = 16*in->loop_repeat;				\
-    out->flops = out->instructions*SIMD_FLOPS;				\
-  } while(0)       
-#endif
+    out->instructions = n_threads*16*in->loop_repeat;			\
+    out->flops = out->instructions * SIMD_FLOPS;			\
+  } while(0)
+
 
 #if defined (__AVX__)  || defined (__AVX2__)  ||defined (__AVX512__)
 static void dprint_FUOP_by_ins(int fd, const char * op, int regmin, unsigned * regnum, int regmax){
@@ -410,29 +395,12 @@ static void dprint_FUOP_by_ins(int fd, const char * op, unsigned * regnum){
 
 #define reg_mv "%%r11"
 
-#ifdef _OPENMP
-#define parallel_start _Pragma("omp parallel firstprivate(stream, size) proc_bind(close)")
-#define parallel_end
-#define rdtsc(c_high,c_low) _Pragma("omp barrier") _Pragma("omp master") roofline_rdtsc(c_high, c_low)
-#define size_split(size) size /= omp_get_num_threads()
-#define stream_pos(stream) stream = stream + omp_get_thread_num()*size/sizeof(*stream)
-#define get_thread_num() omp_get_thread_num()
-#else
-#define parallel_start
-#define parallel_end
-#define rdtsc(c_high,c_low) roofline_rdtsc(c_high, c_low)
-#define size_split(size) size = size
-#define stream_pos(stream) stream = stream
-#define get_thread_num() 0
-#endif
-
 #define asm_bandwidth(in, out, type_name, ...) do{			\
     uint64_t c_low0=0, c_low1=0, c_high0=0, c_high1=0;			\
     ROOFLINE_STREAM_TYPE * stream = in->stream;				\
-    size_t size = in->stream_size;					\
-    parallel_start{							\
-      size_split(size);							\
-      stream_pos(stream);						\
+    omp_parallel_private(stream){					\
+      size_t size = size_split(in->stream_size);			\
+      stream = stream_pos(stream,size);					\
       zero_simd();							\
       rdtsc(c_high0, c_low0);						\
       __asm__ __volatile__ (						\
