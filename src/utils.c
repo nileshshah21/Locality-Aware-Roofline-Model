@@ -209,29 +209,15 @@ hwloc_obj_t roofline_hwloc_parse_obj(char* arg){
 }
 
 extern hwloc_obj_t first_node;          /* The first node where to bind threads */
-int roofline_hwloc_cpubind(){
-  hwloc_cpuset_t cpuset;
-#if defined(_OPENMP)
-  hwloc_obj_t PU, core;
-  unsigned n_core;
-  unsigned tid;
-  tid = omp_get_thread_num();
-  n_core = hwloc_get_nbobjs_inside_cpuset_by_type(topology, first_node->cpuset, HWLOC_OBJ_CORE);
-  core = hwloc_get_obj_by_type(topology, HWLOC_OBJ_CORE, tid%n_core);
-  PU = hwloc_get_obj_inside_cpuset_by_type(topology, core->cpuset, HWLOC_OBJ_PU, tid/n_core);
-#pragma omp critical
-  cpuset = PU->cpuset;
-#else
-  cpuset = hwloc_get_obj_by_type(topology,HWLOC_OBJ_PU, 0)->cpuset;
-#endif
-  if(hwloc_set_cpubind(topology,cpuset, HWLOC_CPUBIND_THREAD|HWLOC_CPUBIND_STRICT|HWLOC_CPUBIND_NOMEMBIND) == -1){
+int roofline_hwloc_cpubind(hwloc_obj_t obj){
+  if(hwloc_set_cpubind(topology, obj->cpuset, HWLOC_CPUBIND_THREAD|HWLOC_CPUBIND_STRICT|HWLOC_CPUBIND_NOMEMBIND) == -1){
     perror("cpubind");
     return 0;
   }
-  if(!roofline_hwloc_check_cpubind(cpuset,0)){
+  if(!roofline_hwloc_check_cpubind(obj->cpuset,0)){
     fprintf(stderr, "Binding error: ");
-    roofline_hwloc_check_cpubind(cpuset,1);
-    exit(EXIT_FAILURE);
+    roofline_hwloc_check_cpubind(obj->cpuset,1);
+    return 0;
   }
   return 1;
 }

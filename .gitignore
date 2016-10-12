@@ -1,6 +1,12 @@
 src/*.o
 src/roofline
 src/*.so
+
+#My misc
 NESUS/*
 NESUS
+CCGRID
+CCGRID/*
+mkarchive.sh
+LARM.tar.gz
 

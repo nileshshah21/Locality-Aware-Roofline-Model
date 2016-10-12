@@ -144,7 +144,7 @@ static void dprint_oi_bench_begin(int fd, const char * id, const char * name, in
   dprintf(fd, "%s * stream = in->stream;\n",roofline_stringify(ROOFLINE_STREAM_TYPE));
   dprintf(fd, "size_t size = in->stream_size;\n");
   dprintf(fd,"#if defined(_OPENMP)\n");
-  dprintf(fd,"#pragma omp parallel firstprivate(size, stream)\n{\n");
+  dprintf(fd,"#pragma omp parallel firstprivate(size, stream) proc_bind(close)\n{\n");
   dprintf(fd,"size /= omp_get_num_threads();\n");
   dprintf(fd,"stream += omp_get_thread_num()*size/sizeof(*stream);\n");
   dprintf(fd,"#pragma omp barrier\n");

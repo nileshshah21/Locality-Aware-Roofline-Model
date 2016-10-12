@@ -50,9 +50,13 @@ int roofline_lib_init(hwloc_topology_t topo, int with_hyperthreading)
 	return -1;
       }
     }
-
+    
     /* Get first node and number of threads */
     first_node = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NODE, 0);
+
+    /* bind future threads to first NODE */
+    roofline_hwloc_cpubind(first_node);
+
 #if defined(_OPENMP)
     if(with_hyperthreading)
 	n_threads = hwloc_get_nbobjs_inside_cpuset_by_type(topology, first_node->cpuset, HWLOC_OBJ_PU);

@@ -411,7 +411,7 @@ static void dprint_FUOP_by_ins(int fd, const char * op, unsigned * regnum){
 #define reg_mv "%%r11"
 
 #ifdef _OPENMP
-#define parallel_start _Pragma("omp parallel firstprivate(stream, size)")
+#define parallel_start _Pragma("omp parallel firstprivate(stream, size) proc_bind(close)")
 #define parallel_end
 #define rdtsc(c_high,c_low) _Pragma("omp barrier") _Pragma("omp master") roofline_rdtsc(c_high, c_low)
 #define size_split(size) size /= omp_get_num_threads()
@@ -431,7 +431,6 @@ static void dprint_FUOP_by_ins(int fd, const char * op, unsigned * regnum){
     ROOFLINE_STREAM_TYPE * stream = in->stream;				\
     size_t size = in->stream_size;					\
     parallel_start{							\
-      roofline_hwloc_cpubind();						\
       size_split(size);							\
       stream_pos(stream);						\
       zero_simd();							\

@@ -97,7 +97,7 @@ extern float  cpu_freq;           /* The cpu frequency defined by BENCHMARK_CPU_
 int         roofline_hwloc_objtype_is_cache(hwloc_obj_type_t type);
 int         roofline_hwloc_obj_snprintf(hwloc_obj_t obj, char * info_in, size_t n);
 hwloc_obj_t roofline_hwloc_parse_obj(char*);
-int         roofline_hwloc_cpubind();
+int         roofline_hwloc_cpubind(hwloc_obj_t);
 int         roofline_hwloc_membind(hwloc_obj_t);
 int         roofline_hwloc_obj_is_memory(hwloc_obj_t);
 size_t      roofline_hwloc_get_memory_size(hwloc_obj_t);
