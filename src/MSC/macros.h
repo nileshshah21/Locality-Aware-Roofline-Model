@@ -398,9 +398,11 @@ static void dprint_FUOP_by_ins(int fd, const char * op, unsigned * regnum){
 #define asm_bandwidth(in, out, type_name, ...) do{			\
     uint64_t c_low0=0, c_low1=0, c_high0=0, c_high1=0;			\
     ROOFLINE_STREAM_TYPE * stream = in->stream;				\
+    /* ROOFLINE_STREAM_TYPE * stream = NULL; */				\
     omp_parallel_private(stream){					\
       size_t size = size_split(in->stream_size);			\
       stream = stream_pos(stream,size);					\
+      /* roofline_memalign(&stream, size); */				\
       zero_simd();							\
       rdtsc(c_high0, c_low0);						\
       __asm__ __volatile__ (						\
@@ -416,6 +418,7 @@ static void dprint_FUOP_by_ins(int fd, const char * op, unsigned * regnum){
 	"jnz loop_"type_name"_repeat\n\t"				\
 	:: "r" (in->loop_repeat), "r" (stream), "r" (size)		\
 	: "%r11", "%r12", SIMD_CLOBBERED_REGS, "memory");		\
+      /* free(stream); */						\
       rdtsc(c_high1, c_low1);						\
     }									\
     out->ts_start = roofline_rdtsc_diff(c_high0, c_low0);		\
