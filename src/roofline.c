@@ -6,23 +6,23 @@
 
 hwloc_topology_t topology = NULL;            /* Current machine topology  */
 size_t           alignement = 0;             /* Level 1 cache line size */
-size_t           LLC_size = 0;               /* Last Level Cache size */
+size_t           MAX_SIZE = 0;               /* Last Level Cache size */
 float            cpu_freq = 0;               /* In Hz */
 char *           compiler = NULL;            /* The compiler name to compile the roofline validation. */
 char *           omp_flag = NULL;            /* The openmp flag to compile the roofline validation. */
-hwloc_obj_t      first_node = NULL;          /* The first node where to bind threads */
 unsigned         n_threads = 1;              /* The number of threads for benchmark */
 unsigned int     roofline_types;             /* What rooflines do we want in byte array */
+hwloc_obj_t      root;                       /* The root of topology to select the amount of threads */
 struct roofline_progress_bar progress_bar;   /* Global progress bar of the benchmark */
 
 
 #if defined(_OPENMP)
-int roofline_lib_init(hwloc_topology_t topo, int with_hyperthreading)
+int roofline_lib_init(hwloc_topology_t topo, int with_hyperthreading, int whole_system)
 #else
     int roofline_lib_init(__attribute__ ((unused)) int with_hyperthreading)
 #endif
 {
-    hwloc_obj_t L1, LLC;
+  hwloc_obj_t L1, LLC;
     char * cpu_freq_str;
 
     /* Check hwloc version */
@@ -52,40 +52,35 @@ int roofline_lib_init(hwloc_topology_t topo, int with_hyperthreading)
     }
     
     /* Get first node and number of threads */
-    first_node = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NODE, 0);
+    if(!whole_system) root = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NODE, 0);
+    else root = hwloc_get_root_obj(topology);
 
     /* bind future threads to first NODE */
-    roofline_hwloc_cpubind(first_node);
+    roofline_hwloc_cpubind(root);
 
 #if defined(_OPENMP)
     if(with_hyperthreading)
-	n_threads = hwloc_get_nbobjs_inside_cpuset_by_type(topology, first_node->cpuset, HWLOC_OBJ_PU);
+	n_threads = hwloc_get_nbobjs_inside_cpuset_by_type(topology, root->cpuset, HWLOC_OBJ_PU);
     else
-	n_threads = hwloc_get_nbobjs_inside_cpuset_by_type(topology, first_node->cpuset, HWLOC_OBJ_CORE);	
+	n_threads = hwloc_get_nbobjs_inside_cpuset_by_type(topology, root->cpuset, HWLOC_OBJ_CORE);	
     omp_set_num_threads(n_threads);
 #endif
 
     /* get first cache linesize */
-    L1 = roofline_hwloc_get_next_memory(NULL);
-    if(L1==NULL){
-	errEXIT("No cache found.");
-    }
+    L1 = roofline_hwloc_get_next_memory(NULL, whole_system);
+    if(L1==NULL) errEXIT("No cache found.");
     if(!roofline_hwloc_objtype_is_cache(L1->type) || 
        (L1->attr->cache.type != HWLOC_OBJ_CACHE_UNIFIED && 
 	L1->attr->cache.type != HWLOC_OBJ_CACHE_DATA)){
 	errEXIT("First memory obj is not a data cache.");
     }
-
-    /* Set alignement */
     alignement = L1->attr->cache.linesize;
 
-    /* Find LLC cache size */
+    /* Find LLC cache size to set maximum buffer size */
     LLC = hwloc_get_root_obj(topology);
-    while(LLC != NULL && !roofline_hwloc_objtype_is_cache(LLC->type))
-	LLC = LLC->first_child;
-    if(LLC == NULL)
-	errEXIT("Error: no LLC cache found\n");
-    LLC_size = ((struct hwloc_cache_attr_s *)LLC->attr)->size;
+    while(LLC != NULL && !roofline_hwloc_objtype_is_cache(LLC->type)) LLC = LLC->first_child;
+    if(LLC == NULL) errEXIT("Error: no LLC cache found\n");
+    MAX_SIZE = (((struct hwloc_cache_attr_s *)LLC->attr)->size)*32;
 
     /* Check if cpu frequency has been defined */
 #ifndef CPU_FREQ
@@ -147,7 +142,7 @@ void roofline_fpeak(FILE * output, int type)
       roofline_output_clear(&result);
       fpeak_benchmark(&in, &result, type);
 #if defined(_OPENMP)
-      roofline_print_sample(output, first_node, &result, type);
+      roofline_print_sample(output, root, &result, type);
 #else
       roofline_print_sample(output, hwloc_get_obj_by_type(topology, HWLOC_OBJ_PU, 0), &result, type);
 #endif
@@ -200,46 +195,45 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, int type,
     struct roofline_sample_in in;
     struct roofline_sample_out sample;
     hwloc_obj_t child;
+    unsigned n_child = 1, n_memory = 1;
 
+    /* check memory is above root */
+    if(memory->depth < root->depth){
+      fprintf(stderr, "Skip memory level above top desired memory %s\n", hwloc_type_name(root->type));
+      return;
+    }
+    
     /* set legend to append to results */
     if(output != stdout){
       memset(progress_info,0,sizeof(progress_info));
       nc = hwloc_obj_type_snprintf(progress_info,sizeof(progress_info),memory, 0);
-      nc += snprintf(progress_info+nc, sizeof(progress_info)-nc, ":%d %s", memory->logical_index, roofline_type_str(type));
-    }
+      snprintf(progress_info+nc, sizeof(progress_info)-nc, ":%d %s", memory->logical_index, roofline_type_str(type));
+    } else printf("\n");
     
     /* bind memory */
-    if(memory->type == HWLOC_OBJ_NODE) roofline_hwloc_membind(memory);
+    roofline_hwloc_membind(memory);
 
-    /* Set lower bound size as 4 times under memories size to be sure it won't hold in lower memories whatever the number of threads */
-    child  = roofline_hwloc_get_under_memory(memory);
-    if(child == NULL)
-      lower_bound_size = get_chunk_size(type)*n_threads;
-    else{
-	lower_bound_size = 4*roofline_hwloc_get_memory_size(child);
-	if(memory->type == HWLOC_OBJ_NUMANODE) lower_bound_size*=4;
-	if(n_threads > 1){
-	  lower_bound_size *= n_threads;
-	  lower_bound_size /= hwloc_bitmap_weight(child->cpuset);
-	}
+    child  = roofline_hwloc_get_under_memory(memory, root->type == HWLOC_OBJ_MACHINE);
+    if(child != NULL){
+      lower_bound_size = 2*roofline_hwloc_get_memory_size(child);
+      n_child = hwloc_get_nbobjs_inside_cpuset_by_type(topology, root->cpuset, child->type);
     }
-
-    /* Set upper bound size as memory size or 16 times LLC_size */
-    upper_bound_size = roofline_hwloc_get_memory_size(memory);
-    upper_bound_size = roofline_MIN(upper_bound_size,LLC_size*32);
-    if(n_threads > 1){
-	if(child!=NULL)
-	    upper_bound_size = upper_bound_size*n_threads/hwloc_bitmap_weight(child->cpuset);
-	else
-	    upper_bound_size = upper_bound_size*n_threads/hwloc_bitmap_weight(memory->cpuset);
-    }
+    else{lower_bound_size = get_chunk_size(type);}
+    
+    /* Multiply number of child in case it would fit lower memory when splitting among threads */
+    if(n_threads > 1) lower_bound_size *= n_child;
+    
+    /* Set upper bound size as memory size or MAX_SIZE */
+    upper_bound_size = roofline_MIN(roofline_hwloc_get_memory_size(memory), MAX_SIZE);
+    n_memory = hwloc_get_nbobjs_inside_cpuset_by_type(topology, root->cpuset, memory->type);
+    if(n_threads > 1) upper_bound_size *= n_memory;
 
     if(upper_bound_size<lower_bound_size){
 	if(child!=NULL){
-	fprintf(stderr, "%s(%f MB) above %s(%f MB) is not large enough to be split into 4*%u\n", 
-		hwloc_type_name(memory->type), roofline_hwloc_get_memory_size(memory)/1e6, 
-		hwloc_type_name(child->type), roofline_hwloc_get_memory_size(child)/1e6, 
-		n_threads/hwloc_bitmap_weight(child->cpuset));
+	fprintf(stderr, "%s(%ld MB) above %s(%ld MB) is not large enough to be split into %u*%ld\n", 
+		hwloc_type_name(memory->type), (unsigned long)(roofline_hwloc_get_memory_size(memory)/1e6), 
+		hwloc_type_name(child->type), (unsigned long)(roofline_hwloc_get_memory_size(child)/1e6), 
+		n_child, (unsigned long)(roofline_hwloc_get_memory_size(child)/1e6));
 	}
 	else{
 	    fprintf(stderr, "minimum chunk size(%u*%lu B) greater than memory %s size(%lu B). Skipping.\n",
@@ -252,7 +246,7 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, int type,
     /* get array of input sizes */
     n_sizes  = ROOFLINE_N_SAMPLES;
     sizes = roofline_log_array(lower_bound_size, upper_bound_size, &n_sizes);
-    if(sizes==NULL) return;
+    if(sizes==NULL){return;}
     
     /*Initialize input stream */
     roofline_memalign(&(in.stream), upper_bound_size);
@@ -272,45 +266,6 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, int type,
     
     /* Cleanup */
     free(in.stream);
-}
-
-int roofline_filter_types(hwloc_obj_t obj, int type){
-  int supported = benchmark_types_supported();
-  int obj_type = 0;
-  
-  if(obj->type == HWLOC_OBJ_L1CACHE){
-    int L1_possible = (ROOFLINE_2LD1ST|ROOFLINE_LOAD|ROOFLINE_STORE|ROOFLINE_COPY) & supported;
-    obj_type = type & L1_possible;
-    if(type & ROOFLINE_LOAD_NT) fprintf(stderr, "skip load_nt type not meaningful for %s\n", hwloc_type_name(obj->type));
-    if(type & ROOFLINE_STORE_NT) fprintf(stderr, "skip store_nt type not meaningful for %s\n", hwloc_type_name(obj->type));
-    if(obj_type == 0) obj_type = ROOFLINE_2LD1ST & supported;
-    if(obj_type == 0) obj_type = (ROOFLINE_LOAD|ROOFLINE_STORE) & supported;
-  }
-  
-  else if(obj->type == HWLOC_OBJ_NUMANODE){
-    int NUMA_possible = (ROOFLINE_LOAD|ROOFLINE_STORE|ROOFLINE_LOAD_NT|ROOFLINE_STORE_NT|ROOFLINE_COPY) & supported;
-    obj_type = type & NUMA_possible;
-    if(obj_type == 0) obj_type = (ROOFLINE_STORE_NT|ROOFLINE_LOAD_NT|ROOFLINE_STORE|ROOFLINE_LOAD) & supported;
-  }
-  
-  else if(obj->type == HWLOC_OBJ_L2CACHE ||
-	  obj->type == HWLOC_OBJ_L3CACHE ||
-	  obj->type == HWLOC_OBJ_L4CACHE ||
-	  obj->type == HWLOC_OBJ_L5CACHE){
-    int CACHE_possible = (ROOFLINE_LOAD|ROOFLINE_STORE|ROOFLINE_COPY) & supported;
-    obj_type = type & CACHE_possible;
-    if(type & ROOFLINE_LOAD_NT) fprintf(stderr, "skip load_nt type not meaningful for %s\n", hwloc_type_name(obj->type));
-    if(type & ROOFLINE_STORE_NT) fprintf(stderr, "skip store_nt type not meaningful for %s\n", hwloc_type_name(obj->type));
-    if(obj_type == 0) obj_type = (ROOFLINE_STORE|ROOFLINE_LOAD) & supported;
-  }
-
-  else if (obj->type == HWLOC_OBJ_PU || obj->type == HWLOC_OBJ_CORE){
-    int FP_possible = (ROOFLINE_ADD|ROOFLINE_MAD|ROOFLINE_MUL|ROOFLINE_FMA) & supported;
-    obj_type = type & FP_possible;
-    if(obj_type == 0) obj_type = (ROOFLINE_ADD|ROOFLINE_MAD) & supported;
-  }
-
-  return obj_type;
 }
 
 

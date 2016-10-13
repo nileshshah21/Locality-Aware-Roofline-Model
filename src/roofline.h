@@ -12,7 +12,7 @@ extern char *       compiler;       /* The compiler name to compile the roofline
 extern char *       omp_flag;       /* The openmp flag to compile the roofline validation. */
 extern int          per_thread;     /* Should results be printed with per thread value */
 
-int  roofline_lib_init(hwloc_topology_t topology, int with_hyperthreading);
+int  roofline_lib_init(hwloc_topology_t topology, int with_hyperthreading, int whole_system);
 void roofline_lib_finalize(void);
 
 /************************************ Benchmark memory and fpu  **********************************/
@@ -101,8 +101,8 @@ int         roofline_hwloc_cpubind(hwloc_obj_t);
 int         roofline_hwloc_membind(hwloc_obj_t);
 int         roofline_hwloc_obj_is_memory(hwloc_obj_t);
 size_t      roofline_hwloc_get_memory_size(hwloc_obj_t);
-hwloc_obj_t roofline_hwloc_get_next_memory(hwloc_obj_t);
-hwloc_obj_t roofline_hwloc_get_under_memory(hwloc_obj_t);
+hwloc_obj_t roofline_hwloc_get_next_memory(hwloc_obj_t, int vertical);
+hwloc_obj_t roofline_hwloc_get_under_memory(hwloc_obj_t, int whole_system);
 hwloc_obj_t roofline_hwloc_get_instruction_cache(void);
 size_t      roofline_hwloc_get_instruction_cache_size(void);
 

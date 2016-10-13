@@ -8,17 +8,19 @@ static char * mem_str = NULL;           /* Do we restrict memory to one memory *
 static hwloc_obj_t mem = NULL;          /* Do we restrict memory to one memory */
 static int hyperthreading = 0;          /* If compiled with openmp do we use hyperthreading */
 static double oi = 0;                   /* -1 => perform validation benchmarks, >0 => perform validation benchmarks on value */
-static unsigned int roofline_types = 0;     /* What rooflines do we want in byte array */
+static unsigned int roofline_types = 0; /* What rooflines do we want in byte array */
+static int whole_system = 0;            /* do we benchmark the whole system (no NUMA effects, no heterogeneous memory) */
 
 static void usage(char * argv0){
     printf("%s <options...>\n\n", argv0);
     printf("OPTIONS:\n");
     printf("\t-h, --help: print this help message\n");
     printf("\t-v, --validate: perform roofline validation checking. This will run benchmark for several operational intensity trying to hit the roofs.\n");
-    printf("\t-oi, --operational-intensity: perform roofline validation checking on current operational intensity.\n");
+    printf("\t-oi, --operational-intensity: perform roofline validation checking on set operational intensity.\n");
     printf("\t-t, --type  <\"LOAD|LOAD_NT|STORE|STORE_NT|2LD1ST|MUL|ADD|MAD\">: choose the roofline types among load, load_nt, store, store_nt, or 2loads/1store for memory, add, mul, and fma for fpeak.\n");
-    printf("\t-m, --memory <hwloc_ibj:idx>: restrict memory roofline to a single memory in the hierarchiy.\n");
-    printf("\t-o, --output <output>: Set output file to write restults.\n");
+    printf("\t-m, --memory <hwloc_ibj:idx>: benchmark a single memory level.\n");
+    printf("\t--CARM: Build the Cache Aware Roofline Model.\n");
+    printf("\t-o, --output <output>: Set output file to write results.\n");
 #if defined(_OPENMP)
     printf("\t-ht, --with-hyperthreading: use hyperthreading for benchmarks\n");
 #endif    
@@ -53,6 +55,12 @@ static void parse_args(int argc, char ** argv){
 #endif
 	else if(!strcmp(argv[i],"--memory") || !strcmp(argv[i],"-m")){
 	    mem_str = argv[++i];
+	}
+	else if(!strcmp(argv[i],"--CARM")){
+	  mem_str = NULL;
+	  hyperthreading = 0;
+	  roofline_types = ROOFLINE_MAD|ROOFLINE_2LD1ST;
+	  whole_system = 1;
 	}
 	else if(!strcmp(argv[i],"--output") || !strcmp(argv[i],"-o")){
 	    output = argv[++i];
@@ -92,15 +100,13 @@ int main(int argc, char * argv[]){
     FILE * out;
     parse_args(argc,argv);
 
-    if(roofline_lib_init(NULL, hyperthreading)==-1)
+    if(roofline_lib_init(NULL, hyperthreading, whole_system)==-1)
 	errEXIT("roofline library init failure");
 
     if(mem_str != NULL){
 	mem = roofline_hwloc_parse_obj(mem_str);
-	if(mem == NULL)
-	errEXIT("Unrecognized object");
-	if(!roofline_hwloc_obj_is_memory(mem))
-	mem = roofline_hwloc_get_under_memory(mem);
+	if(mem == NULL)	errEXIT("Unrecognized object");
+	if(!roofline_hwloc_obj_is_memory(mem)) mem = roofline_hwloc_get_under_memory(mem, whole_system);
     }
 
     out = open_output(output);
@@ -114,9 +120,9 @@ int main(int argc, char * argv[]){
     
     /* roofline every memory obj */
     if(mem == NULL){
-	while((mem = roofline_hwloc_get_next_memory(mem)) != NULL){
+      while((mem = roofline_hwloc_get_next_memory(mem, whole_system)) != NULL){
 	  bench_memory(out, mem);
-	}
+      }
     }
     else{
       bench_memory(out, mem);
