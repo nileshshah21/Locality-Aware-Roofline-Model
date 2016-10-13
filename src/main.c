@@ -57,7 +57,6 @@ static void parse_args(int argc, char ** argv){
 	    mem_str = argv[++i];
 	}
 	else if(!strcmp(argv[i],"--CARM")){
-	  mem_str = NULL;
 	  hyperthreading = 0;
 	  roofline_types = ROOFLINE_MAD|ROOFLINE_2LD1ST;
 	  whole_system = 1;
