@@ -114,7 +114,7 @@ size_t      roofline_hwloc_get_instruction_cache_size(void);
 #define roofline_MAX(x, y) ((x)>(y) ? (x):(y))
 #define roofline_MIN(x, y) ((x)<(y) ? (x):(y))
 #define roofline_alloc(ptr,size) do{if(!(ptr=malloc(size))){perrEXIT("malloc");}} while(0)
-
+size_t  roofline_memalign(double ** data, size_t size);
 const char * roofline_type_str(int type);
 int          roofline_type_from_str(const char * type);
 void         roofline_print_header(FILE * output);

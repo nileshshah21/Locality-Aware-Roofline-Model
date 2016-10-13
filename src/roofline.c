@@ -80,7 +80,7 @@ int roofline_lib_init(hwloc_topology_t topo, int with_hyperthreading, int whole_
     LLC = hwloc_get_root_obj(topology);
     while(LLC != NULL && !roofline_hwloc_objtype_is_cache(LLC->type)) LLC = LLC->first_child;
     if(LLC == NULL) errEXIT("Error: no LLC cache found\n");
-    MAX_SIZE = (((struct hwloc_cache_attr_s *)LLC->attr)->size)*32;
+    MAX_SIZE = (((struct hwloc_cache_attr_s *)LLC->attr)->size)*64;
 
     /* Check if cpu frequency has been defined */
 #ifndef CPU_FREQ
@@ -160,30 +160,6 @@ static size_t resize_splitable_chunk(size_t size, int type){
     if(size%(chunk_size*nthreads) == 0){return size;}
     else{return (chunk_size*nthreads)*(1+(size/(chunk_size*nthreads)));}
 }
-
-static size_t roofline_memalign(double ** data, size_t size){
-    int err;
-    if(data != NULL){
-	err = posix_memalign((void**)data, alignement, size);
-	switch(err){
-	case 0:
-	    break;
-	case EINVAL:
-	    fprintf(stderr,"The alignment argument was not a power of two, or was not a multiple of sizeof(void *).\n");
-	    break;
-	case ENOMEM:
-	    fprintf(stderr,"There was insufficient memory to fulfill the allocation request.\n");
-	}
-	if(*data == NULL)
-	    fprintf(stderr,"Chunk is NULL\n");
-	if(err || *data == NULL)
-	    errEXIT("");
-
-    	memset(*data,0,size);
-    }
-    return size;
-}
-
 
 static void roofline_memory(FILE * output, hwloc_obj_t memory, int type,
 			    void(* bench)(const struct roofline_sample_in *, struct roofline_sample_out *, int))

@@ -5,6 +5,29 @@
 #include "MSC/MSC.h"
 #include <math.h>
 
+size_t roofline_memalign(double ** data, size_t size){
+    int err;
+    if(data != NULL){
+	err = posix_memalign((void**)data, alignement, size);
+	switch(err){
+	case 0:
+	    break;
+	case EINVAL:
+	    fprintf(stderr,"The alignment argument was not a power of two, or was not a multiple of sizeof(void *).\n");
+	    break;
+	case ENOMEM:
+	    fprintf(stderr,"There was insufficient memory to fulfill the allocation request.\n");
+	}
+	if(*data == NULL)
+	    fprintf(stderr,"Chunk is NULL\n");
+	if(err || *data == NULL)
+	    errEXIT("");
+
+    	memset(*data,0,size);
+    }
+    return size;
+}
+
 size_t * roofline_log_array(size_t start, size_t end, int * n){
   size_t * sizes, size;
   double multiplier, val;
