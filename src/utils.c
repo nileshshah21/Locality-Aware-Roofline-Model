@@ -22,8 +22,6 @@ size_t roofline_memalign(double ** data, size_t size){
 	    fprintf(stderr,"Chunk is NULL\n");
 	if(err || *data == NULL)
 	    errEXIT("");
-
-    	memset(*data,0,size);
     }
     return size;
 }
