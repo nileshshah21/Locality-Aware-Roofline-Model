@@ -19,7 +19,7 @@ struct roofline_progress_bar progress_bar;   /* Global progress bar of the bench
 #if defined(_OPENMP)
 int roofline_lib_init(hwloc_topology_t topo, int with_hyperthreading, int whole_system)
 #else
-    int roofline_lib_init(__attribute__ ((unused)) int with_hyperthreading)
+  int roofline_lib_init(hwloc_topology_t topo, __attribute__ ((unused)) int with_hyperthreading, int whole_system)
 #endif
 {
   hwloc_obj_t L1, LLC;
@@ -64,6 +64,8 @@ int roofline_lib_init(hwloc_topology_t topo, int with_hyperthreading, int whole_
     else
 	n_threads = hwloc_get_nbobjs_inside_cpuset_by_type(topology, root->cpuset, HWLOC_OBJ_CORE);	
     omp_set_num_threads(n_threads);
+#pragma omp parallel
+    roofline_hwloc_cpubind(hwloc_get_obj_by_type(topology, with_hyperthreading?HWLOC_OBJ_PU:HWLOC_OBJ_CORE, omp_get_thread_num()));
 #endif
 
     /* get first cache linesize */
@@ -94,7 +96,7 @@ int roofline_lib_init(hwloc_topology_t topo, int with_hyperthreading, int whole_
 
     /* set compilation options */
 #ifdef CC
-    compiler = roofline_stringify(CC);
+    compiler = STRINGIFY(CC);
 #else
     compiler = getenv("CC");
     if(compiler==NULL){
@@ -102,7 +104,7 @@ int roofline_lib_init(hwloc_topology_t topo, int with_hyperthreading, int whole_
     }
 #endif
 #ifdef OMP_FLAG
-    omp_flag = roofline_stringify(OMP_FLAG);
+    omp_flag = STRINGIFY(OMP_FLAG);
 #else
     omp_flag = getenv("OMP_FLAG");
     if(omp_flag==NULL){
@@ -150,15 +152,10 @@ void roofline_fpeak(FILE * output, int type)
 }
 
 static size_t resize_splitable_chunk(size_t size, int type){
-    int nthreads = 1;
     size_t chunk_size = get_chunk_size(type);
-#if defined(_OPENMP)
-#pragma omp parallel
-#pragma omp single
-    nthreads = omp_get_num_threads();
-#endif
-    if(size%(chunk_size*nthreads) == 0){return size;}
-    else{return (chunk_size*nthreads)*(1+(size/(chunk_size*nthreads)));}
+    if(size%(chunk_size*n_threads) == 0) return size;
+    if(size<chunk_size*n_threads) return 0;
+    else{return (chunk_size*n_threads)*(1+size/(chunk_size*n_threads));}
 }
 
 static void roofline_memory(FILE * output, hwloc_obj_t memory, int type,
