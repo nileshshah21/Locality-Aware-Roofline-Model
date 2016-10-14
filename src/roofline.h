@@ -107,10 +107,11 @@ hwloc_obj_t roofline_hwloc_get_instruction_cache(void);
 size_t      roofline_hwloc_get_instruction_cache_size(void);
 
 /********************************************* Utils ********************************************/
+#define STR(x) #x
+#define STRINGIFY(x) STR(x) 
+#define CONCATENATE(X,Y) X ( Y )
 #define errEXIT(msg) do{fprintf(stderr,msg"\n"); exit(EXIT_FAILURE);} while(0);
 #define perrEXIT(msg) do{perror(msg); exit(EXIT_FAILURE);} while(0);
-#define roofline_str(x) #x
-#define roofline_stringify(x) roofline_str(x)
 #define roofline_MAX(x, y) ((x)>(y) ? (x):(y))
 #define roofline_MIN(x, y) ((x)<(y) ? (x):(y))
 #define roofline_alloc(ptr,size) do{if(!(ptr=malloc(size))){perrEXIT("malloc");}} while(0)
