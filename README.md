@@ -91,7 +91,7 @@ If you compile the package with `PAPI=yes`, then you probably want to get LARM m
 * The roofline library works only on broadwell processors with FP_ARITH counters. Older processor from Intel have no existing or accurate flops counter. Recently, PAPI KNL compatible version was released but no flops counters are yet available.
 
 ####Library Setup
-* In order to use the library you have to copy the compiled file `librfsampling.so` in a directory pointed out by `LD_LIBRARY_PATH variable` or by your compiler linker flag (`-Lpath/to/librfsampling.so`). 
+* In order to use the library you have to copy the compiled file `librfsampling.so` in a directory pointed out by `LD_LIBRARY_PATH` variable or by your compiler linker flag (`-Lpath/to/librfsampling.so`). 
 * You also have to copy the file `sampling.h` in a directory pointed out by `C_INCLUDE_PATH` or by your compiler header flag (`-Ipath/to/sampling.h`).
 * The library is very lightweight and all the functions can be found in the header `sampling.h`
 * Compile your code using the library with `-lrfsampling` flag.
