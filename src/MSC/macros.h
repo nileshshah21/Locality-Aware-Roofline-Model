@@ -6,7 +6,7 @@
 #define omp_parallel_private(x) _Pragma(STRINGIFY(CONCATENATE(omp parallel firstprivate, x)))
 #define omp_parallel _Pragma("omp parallel")
 #define rdtsc(c_high,c_low) _Pragma("omp barrier") _Pragma("omp master") roofline_rdtsc(c_high, c_low)
-#define stream_pos(stream,size) (&stream[omp_get_thread_num()*size/sizeof(stream)])
+#define stream_pos(stream,size) (&(stream[omp_get_thread_num()*size/sizeof(*stream)]))
 #else
 #define omp_parallel_private(x)
 #define omp_parallel
@@ -390,8 +390,8 @@ static void dprint_FUOP_by_ins(int fd, const char * op, unsigned * regnum){
 #define asm_bandwidth(in, out, type_name, ...) do{			\
     uint64_t c_low0=0, c_low1=0, c_high0=0, c_high1=0;			\
     ROOFLINE_STREAM_TYPE * stream = in->stream;				\
+    size_t size = in->stream_size/n_threads;				\
     omp_parallel_private(stream){					\
-      size_t size = in->stream_size/n_threads;				\
       stream = stream_pos(stream,size);					\
       zero_simd();							\
       rdtsc(c_high0, c_low0);						\
