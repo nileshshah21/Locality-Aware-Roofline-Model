@@ -154,7 +154,7 @@ void roofline_fpeak(FILE * output, int type)
 static size_t resize_splitable_chunk(size_t size, int type){
     size_t chunk_size = get_chunk_size(type);
     if(size%(chunk_size*n_threads) == 0) return size;
-    else{return (chunk_size*n_threads)*(1+size/(chunk_size*n_threads));}
+    else{return (chunk_size*n_threads)*(1+(size/(chunk_size*n_threads)));}
 }
 
 static void roofline_memory(FILE * output, hwloc_obj_t memory, int type,
@@ -222,7 +222,8 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, int type,
     
     /*Initialize input stream */
     roofline_memalign(&(in.stream), upper_bound_size);
-
+    if(memory->type == HWLOC_OBJ_NODE) memset(in.stream,0,upper_bound_size);
+    
     for(s=0;s<n_sizes;s++){
       if(output != stdout){roofline_progress_set(&progress_bar, "",0,s,n_sizes);}
       in.stream_size = resize_splitable_chunk(sizes[s], type);
