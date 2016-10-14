@@ -23,6 +23,7 @@ size_t roofline_memalign(double ** data, size_t size){
 	if(err || *data == NULL)
 	    errEXIT("");
     }
+    memset(*data,0,size);
     return size;
 }
 
@@ -281,16 +282,22 @@ int roofline_hwloc_cpubind(hwloc_obj_t obj){
 }
 
 int roofline_hwloc_membind(hwloc_obj_t obj){
-  /* bind only memory */
-  if(obj->type != HWLOC_OBJ_NODE) return 0;
-
-  /* bind cpuset local memory if there are multiple memories */
-  if(hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_NODE) == 1) return 0;
-
-  /* binding */
-  if(hwloc_set_membind(topology,obj->nodeset,HWLOC_MEMBIND_BIND,HWLOC_MEMBIND_BYNODESET) == -1){
-    perror("membind"); return 0;
+  /* bind memory */
+  if(obj->type == HWLOC_OBJ_NODE){
+    if(hwloc_set_membind(topology,obj->nodeset,HWLOC_MEMBIND_BIND,HWLOC_MEMBIND_BYNODESET) == -1){
+      perror("membind");
+      return 0;
+    }
   }
+  else if(obj->type == HWLOC_OBJ_MACHINE){
+    if(hwloc_set_membind(topology,obj->nodeset,HWLOC_MEMBIND_INTERLEAVE,HWLOC_MEMBIND_BYNODESET) == -1){
+      perror("membind");
+      return 0;
+    }
+  }
+  else{return 1;}
+  
+  /* binding */
   return roofline_hwloc_check_membind(obj->cpuset,0);
 }
 

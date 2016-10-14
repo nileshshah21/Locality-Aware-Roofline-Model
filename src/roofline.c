@@ -222,7 +222,6 @@ static void roofline_memory(FILE * output, hwloc_obj_t memory, int type,
     
     /*Initialize input stream */
     roofline_memalign(&(in.stream), upper_bound_size);
-    if(memory->type == HWLOC_OBJ_NODE) memset(in.stream,0,upper_bound_size);
     
     for(s=0;s<n_sizes;s++){
       if(output != stdout){roofline_progress_set(&progress_bar, "",0,s,n_sizes);}
