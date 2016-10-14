@@ -115,7 +115,7 @@ roofline_sampling_fini()
 ```
 
 Then plot the results in a handsome chart:
-`plot_roofs.bash -i plateform.roofs -d my_CARM_result.roofs -f "load|MAD|MUL|ADD" -t "CARM with my app" -o my_app_chart.pdf`
+`plot_roofs.bash -i plateform.roofs -d my_CARM_result.roofs -f "load$|MAD|ADD|avx_ddot" -t "CARM with my app" -o my_app_chart.pdf-p`
 
-![](pictures/ddot.png?raw=true)
+![](pictures/my_app_chart.png?raw=true)
 
