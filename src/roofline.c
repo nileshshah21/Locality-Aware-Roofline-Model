@@ -154,7 +154,6 @@ void roofline_fpeak(FILE * output, int type)
 static size_t resize_splitable_chunk(size_t size, int type){
     size_t chunk_size = get_chunk_size(type);
     if(size%(chunk_size*n_threads) == 0) return size;
-    if(size<chunk_size*n_threads) return 0;
     else{return (chunk_size*n_threads)*(1+size/(chunk_size*n_threads));}
 }
 
