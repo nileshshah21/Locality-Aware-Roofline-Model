@@ -141,7 +141,7 @@ static void  dprint_header(int fd) {
 static void dprint_oi_bench_begin(int fd, const char * id, const char * name, int type){
   dprintf(fd, "void %s(struct roofline_sample_in * in, struct roofline_sample_out * out, __attribute__ ((unused)) int type){\n", name);
   dprintf(fd, "volatile uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0;\n");
-  dprintf(fd, "%s * stream = in->stream;\n",roofline_stringify(ROOFLINE_STREAM_TYPE));
+  dprintf(fd, "%s * stream = in->stream;\n",STRINGIFY(ROOFLINE_STREAM_TYPE));
   dprintf(fd, "size_t size = in->stream_size;\n");
   dprintf(fd,"#if defined(_OPENMP)\n");
   dprintf(fd,"#pragma omp parallel firstprivate(size, stream) proc_bind(close)\n{\n");
