@@ -224,7 +224,7 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int mem_type,
   
   dprint_oi_bench_begin(fd, idx, name, flop_type);
   if(mop_per_fop == 1){
-    unsigned n_ins = SIMD_N_REGS*6;
+    unsigned n_ins = SIMD_N_REGS*12;
     /* mem_regs[0] = 0; mem_regs[1] = 0; mem_regs[2] =  SIMD_N_REGS/2; */
     /* flop_regs[0] = 1+SIMD_N_REGS/2; flop_regs[1] = 1+SIMD_N_REGS/2; flop_regs[2] = SIMD_N_REGS; */
     /* flop_regnum = &(flop_regs[1]); */
@@ -240,8 +240,9 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int mem_type,
     /*   flop_regs[0] = 1+mop_per_fop; flop_regs[1] = 1+mop_per_fop; flop_regs[2] =  SIMD_N_REGS; */
     /*   flop_regnum = &(flop_regs[1]); */
     /* } */
-    fop_instructions = SIMD_N_REGS;
-    mem_instructions = fop_instructions * mop_per_fop;
+    mem_instructions = roofline_MAX(SIMD_N_REGS, mop_per_fop);
+    fop_instructions = mem_instructions/mop_per_fop;
+
     for(i=0;i<mem_instructions;i++){
       if(i%mop_per_fop==0){dprint_FUOP(fd, flop_type, i/mop_per_fop, flop_regs[0], flop_regnum, flop_regs[2]);}
       dprint_MUOP(fd, mem_type, i, &offset, mem_regs[0], mem_regnum, mem_regs[2], "r11");
@@ -253,9 +254,9 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int mem_type,
     /*   mem_regs[0] = 1+fop_per_mop; mem_regs[1] = 1+fop_per_mop; mem_regs[2] =  SIMD_N_REGS; */
     /*   flop_regnum = &(flop_regs[1]); */
     /* } */
-    
-    mem_instructions = SIMD_N_REGS;
-    fop_instructions = mem_instructions * fop_per_mop;
+
+    fop_instructions = roofline_MAX(SIMD_N_REGS, fop_per_mop);
+    mem_instructions = fop_instructions/fop_per_mop;
     for(i=0;i<fop_instructions;i++){
       if(i%fop_per_mop == 0) {dprint_MUOP(fd, mem_type, i, &offset, mem_regs[0], mem_regnum, mem_regs[2], "r11");}
       dprint_FUOP(fd, flop_type, i, flop_regs[0], flop_regnum, flop_regs[2]);
