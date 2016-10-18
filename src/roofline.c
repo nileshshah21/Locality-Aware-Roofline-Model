@@ -14,6 +14,7 @@ float            cpu_freq = 0;               /* In Hz */
 unsigned         n_threads = 1;              /* The number of threads for benchmark */
 unsigned int     roofline_types;             /* What rooflines do we want in byte array */
 hwloc_obj_t      root;                       /* The root of topology to select the amount of threads */
+off_t            L1_size;                    /* size of L1_cache */
 
 #if defined(_OPENMP)
 int roofline_lib_init(hwloc_topology_t topo, int with_hyperthreading, int whole_system)
@@ -67,7 +68,8 @@ int roofline_lib_init(hwloc_topology_t topo, int with_hyperthreading, int whole_
     ERR_EXIT("First memory obj is not a data cache.");
   }
   alignement = L1->attr->cache.linesize;
-
+  L1_size = roofline_hwloc_get_memory_size(L1);
+  
   /* Find LLC cache size to set maximum buffer size */ 
   LLC = hwloc_get_root_obj(topology);
   while(LLC != NULL && !roofline_hwloc_objtype_is_cache(LLC->type)) LLC = LLC->first_child;

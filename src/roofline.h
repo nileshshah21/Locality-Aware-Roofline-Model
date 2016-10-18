@@ -12,6 +12,7 @@ extern float            cpu_freq;   /* In Hz */
 extern unsigned         n_threads;  /* Set number of threads */
 extern size_t           max_size;   /* The 32 * last level cache size */
 extern hwloc_obj_t      root;       /* The subroot of topology to select the amount of threads */
+extern off_t            L1_size;    /* size of L1_cache */
 
 int  roofline_lib_init(hwloc_topology_t topology, int with_hyperthreading, int whole_system);
 void roofline_lib_finalize(void);
