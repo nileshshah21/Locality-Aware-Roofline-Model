@@ -162,7 +162,7 @@ static int roofline_compile_lib(char * c_path, char* so_path){
 off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int mem_type, int flop_type, unsigned mem_ins, unsigned flop_ins){
   
   off_t offset = 0; size_t len;
-  unsigned i;
+  unsigned i, max = 40;
   unsigned muops = 0, fuops = 0, regnum = 0;
   
   char * idx;
@@ -174,7 +174,7 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int mem_type,
   do{
     for(i=0; i<mem_ins; i++) dprint_MUOP(fd, mem_type, &muops, &offset, &regnum);
     for(i=0; i<flop_ins; i++) dprint_FUOP(fd, flop_type, &fuops, &regnum);
-  } while(regnum != SIMD_N_REGS-1 && offset < L1_size/2);
+  } while(regnum != SIMD_N_REGS-1 && offset < L1_size/2 && max--);
   dprint_oi_bench_end(fd, idx, offset);
   
   long flops = SIMD_FLOPS * fuops * (flop_type == ROOFLINE_FMA ? 2 : 1);
