@@ -14,7 +14,7 @@ MSC=intel
 #                                              BUILD                                        #
 #############################################################################################
 export CC=gcc
-export OMP_FLAG= #-fopenmp
+export OMP_FLAG=-fopenmp
 LDFLAGS=-ldl -lhwloc -lm $(OMP_FLAG)
 export CFLAGS= -g -Wall -Werror -Wextra\
 	-DROOFLINE_MIN_DUR=$(LAST)\
@@ -39,7 +39,7 @@ all: $(BIN)
 endif
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c -o $@ $^
+	$(CC) $(CFLAGS) -c -o $@ $^ $(OMP_FLAG)
 
 MSC/$(MSC)/MSC.a: MSC/$(MSC)/*.c
 	make -C MSC/$(MSC)
