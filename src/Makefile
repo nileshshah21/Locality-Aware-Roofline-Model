@@ -4,21 +4,27 @@
 #Duration time of each sample (millisecond)
 LAST=100
 #Number of samples per memory.
-N_SAMPLES=16
-#Machine specific code implementing benchmarks: MSC/MSC.h {intel only for now}
-MSC=intel
+N_SAMPLES=8
 #Use PAPI and compile tool for code sampling
 PAPI=no
+# Benchmark for intel plateform
+MSC=intel
 
 #############################################################################################
 #                                              BUILD                                        #
 #############################################################################################
-CC=gcc
-OMP_FLAG=-fopenmp
-LDFLAGS=-lhwloc -ldl $(OMP_FLAG)
-CFLAGS=-g -Wall -Werror -Wextra -DCC=$(CC) -DOMP_FLAG=$(OMP_FLAG) -DBENCHMARK_MIN_DUR=$(LAST) -DROOFLINE_N_SAMPLES=$(N_SAMPLES)
-SRC=roofline.c utils.c stats.c progress.c
-OBJ=$(patsubst %.c, %.o, $(SRC)) MSC.o
+export CC=gcc
+export OMP_FLAG= #-fopenmp
+LDFLAGS=-ldl -lhwloc -lm $(OMP_FLAG)
+export CFLAGS= -g -Wall -Werror -Wextra\
+	-DROOFLINE_MIN_DUR=$(LAST)\
+	-DROOFLINE_N_SAMPLES=$(N_SAMPLES)\
+	-DCC=$(CC)\
+	-DOMP_FLAG=$(OMP_FLAG)\
+#	-DDEBUG2 # -DDEBUG1
+
+SRC=stream.c output.c types.c stats.c topology.c roofline.c
+OBJ=$(patsubst %.c, %.o, $(SRC)) MSC/$(MSC)/MSC.a
 PREFIX=$(HOME)/local
 BIN=roofline
 LIB=librfsampling.so
@@ -33,16 +39,13 @@ all: $(BIN)
 endif
 
 %.o: %.c
-	$(CC) -march=native $(CFLAGS) -c -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -c -o $@ $^
 
-MSC.o: MSC/$(MSC).c
-	$(CC) -march=native -Wl,-rpath=$(PWD) -DCC=$(CC) $(CFLAGS) -c -o $@ $^ $(LDFLAGS)
-
-MSC.s: MSC/$(MSC).c
-	$(CC) -march=native -Wl,-rpath=$(PWD) -DCC=$(CC) $(CFLAGS) -S -o $@ $^ $(LDFLAGS)
+MSC/$(MSC)/MSC.a: MSC/$(MSC)/*.c
+	make -C MSC/$(MSC)
 
 $(BIN): main.c $(OBJ)
-	$(CC) $(CFLAGS) -pedantic-errors $^ -o $@ $(LDFLAGS) -lhwloc -lm
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 
 $(LIB): sampling.c
 	$(CC) $(CFLAGS) -fPIC -shared $^ -o $@ -lpapi -lrt
@@ -61,4 +64,5 @@ uninstall:
 
 clean:
 	rm -f *.o *.s *.so roofline
+	make -C MSC/$(MSC) clean
 

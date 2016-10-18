@@ -1,42 +1,19 @@
+#include <math.h>
 #include "roofline.h"
+#include "topology.h"
+#include "stream.h"
+#include "output.h"
+#include "utils.h"
+#include "stats.h"
 #include "MSC/MSC.h"
-#if defined(_OPENMP)
-#include <omp.h>
-#endif
 
 hwloc_topology_t topology = NULL;            /* Current machine topology  */
 size_t           alignement = 0;             /* Level 1 cache line size */
-size_t           MAX_SIZE = 0;               /* Last Level Cache size */
+size_t           max_size = 0;               /* Last Level Cache size */
 float            cpu_freq = 0;               /* In Hz */
-char *           compiler = NULL;            /* The compiler name to compile the roofline validation. */
-char *           omp_flag = NULL;            /* The openmp flag to compile the roofline validation. */
 unsigned         n_threads = 1;              /* The number of threads for benchmark */
 unsigned int     roofline_types;             /* What rooflines do we want in byte array */
 hwloc_obj_t      root;                       /* The root of topology to select the amount of threads */
-struct roofline_progress_bar progress_bar;   /* Global progress bar of the benchmark */
-
-void roofline_output_clear(struct roofline_sample_out * out){
-  out->ts_start = 0;
-  out->ts_end = 0;
-  out->bytes = 0;
-  out->flops = 0;
-  out->instructions = 0;
-}
-
-inline void print_roofline_sample_output(struct roofline_sample_out * out){
-  printf("%20lu %20lu %20lu %20lu %20lu\n", 
-	 out->ts_start, out->ts_end, out->instructions, out->bytes, out->flops);
-}
-
-#if defined(_OPENMP)
-static void roofline_output_accumulate(struct roofline_sample_out * dst, struct roofline_sample_out * src){
-  dst->ts_start = src->ts_start;
-  dst->ts_end = src->ts_end;
-  dst->bytes += src->bytes;
-  dst->flops += src->flops;
-  dst->instructions += src->instructions;
-}
-#endif
 
 #if defined(_OPENMP)
 int roofline_lib_init(hwloc_topology_t topo, int with_hyperthreading, int whole_system)
@@ -48,20 +25,11 @@ int roofline_lib_init(hwloc_topology_t topo, int with_hyperthreading, int whole_
   char * cpu_freq_str;
 
   /* Check hwloc version */
-#if HWLOC_API_VERSION >= 0x0020000
-  /* Header uptodate for monitor */
-  if(hwloc_get_api_version() < 0x20000){
-    fprintf(stderr, "hwloc version mismatch, required version 0x20000 or later, found %#08x\n", hwloc_get_api_version());
-    return -1;
-  }
-#else
-  fprintf(stderr, "hwloc version too old, required version 0x20000 or later\n");
-  return -1;    
-#endif
+  roofline_hwloc_check_version();
 
+  /* Initialize topology */
   if(topo != NULL) hwloc_topology_dup(&topology, topo);
   else{
-    /* Initialize topology */
     if(hwloc_topology_init(&topology) ==-1){
       fprintf(stderr, "hwloc_topology_init failed.\n");
       return -1;
@@ -77,7 +45,7 @@ int roofline_lib_init(hwloc_topology_t topo, int with_hyperthreading, int whole_
   if(!whole_system) root = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NODE, 0);
   else root = hwloc_get_root_obj(topology);
 
-  /* bind future threads to first NODE */
+  /* bind future threads to root */
   roofline_hwloc_cpubind(root);
 
 #if defined(_OPENMP)
@@ -92,47 +60,29 @@ int roofline_lib_init(hwloc_topology_t topo, int with_hyperthreading, int whole_
 
   /* get first cache linesize */
   L1 = roofline_hwloc_get_next_memory(NULL, whole_system);
-  if(L1==NULL) errEXIT("No cache found.");
+  if(L1==NULL) ERR_EXIT("No cache found.");
   if(!roofline_hwloc_objtype_is_cache(L1->type) || 
      (L1->attr->cache.type != HWLOC_OBJ_CACHE_UNIFIED && 
       L1->attr->cache.type != HWLOC_OBJ_CACHE_DATA)){
-    errEXIT("First memory obj is not a data cache.");
+    ERR_EXIT("First memory obj is not a data cache.");
   }
   alignement = L1->attr->cache.linesize;
 
   /* Find LLC cache size to set maximum buffer size */ 
   LLC = hwloc_get_root_obj(topology);
   while(LLC != NULL && !roofline_hwloc_objtype_is_cache(LLC->type)) LLC = LLC->first_child;
-  if(LLC == NULL) errEXIT("Error: no LLC cache found\n");
-  MAX_SIZE = (((struct hwloc_cache_attr_s *)LLC->attr)->size)*64;
+  if(LLC == NULL) ERR_EXIT("Error: no LLC cache found\n");
+  max_size = (((struct hwloc_cache_attr_s *)LLC->attr)->size)*64;
 
   /* Check if cpu frequency has been defined */
 #ifndef CPU_FREQ
   cpu_freq_str = getenv("CPU_FREQ");
   if(cpu_freq_str == NULL)
-    errEXIT("Please define the machine cpu frequency (in Hertz) with build option CPU_FREQ or the environement variable of the same name");
+    ERR_EXIT("Please define the machine cpu frequency (in Hertz) with build option CPU_FREQ or the environement variable of the same name");
   cpu_freq = atof(cpu_freq_str);
 #else 
   cpu_freq = CPU_FREQ;
 #endif 
-
-  /* set compilation options */
-#ifdef CC
-  compiler = STRINGIFY(CC);
-#else
-  compiler = getenv("CC");
-  if(compiler==NULL){
-    errEXIT("Undefined compiler. Please set env CC to your compiler.");
-  }
-#endif
-#ifdef OMP_FLAG
-  omp_flag = STRINGIFY(OMP_FLAG);
-#else
-  omp_flag = getenv("OMP_FLAG");
-  if(omp_flag==NULL){
-    errEXIT("Undefined omp_flag. Please set env OMP_FLAG to your compiler.");
-  }
-#endif
 
   return 0;
 }
@@ -143,164 +93,145 @@ inline void roofline_lib_finalize(void)
 }
 
 
-void roofline_fpeak(FILE * output, int type)
+void roofline_fpeak(FILE * output, int op_type)
 {
   int i;
-  struct roofline_sample_out out;
-  struct roofline_sample_in in = {1,NULL,0};
-#ifdef _OPENMP
-#pragma omp declare reduction(+ : struct roofline_sample_out : roofline_output_accumulate(&omp_out,&omp_in))
-#endif
-  roofline_autoset_loop_repeat(fpeak_benchmark, &in, type, BENCHMARK_MIN_DUR, 10000);
+  roofline_output out;
+
+  printf("benchmark compute unit for %s operation\n", roofline_type_str(op_type));
   
-  for(i=0; i<BENCHMARK_REPEAT; i++){
+  long repeat = roofline_autoset_repeat(NULL, NULL, op_type, NULL);
+  
+#ifdef _OPENMP
+#pragma omp declare reduction(+ : roofline_output : roofline_output_accumulate(&omp_out,&omp_in))
+#endif
+  for(i=0; i<ROOFLINE_N_SAMPLES; i++){
     roofline_output_clear(&out);
     
 #ifdef _OPENMP
 #pragma omp parallel reduction(+:out)
     {
 #endif
-      
-      fpeak_benchmark(&in, &out, type);
+      benchmark_fpeak(op_type, &out, repeat);
 
 #if defined(_OPENMP)
     }
-    roofline_print_sample(output, root, &out, type);
+    roofline_output_print(output, root, &out, op_type);
 #else
 
-    roofline_print_sample(output, hwloc_get_obj_by_type(topology, HWLOC_OBJ_PU, 0), &out, type);
+    roofline_output_print(output, hwloc_get_obj_by_type(topology, HWLOC_OBJ_PU, 0), &out, op_type);
 #endif
   }
 }
 
-static size_t resize_splitable_chunk(size_t size, int type){
-  size_t chunk_size = get_chunk_size(type);
-  if(size%(chunk_size*n_threads) == 0) return size;
-  else{return (chunk_size*n_threads)*(1+(size/(chunk_size*n_threads)));}
-}
-
-static void roofline_memory(FILE * output, hwloc_obj_t memory, int type,
-			    void(* bench)(const struct roofline_sample_in *, struct roofline_sample_out *, int))
+static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int op_type, void * benchmark)
 {
-  char progress_info[128];
-  int nc, s, n_sizes;
-  size_t size, * sizes, low_size, up_size;    
-  hwloc_obj_t child;
-  unsigned n_child = 1, n_memory = 1;
-  ROOFLINE_STREAM_TYPE * stream;
-    
+  int i, n_sizes;
+  size_t * sizes, low_size, up_size;
+  roofline_output out;
+  roofline_stream src = NULL, dst = NULL;
+  long repeat;
+  unsigned tid = 0;
+  void (*  benchmark_function)(roofline_stream, roofline_output *, int, long) = benchmark;
+  
   /* check memory is above root */
   if(memory->depth < root->depth){
-    fprintf(stderr, "Skip memory level above top desired memory %s\n", hwloc_type_name(root->type));
-    return;
-  }
-    
-  /* set legend to append to results */
-  if(output != stdout){
-    memset(progress_info,0,sizeof(progress_info));
-    nc = hwloc_obj_type_snprintf(progress_info,sizeof(progress_info),memory, 0);
-    snprintf(progress_info+nc, sizeof(progress_info)-nc, ":%d %s", memory->logical_index, roofline_type_str(type));
-  } else printf("\n");
-
-  /* Set lower bound size */
-  child  = roofline_hwloc_get_under_memory(memory, root->type == HWLOC_OBJ_MACHINE);
-  if(child != NULL){
-    low_size = 2*roofline_hwloc_get_memory_size(child);
-    n_child = hwloc_get_nbobjs_inside_cpuset_by_type(topology, root->cpuset, child->type);
-  }
-  else{low_size = get_chunk_size(type);}
-    
-  /* Multiply number of child in case it would fit lower memory when splitting among threads */
-  if(n_threads > 1) low_size *= n_child;
-    
-  /* Set upper bound size as memory size or MAX_SIZE */
-  up_size = roofline_MIN(roofline_hwloc_get_memory_size(memory), MAX_SIZE);
-  n_memory = hwloc_get_nbobjs_inside_cpuset_by_type(topology, root->cpuset, memory->type);
-  if(n_threads > 1) up_size *= n_memory;
-
-  if(up_size<low_size){
-    if(child!=NULL){
-      fprintf(stderr, "%s(%ld MB) above %s(%ld MB) is not large enough to be split into %u*%ld\n", 
-	      hwloc_type_name(memory->type), (unsigned long)(roofline_hwloc_get_memory_size(memory)/1e6), 
-	      hwloc_type_name(child->type), (unsigned long)(roofline_hwloc_get_memory_size(child)/1e6), 
-	      n_child, (unsigned long)(roofline_hwloc_get_memory_size(child)/1e6));
-    }
-    else{
-      fprintf(stderr, "minimum chunk size(%u*%lu B) greater than memory %s size(%lu B). Skipping.\n",
-	      n_threads, get_chunk_size(type), 
-	      hwloc_type_name(memory->type), roofline_hwloc_get_memory_size(memory));
-    }
+    roofline_debug2("Skip memory level above top desired memory %s\n", hwloc_type_name(root->type));
     return;
   }
 
-  /* compute array of input sizes */
-  n_sizes  = ROOFLINE_N_SAMPLES;
+  printf("%s %s:%d memory level for %s operation\n",
+	 benchmark != NULL ? "validation" : "benchmark",
+	 hwloc_type_name(memory->type),
+	 memory->logical_index,
+	 roofline_type_str(op_type));
+  
+  /* Get memory size bounds */
+  if(roofline_hwloc_get_memory_bounds(memory, &low_size, &up_size, op_type) == -1) return;
+  
+  /* get input sizes */
+  n_sizes = ROOFLINE_N_SAMPLES;
   sizes = roofline_log_array(low_size, up_size, &n_sizes);
-  if(sizes==NULL){return;}
-    
+  if(sizes==NULL){
+    roofline_debug2("Computing array of input sizes from %lu to %lu failed\n", low_size, up_size);
+    return;
+  }
+  
   /* bind memory */
   roofline_hwloc_membind(memory);
 
   /*Initialize input stream */
-  roofline_memalign(&(stream), up_size);
+  src = new_roofline_stream(up_size, op_type);
+  if(op_type == ROOFLINE_COPY) dst = new_roofline_stream(up_size, op_type);
+
+  for(i=0;i<n_sizes;i++){
+    roofline_stream_set_size(src, sizes[i], op_type);
+    if(op_type == ROOFLINE_COPY) roofline_stream_set_size(dst, sizes[i], op_type);
+    repeat = roofline_autoset_repeat(dst, src, op_type, benchmark);
+    roofline_output_clear(&out);
+    roofline_debug2("size = %luB\n", src->size);
     
-  for(s=0;s<n_sizes;s++){
-    if(output != stdout){roofline_progress_set(&progress_bar, "",0,s,n_sizes);}
-    size = resize_splitable_chunk(sizes[s], type)/n_threads;
-    if(size*n_threads > up_size){break;}
-    struct roofline_sample_in in = {1, stream, size};
-    struct roofline_sample_out out = {0,0,0,0,0};
-    roofline_autoset_loop_repeat(bench, &in, type, BENCHMARK_MIN_DUR,4);
-      
 #ifdef _OPENMP
-#pragma omp declare reduction(+ : struct roofline_sample_out : roofline_output_accumulate(&omp_out,&omp_in))
-#pragma omp parallel firstprivate(in) reduction(+:out)
+#pragma omp declare reduction(+ : roofline_output : roofline_output_accumulate(&omp_out,&omp_in))
+#pragma omp parallel firstprivate(tid) reduction(+:out)
     {
-      unsigned idx = omp_get_thread_num()*up_size/(omp_get_num_threads()*sizeof(*stream));
-      in.stream = &(stream[idx]);
+      tid = omp_get_thread_num();
 #endif
-      bench(&in, &out, type);
+      struct roofline_stream_s src_chunk, dst_chunk;
+      roofline_stream_split(src, &(src_chunk), n_threads, tid, op_type);
+      memset(src_chunk.stream, 0, src_chunk.alloc_size);
+      if(op_type == ROOFLINE_COPY){
+	roofline_stream_split(dst, &(dst_chunk), n_threads, tid, op_type);
+	memset(dst_chunk.stream, 0, dst_chunk.alloc_size);
+        benchmark_double_stream(&(dst_chunk), &(src_chunk), &out, op_type, repeat);
+      } else if(op_type == ROOFLINE_LOAD    ||
+		op_type == ROOFLINE_LOAD_NT ||
+		op_type == ROOFLINE_STORE   ||
+		op_type == ROOFLINE_STORE_NT||
+		op_type == ROOFLINE_2LD1ST){
+	benchmark_single_stream(&(src_chunk), &out, op_type, repeat);
+      } else if(benchmark != NULL){
+	benchmark_function(&(src_chunk), &out, op_type, repeat);
+      }
 #ifdef _OPENMP
     }
 #endif
-    roofline_print_sample(output, memory, &out, type);
+    roofline_output_print(output, memory, &out, op_type);
   }
 
-  if(output != stdout){roofline_progress_set(&progress_bar, "",0,s,s);}
-  if(output != stdout){roofline_progress_clean();}
-    
   /* Cleanup */
-  free(stream);
+  delete_roofline_stream(src);
+  if(op_type & ROOFLINE_COPY){delete_roofline_stream(dst);}
 }
 
 
-void roofline_bandwidth(FILE * output, hwloc_obj_t mem, int type){
-  type = roofline_filter_types(mem, type);
-  if(type & ROOFLINE_LOAD)
-    roofline_memory(output,mem,ROOFLINE_LOAD,bandwidth_benchmark);
-  if(type & ROOFLINE_LOAD_NT)
-    roofline_memory(output,mem,ROOFLINE_LOAD_NT,bandwidth_benchmark);
-  if(type & ROOFLINE_STORE)
-    roofline_memory(output,mem,ROOFLINE_STORE,bandwidth_benchmark);
-  if(type & ROOFLINE_STORE_NT)
-    roofline_memory(output,mem,ROOFLINE_STORE_NT,bandwidth_benchmark);
-  if(type & ROOFLINE_2LD1ST)
-    roofline_memory(output,mem,ROOFLINE_2LD1ST,bandwidth_benchmark);
-  if(type & ROOFLINE_COPY)
-    roofline_memory(output,mem,ROOFLINE_COPY,bandwidth_benchmark);
+void roofline_bandwidth(FILE * output, const hwloc_obj_t mem, const int type){
+  int restrict_type = roofline_filter_types(mem, type);
+  if(restrict_type & ROOFLINE_LOAD)
+    roofline_memory(output,mem,ROOFLINE_LOAD, NULL);
+  if(restrict_type & ROOFLINE_LOAD_NT)
+    roofline_memory(output,mem,ROOFLINE_LOAD_NT, NULL);
+  if(restrict_type & ROOFLINE_STORE)
+    roofline_memory(output,mem,ROOFLINE_STORE, NULL);
+  if(restrict_type & ROOFLINE_STORE_NT)
+    roofline_memory(output,mem,ROOFLINE_STORE_NT, NULL);
+  if(restrict_type & ROOFLINE_2LD1ST)
+    roofline_memory(output,mem,ROOFLINE_2LD1ST, NULL);
+  if(restrict_type & ROOFLINE_COPY)
+    roofline_memory(output,mem,ROOFLINE_COPY, NULL);
 }
 
-void roofline_flops(FILE * output, int type){
+void roofline_flops(FILE * output, const int type){
   hwloc_obj_t core = hwloc_get_obj_by_type(topology, HWLOC_OBJ_CORE, 0);
-  type = roofline_filter_types(core, type);   
-  if(type & ROOFLINE_ADD){roofline_fpeak(output,ROOFLINE_ADD);}
-  if(type & ROOFLINE_MUL){roofline_fpeak(output,ROOFLINE_MUL);}
-  if(type & ROOFLINE_MAD){roofline_fpeak(output,ROOFLINE_MAD);}
-  if(type & ROOFLINE_FMA){roofline_fpeak(output,ROOFLINE_FMA);}
+  int restrict_type = roofline_filter_types(core, type);   
+  if(restrict_type & ROOFLINE_ADD){roofline_fpeak(output,ROOFLINE_ADD);}
+  if(restrict_type & ROOFLINE_MUL){roofline_fpeak(output,ROOFLINE_MUL);}
+  if(restrict_type & ROOFLINE_MAD){roofline_fpeak(output,ROOFLINE_MAD);}
+  if(restrict_type & ROOFLINE_FMA){roofline_fpeak(output,ROOFLINE_FMA);}
 }
 
-void roofline_oi(FILE * output, hwloc_obj_t mem, int type, double oi){
-  void(* bench)(const struct roofline_sample_in *, struct roofline_sample_out *, int);
+void roofline_oi(FILE * output, const hwloc_obj_t mem, const int type, const unsigned flops, const unsigned bytes){
+  void * bench;
   int i, j, mem_type, flop_type, t;
   hwloc_obj_t core = hwloc_get_obj_by_type(topology, HWLOC_OBJ_CORE, 0);
   const int mem_types[6] = {ROOFLINE_LOAD, ROOFLINE_LOAD_NT, ROOFLINE_STORE, ROOFLINE_STORE_NT, ROOFLINE_2LD1ST, ROOFLINE_COPY};
@@ -314,7 +245,7 @@ void roofline_oi(FILE * output, hwloc_obj_t mem, int type, double oi){
       for(j=3;j>=0;j--){
 	if(flop_types[j] & flop_type){
 	  t = flop_types[j]|mem_types[i];
-	  bench = roofline_oi_bench(oi,t);
+	  bench = benchmark_validation(t, flops, bytes);
 	  if(bench == NULL){continue;}
 	  roofline_memory(output, mem, t, bench);
 	  break;
@@ -322,5 +253,45 @@ void roofline_oi(FILE * output, hwloc_obj_t mem, int type, double oi){
       }
     }
   }
+}
+
+size_t * roofline_log_array(size_t start, size_t end, int * n){
+  size_t * sizes, size;
+  double multiplier, val;
+  int i;
+
+  
+  if(end<start)
+    return NULL;
+
+  if(*n <= 0)
+    *n = ROOFLINE_N_SAMPLES;
+
+  roofline_alloc(sizes,sizeof(*sizes)* (*n));
+  size = start;    
+  multiplier = 1;
+  val = (double)start;
+
+  if(start > 0){
+    multiplier = pow((double)end/(double)start,1.0/(double)(*n));
+    val = ((double)start*multiplier);
+  }
+  else{
+    val = multiplier = pow((double)end,1.0/(double)(*n));
+  }
+
+  i=0;
+  while(size<=end && i<*n){
+    sizes[i] = size;
+    val*=multiplier;
+    size = (size_t)val;
+    i++;
+  }
+
+  if(i==0){
+    *n=0; free(sizes); return NULL;
+  }
+  *n=i;
+  return sizes;
 }
 

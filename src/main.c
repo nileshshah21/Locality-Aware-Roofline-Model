@@ -1,6 +1,10 @@
 #include <math.h>
 #include "roofline.h"
-#include "MSC/MSC.h"
+#include "topology.h"
+#include "utils.h"
+#include "output.h"
+#include "stream.h"
+#include "types.h"
 
 /* options */
 static char * output = NULL;            /* Where to print output */
@@ -71,16 +75,22 @@ static void bench_memory(FILE * out, hwloc_obj_t mem){
   hwloc_obj_t core = hwloc_get_obj_by_type(topology, HWLOC_OBJ_CORE, 0);
   int mem_type = roofline_filter_types(mem, roofline_types);
   int flop_type = roofline_filter_types(core, roofline_types);
-
+  unsigned flops = 1, bytes = 8*sizeof(roofline_stream_t);
+  
   if(mem_type != 0){
     roofline_bandwidth(out, mem, mem_type);
     if(oi<0){
-      double op_int = oi;
-      for(op_int = pow(2,-10); op_int < pow(2,6); op_int*=2){
-	roofline_oi(out, mem, mem_type|flop_type, op_int);
+      for(; bytes > 1; bytes -= sizeof(roofline_stream_t)){
+      	roofline_oi(out, mem, mem_type|flop_type, flops, bytes);
+      }
+      bytes = sizeof(roofline_stream_t);
+      for(flops++; flops <= 32; flops++){
+      	roofline_oi(out, mem, mem_type|flop_type, flops, bytes);
       }
     } else if(oi > 0){
-      roofline_oi(out, mem, mem_type|flop_type, oi);
+      if(oi < 1){bytes = 1/oi;}
+      flops = bytes*oi;
+      roofline_oi(out, mem, mem_type|flop_type, flops, bytes);
     }
   }
 }
@@ -91,7 +101,7 @@ static FILE * open_output(char * out){
     if(out == NULL)
 	return NULL;
     fout = fopen(out,"w");
-    if(fout == NULL) perrEXIT("fopen");
+    if(fout == NULL) PERR_EXIT("fopen");
     return fout;
 }
 
@@ -100,11 +110,11 @@ int main(int argc, char * argv[]){
     parse_args(argc,argv);
 
     if(roofline_lib_init(NULL, hyperthreading, whole_system)==-1)
-	errEXIT("roofline library init failure");
+	ERR_EXIT("roofline library init failure");
 
     if(mem_str != NULL){
 	mem = roofline_hwloc_parse_obj(mem_str);
-	if(mem == NULL)	errEXIT("Unrecognized object");
+	if(mem == NULL)	ERR_EXIT("Unrecognized object");
 	if(!roofline_hwloc_obj_is_memory(mem)) mem = roofline_hwloc_get_under_memory(mem, whole_system);
     }
 
@@ -112,7 +122,7 @@ int main(int argc, char * argv[]){
     if(out==NULL) out = stdout;
 
     /* print header */
-    roofline_print_header(out);
+    roofline_output_print_header(out);
 
     /* roofline for flops */
     roofline_flops(out, roofline_types);
