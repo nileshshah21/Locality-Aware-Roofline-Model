@@ -4,7 +4,7 @@
 #Duration time of each sample (millisecond)
 LAST=100
 #Number of samples per memory.
-N_SAMPLES=8
+N_SAMPLES=16
 #Use PAPI and compile tool for code sampling
 PAPI=no
 # Benchmark for intel plateform
