@@ -73,7 +73,7 @@ int roofline_hwloc_check_cpubind(hwloc_cpuset_t cpuset){
 #ifdef DEBUG2
     hwloc_obj_t bound = hwloc_get_first_largest_obj_inside_cpuset(topology, checkset);
     hwloc_obj_t bind = hwloc_get_first_largest_obj_inside_cpuset(topology, cpuset);
-    fprintf(stderr, "membind=%s:%d, bound %s:%d\n",
+    fprintf(stderr, "cpubind=%s:%d, bound %s:%d\n",
 	   hwloc_type_name(bind->type),bind->logical_index,
 	   hwloc_type_name(bound->type),bound->logical_index);
 #endif /* DEBUG2 */
@@ -82,55 +82,79 @@ int roofline_hwloc_check_cpubind(hwloc_cpuset_t cpuset){
   return ret;
 }
 
-int roofline_hwloc_check_membind(hwloc_cpuset_t nodeset){
-  hwloc_membind_policy_t policy;
-  hwloc_bitmap_t checkset;
-  int ret; 
-
-  if(nodeset == NULL)
+int roofline_hwloc_set_area_membind(hwloc_obj_t membind_location, void * ptr, size_t size){
+  /* Bind on node */
+  if(membind_location != NULL && membind_location->type == HWLOC_OBJ_NODE){
+    if(hwloc_set_area_membind(topology, ptr, size, membind_location->nodeset,HWLOC_MEMBIND_BIND,
+			      HWLOC_MEMBIND_THREAD   |
+			      HWLOC_MEMBIND_NOCPUBIND|
+			      HWLOC_MEMBIND_STRICT   |
+			      HWLOC_MEMBIND_MIGRATE  |
+			      HWLOC_MEMBIND_BYNODESET) == -1){
+      perror("hwloc_set_area_membind");
+      return 0;
+    }
+    goto print_area;
+  }
+  
+  /* Bind on Close to thread */
+  else {
+    hwloc_obj_t thread_location;
+    hwloc_cpuset_t cpuset = hwloc_bitmap_alloc();
+    if(hwloc_get_cpubind(topology, cpuset, HWLOC_CPUBIND_THREAD) == -1){
+      perror("get_cpubind");
+      goto machine_bind_error;
+    }
+    if(hwloc_get_largest_objs_inside_cpuset(topology, cpuset, &thread_location, 1) == -1){
+      perror("hwloc_get_largest_objs_inside_cpuset");
+      goto machine_bind_error;
+    }
+    while(thread_location != NULL && thread_location->type != HWLOC_OBJ_NODE) thread_location = thread_location->parent;
+    
+    if(hwloc_set_area_membind(topology, ptr, size, thread_location->nodeset, HWLOC_MEMBIND_BIND,
+			      HWLOC_MEMBIND_THREAD   |
+			      HWLOC_MEMBIND_NOCPUBIND|
+			      HWLOC_MEMBIND_STRICT   |
+			      HWLOC_MEMBIND_MIGRATE  |
+			      HWLOC_MEMBIND_BYNODESET) == -1){
+      perror("hwloc_set_area_membind");
+      goto machine_bind_error;
+    }
+    goto print_area;
+  machine_bind_error:
+    hwloc_bitmap_free(cpuset);
     return 0;
-  
-  checkset = hwloc_bitmap_alloc();
-  
-  if(hwloc_get_membind(topology, checkset, &policy, 0) == -1){
-    perror("get_membind");
-    hwloc_bitmap_free(checkset);  
-    return 0; 
   }
 
+print_area:;
+  /* Print area location */
 #ifdef DEBUG2
-    char * policy_name;
-    switch(policy){
-    case HWLOC_MEMBIND_DEFAULT:
-      policy_name = "DEFAULT";
-      break;
-    case HWLOC_MEMBIND_FIRSTTOUCH:
-      policy_name = "FIRSTTOUCH";
-      break;
-    case HWLOC_MEMBIND_BIND:
-      policy_name = "BIND";
-      break;
-    case HWLOC_MEMBIND_INTERLEAVE:
-      policy_name = "INTERLEAVE";
-      break;
-    case HWLOC_MEMBIND_NEXTTOUCH:
-      policy_name = "NEXTTOUCH";
-      break;
-    case HWLOC_MEMBIND_MIXED:
-      policy_name = "MIXED";
-      break;
-    default:
-      policy_name=NULL;
-      break;
-    }
-    hwloc_obj_t mem_obj = hwloc_get_first_largest_obj_inside_cpuset(topology, checkset);
-    printf("membind(%s)=%s:%d\n",policy_name,hwloc_type_name(mem_obj->type),mem_obj->logical_index);
-#endif /* DEBUG2 */
+  hwloc_bitmap_t area = hwloc_bitmap_alloc();
+  hwloc_membind_policy_t policy;
 
-  ret = hwloc_bitmap_isequal(nodeset,checkset);
-  hwloc_bitmap_free(checkset);  
-  return ret;
+  if(hwloc_get_area_membind(topology, ptr, size, area, &policy, 0) == -1){
+    perror("hwloc_get_area_membind");
+    goto print_area_error;
+  }
+  hwloc_obj_t location;
+  if(hwloc_get_largest_objs_inside_cpuset(topology, area, &location, 1) == -1){
+    perror("hwloc_get_largest_objs_inside_cpuset");
+    goto print_area_error;
+  }
+  char area_str[128]; memset(area_str, 0, sizeof(area_str));
+  char target[128]; memset(target, 0, sizeof(target));
+  roofline_hwloc_obj_snprintf(membind_location, target, sizeof(target));
+  if(location != NULL) roofline_hwloc_obj_snprintf(location, area_str, sizeof(area_str));
+  roofline_debug2("area allocation on %s, allocated on %s\n", target, area_str);
+  
+print_area_error:
+  hwloc_bitmap_free(area);
+#endif
+
+  memset(ptr, 0, size);
+  return 1;
 }
+
 
 inline int roofline_hwloc_objtype_is_cache(hwloc_obj_type_t type){
   return type==HWLOC_OBJ_L1CACHE || type==HWLOC_OBJ_L2CACHE || type==HWLOC_OBJ_L3CACHE || type==HWLOC_OBJ_L4CACHE || type==HWLOC_OBJ_L5CACHE;
@@ -165,31 +189,12 @@ hwloc_obj_t roofline_hwloc_parse_obj(char* arg){
   return hwloc_get_obj_by_depth(topology,depth,logical_index);
 }
 
-int roofline_hwloc_cpubind(hwloc_obj_t obj){
-  if(hwloc_set_cpubind(topology, obj->cpuset, HWLOC_CPUBIND_THREAD|HWLOC_CPUBIND_STRICT|HWLOC_CPUBIND_NOMEMBIND) == -1){
+int roofline_hwloc_cpubind(hwloc_obj_t obj, int flag){
+  if(hwloc_set_cpubind(topology, obj->cpuset, flag|HWLOC_CPUBIND_STRICT|HWLOC_CPUBIND_NOMEMBIND) == -1){
     perror("cpubind");
     return 0;
   }
   return roofline_hwloc_check_cpubind(obj->cpuset);
-}
-
-int roofline_hwloc_membind(hwloc_obj_t obj){
-  if(obj->type == HWLOC_OBJ_NODE){
-    if(hwloc_set_membind(topology,obj->nodeset,HWLOC_MEMBIND_BIND,HWLOC_MEMBIND_BYNODESET) == -1){
-      perror("membind");
-      return 0;
-    }
-  }
-  else if(obj->type == HWLOC_OBJ_MACHINE){
-    if(hwloc_set_membind(topology,obj->nodeset,HWLOC_MEMBIND_FIRSTTOUCH,HWLOC_MEMBIND_BYNODESET) == -1){
-      perror("membind");
-      return 0;
-    }
-  }
-  else{return 1;}
-  
-  /* binding */
-  return roofline_hwloc_check_membind(obj->cpuset);
 }
 
 int roofline_hwloc_obj_is_memory(hwloc_obj_t obj){

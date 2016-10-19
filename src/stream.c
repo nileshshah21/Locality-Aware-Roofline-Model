@@ -1,7 +1,9 @@
 #include <stdio.h>
+#include <string.h>
 #include <errno.h>
 #include "utils.h"
 #include "stream.h"
+#include "topology.h"
 
 extern size_t alignement; /* Level 1 cache line size */
 
@@ -50,8 +52,9 @@ void roofline_stream_split(roofline_stream in, roofline_stream chunk, unsigned n
 {
   chunk->alloc_size = in->alloc_size/n_chunk;
   chunk->size = resize_splitable_chunk(in->size/n_chunk, op_type);
-  chunk->stream = &(in->stream[(chunk_id%n_chunk)*chunk->alloc_size/sizeof(*(in->stream))]);
-  roofline_debug1("Split buffer(%luB) into %luB. Chunk is at %luB\n", in->size, chunk->size, chunk->stream-in->stream);
+  chunk->stream = in->stream + (chunk_id%n_chunk)*chunk->alloc_size/sizeof(*(in->stream));
+  roofline_debug1("Split buffer(%luB) into %luB. Chunk is at %luB\n",
+		  in->alloc_size, chunk->alloc_size, (chunk_id%n_chunk)*chunk->alloc_size);
 }
 
 void roofline_stream_set_size(roofline_stream in, const size_t size, const int op_type){
