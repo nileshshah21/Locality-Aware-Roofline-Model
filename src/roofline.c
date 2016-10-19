@@ -288,8 +288,8 @@ void roofline_oi(FILE * output, const hwloc_obj_t mem, const int type, const uns
     if(mem_types[i] & mem_type){
       for(j=3;j>=0;j--){
 	if(flop_types[j] & flop_type){
-	  printf("validation of %-4s and %-8s operations on %s memory level\n",
-		 roofline_type_str(flop_types[j]), roofline_type_str(mem_types[i]), mem_str);
+	  printf("validation of %-4s(%uFlops) and %-8s(%uBytes) operations on %s memory level\n",
+		 roofline_type_str(flop_types[j]), flops, roofline_type_str(mem_types[i]), bytes, mem_str);
 	  t = flop_types[j]|mem_types[i];
 	  bench = benchmark_validation(t, flops, bytes);
 	  if(bench == NULL){continue;}
