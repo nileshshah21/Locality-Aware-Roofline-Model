@@ -41,8 +41,7 @@ int roofline_filter_types(hwloc_obj_t obj, int type){
     if(type & ROOFLINE_LOAD_NT) fprintf(stderr, "skip load_nt type not meaningful for %s\n", hwloc_type_name(obj->type));
     if(type & ROOFLINE_STORE_NT) fprintf(stderr, "skip store_nt type not meaningful for %s\n", hwloc_type_name(obj->type));
     obj_type = type & CACHE_possible;
-    if(obj_type == 0) obj_type = ROOFLINE_2LD1ST & supported;
-    if(obj_type == 0) obj_type = (ROOFLINE_LOAD|ROOFLINE_STORE) & supported;
+    if(obj_type == 0) obj_type = ROOFLINE_LOAD|ROOFLINE_STORE|ROOFLINE_2LD1ST & supported;
   }
     
   else if(obj->type == HWLOC_OBJ_L2CACHE ||

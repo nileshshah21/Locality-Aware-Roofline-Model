@@ -23,6 +23,7 @@ int roofline_hwloc_get_memory_bounds(hwloc_obj_t memory, size_t * lower, size_t 
   child  = roofline_hwloc_get_under_memory(memory, root->type == HWLOC_OBJ_MACHINE);
   if(child != NULL){
     *lower = 2*roofline_hwloc_get_memory_size(child);
+    if(hwloc_get_type_depth(topology, memory->type) >= hwloc_get_type_depth(topology, HWLOC_OBJ_NODE)) *lower *= 8;
     n_child = hwloc_get_nbobjs_inside_cpuset_by_type(topology, root->cpuset, child->type);
   }
   else{*lower = get_chunk_size(op_type)*n_threads;}
@@ -263,3 +264,4 @@ hwloc_obj_t roofline_hwloc_get_next_memory(hwloc_obj_t obj, int whole_system){
   /* No memory left in topology */
   return obj;
 }
+
