@@ -23,7 +23,7 @@ int roofline_hwloc_get_memory_bounds(hwloc_obj_t memory, size_t * lower, size_t 
   child  = roofline_hwloc_get_under_memory(memory, root->type == HWLOC_OBJ_MACHINE);
   if(child != NULL){
     *lower = 2*roofline_hwloc_get_memory_size(child);
-    if(hwloc_get_type_depth(topology, memory->type) >= hwloc_get_type_depth(topology, HWLOC_OBJ_NODE)) *lower *= 8;
+    if(hwloc_get_type_depth(topology, memory->type) <= hwloc_get_type_depth(topology, HWLOC_OBJ_NODE)) *lower *= 8;
     n_child = hwloc_get_nbobjs_inside_cpuset_by_type(topology, root->cpuset, child->type);
   }
   else{*lower = get_chunk_size(op_type)*n_threads;}
@@ -38,9 +38,9 @@ int roofline_hwloc_get_memory_bounds(hwloc_obj_t memory, size_t * lower, size_t 
 
   if(*upper<*lower){
     if(child!=NULL){
-      fprintf(stderr, "%s(%ld MB) above %s(%ld MB) is not large enough to be split into %u*%ld\n", 
-	      hwloc_type_name(memory->type), (unsigned long)(roofline_hwloc_get_memory_size(memory)/1e6), 
-	      hwloc_type_name(child->type), (unsigned long)(roofline_hwloc_get_memory_size(child)/1e6), 
+      fprintf(stderr, "%s(%ld KB) above %s(%ld KB) is not large enough to be split into %u*%ld\n", 
+	      hwloc_type_name(memory->type), (unsigned long)(roofline_hwloc_get_memory_size(memory)/1e3), 
+	      hwloc_type_name(child->type), (unsigned long)(roofline_hwloc_get_memory_size(child)/1e3), 
 	      n_child, (unsigned long)(roofline_hwloc_get_memory_size(child)/1e6));
     }
     else{
