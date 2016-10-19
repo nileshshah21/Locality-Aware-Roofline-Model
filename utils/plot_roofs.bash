@@ -17,7 +17,7 @@ usage(){
     printf "\t-d <input data-file given by roofline library to plot applications on the roofline chart>\n"
     printf "\t-t <title>\n"
     printf "\t-p (per_thread: divide roofs' value by the number of threads)\n"
-    printf "\t-v (plot validation points if any)\n"
+    printf "\t-c (check model with validation points if any)\n"
     printf "\t-s (plot bandwidths deviation around median)\n"
     printf "\t-v (verbose summary of roofs)\n" 
     exit
@@ -33,7 +33,7 @@ VERBOSE="FALSE"
 
 #################################################################################################################################
 ## Parse options
-while getopts :o:i:t:d:m:f:hbpvsq opt; do
+while getopts :o:i:t:d:m:f:hbpvsc opt; do
     case $opt in
 	o) OUTPUT=$OPTARG;;
 	d) DATA=$OPTARG;;
@@ -42,9 +42,9 @@ while getopts :o:i:t:d:m:f:hbpvsq opt; do
 	f) FILTER="$OPTARG";;
 	t) TITLE="$OPTARG";;
 	p) SINGLE="TRUE";;
-	v) VALIDATION="TRUE";;
+	c) VALIDATION="TRUE";;
 	s) DEVIATION="TRUE";;
-	q) VERBOSE="TRUE";;
+	v) VERBOSE="TRUE";;
 	h) usage;;
 	:) echo "Option -$OPTARG requires an argument."; exit;;
     esac
@@ -144,9 +144,14 @@ plot_bandwidth <- function(val, sd = 0, color = 1){
   plot(oi, gflops, lty=1, type="l", log="xy", axes=FALSE, xlim=xlim, ylim=ylim, col=color, panel.first=abline(h=yticks, v=xticks,col = "darkgray", lty = 3))
   par(new=TRUE);
   if($DEVIATION){
-    xdev=sd*sd*sqrt(1+(1/(val*val)))
-    coord.x = c(xmin*(1-xdev), fpeak_max/val*(1 - xdev), fpeak_max/val*(1 + xdev), xmin*(1+xdev))
-    coord.y = c(xmin*val, fpeak_max, fpeak_max, xmin*val)
+    a0.x = oi[1];                  a0.y = oi[1]*val
+    a1.x = oi[1];                  a1.y = oi[1]*(val+sd*0.5)
+    a2.x = fpeak_max/(val+sd*0.5); a2.y = fpeak_max
+    a3.x = fpeak_max/val;          a3.y = fpeak_max
+    a4.x = fpeak_max/val;          a4.y = fpeak_max*(1-sd*0.5/val)
+    a5.x = oi[1]*val/(val-0.5*sd);  a5.y = oi[1]*val
+    coord.x = c(a0.x, a1.x, a2.x, a3.x, a4.x, a5.x)
+    coord.y = c(a0.y, a1.y, a2.y, a3.y, a4.y, a5.y)
     polygon(coord.x,coord.y,col=adjustcolor(i,alpha.f=.25), lty="blank")
     par(new=TRUE);
   }
@@ -189,13 +194,16 @@ if($VALIDATION){
     if($SINGLE){
       valid[,dgflops] = valid[,dgflops]/valid[,dthreads]
     }
-    if(!$DEVIATION){
-      ois = unique(valid[,doi])
-      for(oi in ois){
-        points(oi, median(subset(valid[,dgflops], valid[,doi] == oi)), asp=1, pch=i, col=i)
+    ois = unique(valid[,doi])
+    for(oi in ois){
+      perf = median(subset(valid[,dgflops], valid[,doi] == oi))
+      if($DEVIATION){
+        dev = sd(subset(valid[,dgflops], valid[,doi] == oi))
+        points(oi, perf, asp=1, pch=1, col=i, cex=.4)
+        segments(x0 = oi, x1 = oi, y0 = perf-dev*0.5, y1=perf+dev*0.5, col=i, lty=1)
+      } else {
+        points(oi, perf, asp=1, pch=3, col=i, cex=.7)
       }
-    } else {
-      points(valid[,doi], valid[,dgflops], asp=1, pch=i, col=i)
     }
     par(new=TRUE);
   }
