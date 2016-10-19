@@ -99,9 +99,6 @@ void roofline_fpeak(FILE * output, int op_type)
 {
   int i;
   roofline_output out;
-
-  printf("benchmark compute unit for %s operation\n", roofline_type_str(op_type));
-  
   long repeat = roofline_autoset_repeat(NULL, NULL, op_type, NULL);
   
 #ifdef _OPENMP
@@ -142,12 +139,6 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
     roofline_debug2("Skip memory level above top desired memory %s\n", hwloc_type_name(root->type));
     return;
   }
-
-  printf("%s %s:%d memory level for %s operation\n",
-	 benchmark != NULL ? "validation" : "benchmark",
-	 hwloc_type_name(memory->type),
-	 memory->logical_index,
-	 roofline_type_str(op_type));
   
   /* Get memory size bounds */
   if(roofline_hwloc_get_memory_bounds(memory, &low_size, &up_size, op_type) == -1) return;
@@ -230,28 +221,55 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
 
 
 void roofline_bandwidth(FILE * output, const hwloc_obj_t mem, const int type){
+  char mem_str[128]; memset(mem_str, 0, sizeof(mem_str));
+  roofline_hwloc_obj_snprintf(mem,mem_str,sizeof(mem_str));
+  
   int restrict_type = roofline_filter_types(mem, type);
-  if(restrict_type & ROOFLINE_LOAD)
+  if(restrict_type & ROOFLINE_LOAD){
+    printf("benchmark %s memory level for %-4s operation\n", mem_str, roofline_type_str(ROOFLINE_LOAD));
     roofline_memory(output,mem,ROOFLINE_LOAD, NULL);
-  if(restrict_type & ROOFLINE_LOAD_NT)
+  }
+  if(restrict_type & ROOFLINE_LOAD_NT){
+    printf("benchmark %s memory level for %-4s operation\n", mem_str, roofline_type_str(ROOFLINE_LOAD_NT));
     roofline_memory(output,mem,ROOFLINE_LOAD_NT, NULL);
-  if(restrict_type & ROOFLINE_STORE)
+  }
+  if(restrict_type & ROOFLINE_STORE){
+    printf("benchmark %s memory level for %-4s operation\n", mem_str, roofline_type_str(ROOFLINE_STORE));
     roofline_memory(output,mem,ROOFLINE_STORE, NULL);
-  if(restrict_type & ROOFLINE_STORE_NT)
+  }
+  if(restrict_type & ROOFLINE_STORE_NT){
+    printf("benchmark %s memory level for %-4s operation\n", mem_str, roofline_type_str(ROOFLINE_STORE_NT));
     roofline_memory(output,mem,ROOFLINE_STORE_NT, NULL);
-  if(restrict_type & ROOFLINE_2LD1ST)
+  }
+  if(restrict_type & ROOFLINE_2LD1ST){
+    printf("benchmark %s memory level for %-4s operation\n", mem_str, roofline_type_str(ROOFLINE_2LD1ST));
     roofline_memory(output,mem,ROOFLINE_2LD1ST, NULL);
-  if(restrict_type & ROOFLINE_COPY)
+  }
+  if(restrict_type & ROOFLINE_COPY){
+    printf("benchmark %s memory level for %-4s operation\n", mem_str, roofline_type_str(ROOFLINE_COPY));
     roofline_memory(output,mem,ROOFLINE_COPY, NULL);
+  }
 }
 
 void roofline_flops(FILE * output, const int type){
   hwloc_obj_t core = hwloc_get_obj_by_type(topology, HWLOC_OBJ_CORE, 0);
   int restrict_type = roofline_filter_types(core, type);   
-  if(restrict_type & ROOFLINE_ADD){roofline_fpeak(output,ROOFLINE_ADD);}
-  if(restrict_type & ROOFLINE_MUL){roofline_fpeak(output,ROOFLINE_MUL);}
-  if(restrict_type & ROOFLINE_MAD){roofline_fpeak(output,ROOFLINE_MAD);}
-  if(restrict_type & ROOFLINE_FMA){roofline_fpeak(output,ROOFLINE_FMA);}
+  if(restrict_type & ROOFLINE_ADD){
+    printf("benchmark compute unit for %-8s operation\n", roofline_type_str(ROOFLINE_ADD));
+    roofline_fpeak(output,ROOFLINE_ADD);
+  }
+  if(restrict_type & ROOFLINE_MUL){
+    printf("benchmark compute unit for %-8s operation\n", roofline_type_str(ROOFLINE_MUL));
+    roofline_fpeak(output,ROOFLINE_MUL);
+  }
+  if(restrict_type & ROOFLINE_MAD){
+    printf("benchmark compute unit for %-8s operation\n", roofline_type_str(ROOFLINE_MAD));
+    roofline_fpeak(output,ROOFLINE_MAD);
+  }
+  if(restrict_type & ROOFLINE_FMA){
+    printf("benchmark compute unit for %-8s operation\n", roofline_type_str(ROOFLINE_FMA));
+    roofline_fpeak(output,ROOFLINE_FMA);
+  }
 }
 
 void roofline_oi(FILE * output, const hwloc_obj_t mem, const int type, const unsigned flops, const unsigned bytes){
@@ -260,6 +278,8 @@ void roofline_oi(FILE * output, const hwloc_obj_t mem, const int type, const uns
   hwloc_obj_t core = hwloc_get_obj_by_type(topology, HWLOC_OBJ_CORE, 0);
   const int mem_types[6] = {ROOFLINE_LOAD, ROOFLINE_LOAD_NT, ROOFLINE_STORE, ROOFLINE_STORE_NT, ROOFLINE_2LD1ST, ROOFLINE_COPY};
   const int flop_types[4] = {ROOFLINE_ADD, ROOFLINE_MUL, ROOFLINE_MAD, ROOFLINE_FMA};
+  char mem_str[128]; memset(mem_str, 0, sizeof(mem_str));
+  roofline_hwloc_obj_snprintf(mem,mem_str,sizeof(mem_str));
 
   flop_type = roofline_filter_types(core, type);
   mem_type = roofline_filter_types(mem, type);
@@ -268,6 +288,8 @@ void roofline_oi(FILE * output, const hwloc_obj_t mem, const int type, const uns
     if(mem_types[i] & mem_type){
       for(j=3;j>=0;j--){
 	if(flop_types[j] & flop_type){
+	  printf("validation of %-4s and %-8s operations on %s memory level\n",
+		 roofline_type_str(flop_types[j]), roofline_type_str(mem_types[i]), mem_str);
 	  t = flop_types[j]|mem_types[i];
 	  bench = benchmark_validation(t, flops, bytes);
 	  if(bench == NULL){continue;}
