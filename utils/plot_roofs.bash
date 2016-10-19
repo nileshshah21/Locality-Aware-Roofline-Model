@@ -144,14 +144,12 @@ plot_bandwidth <- function(val, sd = 0, color = 1){
   plot(oi, gflops, lty=1, type="l", log="xy", axes=FALSE, xlim=xlim, ylim=ylim, col=color, panel.first=abline(h=yticks, v=xticks,col = "darkgray", lty = 3))
   par(new=TRUE);
   if($DEVIATION){
-    a0.x = oi[1];                  a0.y = oi[1]*val
+    a0.x = oi[1];                  a0.y = oi[1]*(val-sd*0.5)
     a1.x = oi[1];                  a1.y = oi[1]*(val+sd*0.5)
     a2.x = fpeak_max/(val+sd*0.5); a2.y = fpeak_max
-    a3.x = fpeak_max/val;          a3.y = fpeak_max
-    a4.x = fpeak_max/val;          a4.y = fpeak_max*(1-sd*0.5/val)
-    a5.x = oi[1]*val/(val-0.5*sd);  a5.y = oi[1]*val
-    coord.x = c(a0.x, a1.x, a2.x, a3.x, a4.x, a5.x)
-    coord.y = c(a0.y, a1.y, a2.y, a3.y, a4.y, a5.y)
+    a3.x = fpeak_max/(val-sd*0.5); a3.y = fpeak_max
+    coord.x = c(a0.x, a1.x, a2.x, a3.x)
+    coord.y = c(a0.y, a1.y, a2.y, a3.y)
     polygon(coord.x,coord.y,col=adjustcolor(i,alpha.f=.25), lty="blank")
     par(new=TRUE);
   }
