@@ -48,7 +48,6 @@ int roofline_lib_init(hwloc_topology_t topo, int with_hyperthreading, int whole_
   else root = hwloc_get_root_obj(topology);
 
   /* bind future threads to root */
-  roofline_hwloc_cpubind(root, HWLOC_CPUBIND_PROCESS);
   leaf_type = with_hyperthreading ? HWLOC_OBJ_PU:HWLOC_OBJ_CORE;
   
 #if defined(_OPENMP)
@@ -110,7 +109,7 @@ void roofline_fpeak(FILE * output, int op_type)
 #ifdef _OPENMP
 #pragma omp parallel reduction(+:out)
     {
-      roofline_hwloc_cpubind(hwloc_get_obj_by_type(topology, leaf_type, omp_get_thread_num()), HWLOC_CPUBIND_THREAD);
+      roofline_hwloc_cpubind(leaf_type);
 #endif
       benchmark_fpeak(op_type, &out, repeat);
 
@@ -159,20 +158,18 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
 #ifdef _OPENMP
 #pragma omp parallel firstprivate(tid)
   {
-    roofline_hwloc_cpubind(hwloc_get_obj_by_type(topology, leaf_type, omp_get_thread_num()), HWLOC_CPUBIND_THREAD);
+    tid = omp_get_thread_num();
+#endif
+    roofline_hwloc_cpubind(leaf_type);
     struct roofline_stream_s src_chunk, dst_chunk;
     roofline_stream_split(src, &(src_chunk), n_threads, tid, op_type);
     roofline_stream_split(dst, &(dst_chunk), n_threads, tid, op_type);
     /* bind memory */
     roofline_hwloc_set_area_membind(memory, src_chunk.stream, src_chunk.alloc_size);
     roofline_hwloc_set_area_membind(memory, dst_chunk.stream, dst_chunk.alloc_size);
+#ifdef _OPENMP
   }
-#else
-  roofline_hwloc_cpubind(hwloc_get_obj_by_type(topology, leaf_type, 0), HWLOC_CPUBIND_THREAD);
-  roofline_hwloc_set_area_membind(memory, src->stream, src->alloc_size);
-  roofline_hwloc_set_area_membind(memory, dst->stream, dst->alloc_size);
 #endif
-
   
   for(i=0;i<n_sizes;i++){
     roofline_stream_set_size(src, sizes[i], op_type);
@@ -187,7 +184,7 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
     {
       tid = omp_get_thread_num();
 #endif
-      roofline_hwloc_cpubind(hwloc_get_obj_by_type(topology, leaf_type, tid), HWLOC_CPUBIND_THREAD);
+      roofline_hwloc_cpubind(leaf_type);
       struct roofline_stream_s src_chunk, dst_chunk;
       roofline_stream_split(src, &(src_chunk), n_threads, tid, op_type);
       roofline_stream_split(dst, &(dst_chunk), n_threads, tid, op_type);

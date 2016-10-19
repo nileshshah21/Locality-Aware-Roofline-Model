@@ -190,12 +190,21 @@ hwloc_obj_t roofline_hwloc_parse_obj(char* arg){
   return hwloc_get_obj_by_depth(topology,depth,logical_index);
 }
 
-int roofline_hwloc_cpubind(hwloc_obj_t obj, int flag){
-  if(hwloc_set_cpubind(topology, obj->cpuset, flag|HWLOC_CPUBIND_STRICT|HWLOC_CPUBIND_NOMEMBIND) == -1){
+int roofline_hwloc_cpubind(hwloc_obj_type_t leaf_type){
+  unsigned tid = 0;
+#ifdef _OPENMP
+  tid = omp_get_thread_num();
+#endif
+  unsigned n_leaves = hwloc_get_nbobjs_by_type(topology, leaf_type);
+  hwloc_obj_t leaf = hwloc_get_obj_by_type(topology, leaf_type, tid%n_leaves);
+  if(leaf_type == HWLOC_OBJ_CORE) leaf = leaf->first_child;
+  
+  if(hwloc_set_cpubind(topology, leaf->cpuset, HWLOC_CPUBIND_THREAD|HWLOC_CPUBIND_STRICT|HWLOC_CPUBIND_NOMEMBIND) == -1){
     perror("cpubind");
     return 0;
   }
-  return roofline_hwloc_check_cpubind(obj->cpuset);
+  
+  return roofline_hwloc_check_cpubind(leaf->cpuset);
 }
 
 int roofline_hwloc_obj_is_memory(hwloc_obj_t obj){
