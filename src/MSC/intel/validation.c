@@ -33,7 +33,7 @@ static void dprint_FUOP(int fd, int type, unsigned * i, unsigned * regnum){
     if((*i)%2) dprint_FUOP_by_ins(fd, SIMD_MUL, regnum);
     else dprint_FUOP_by_ins(fd, SIMD_ADD, regnum);
     break;
-#if defined (__FMA__)  && defined (__AVX__)
+#if defined (__FMA__)
   case ROOFLINE_FMA:
     dprint_FUOP_by_ins(fd, SIMD_FMA, regnum);
     break;
@@ -177,10 +177,11 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int mem_type,
   } while(regnum != SIMD_N_REGS-1 && offset < L1_size/2 && max--);
   dprint_oi_bench_end(fd, idx, offset);
   
-  long flops = SIMD_FLOPS * fuops * (flop_type == ROOFLINE_FMA ? 2 : 1);
-  
-  dprintf(fd, "out->instructions = repeat * %u * data->size / %lu;\n", muops+fuops, offset);
-  dprintf(fd, "out->flops = repeat * %ld * data->size / %lu;\n", flops, offset);
+  dprintf(fd, "out->instructions = repeat * data->size * %u / %u;\n", fuops+muops, muops*SIMD_BYTES);
+  dprintf(fd, "out->flops = repeat * data->size * %u * %u / %u;\n",
+	  flop_ins*SIMD_FLOPS,
+	  flop_type == ROOFLINE_FMA ? 2 : 1,
+	  mem_ins*SIMD_BYTES);
   dprintf(fd, "out->bytes = repeat * data->size;\n");
   dprintf(fd, "}\n\n");
   free(idx);
