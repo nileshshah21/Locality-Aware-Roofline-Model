@@ -93,7 +93,7 @@ int roofline_hwloc_check_cpubind(hwloc_cpuset_t cpuset){
 
 int roofline_hwloc_set_area_membind(hwloc_obj_t membind_location, void * ptr, size_t size){
   /* Bind on node */
-  if(membind_location != NULL && membind_location->arity != 1){
+  if(membind_location != NULL && membind_location->parent != NULL && membind_location->parent->arity != 1){
     if(hwloc_set_area_membind(topology, ptr, size, membind_location->nodeset,HWLOC_MEMBIND_BIND,
 			      HWLOC_MEMBIND_THREAD   |
 			      HWLOC_MEMBIND_NOCPUBIND|
