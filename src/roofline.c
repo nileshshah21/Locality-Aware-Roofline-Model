@@ -76,7 +76,8 @@ int roofline_lib_init(hwloc_topology_t topo, const char * threads_location, int 
   LLC = hwloc_get_root_obj(topology);
   while(LLC != NULL && !roofline_hwloc_objtype_is_cache(LLC->type)) LLC = LLC->first_child;
   if(LLC == NULL) ERR_EXIT("Error: no LLC cache found\n");
-  max_size = (((struct hwloc_cache_attr_s *)LLC->attr)->size)*128;
+  max_size = (((struct hwloc_cache_attr_s *)LLC->attr)->size)* 256 *
+    hwloc_get_nbobjs_inside_cpuset_by_depth(topology, root->cpuset, LLC->depth);
 
   /* Check if cpu frequency has been defined */
 #ifndef CPU_FREQ

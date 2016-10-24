@@ -18,15 +18,13 @@ void roofline_hwloc_check_version(){
 int roofline_hwloc_get_memory_bounds(hwloc_obj_t memory, size_t * lower, size_t * upper, int op_type){
   hwloc_obj_t child = NULL;
   unsigned n_child = 1, n_memory = 1;
-
-  
   
   /* Set lower bound size */
   child  = roofline_hwloc_get_under_memory(memory);
   if(child == NULL) *lower = get_chunk_size(op_type)*n_threads;
   else{
     if((int)memory->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NODE)){
-      while(child->type == HWLOC_OBJ_NODE || child->type == HWLOC_OBJ_MACHINE)
+      while((int)child->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NODE))
 	child  = roofline_hwloc_get_under_memory(child);
       *lower = 16*roofline_hwloc_get_memory_size(child);
     }
@@ -95,7 +93,7 @@ int roofline_hwloc_check_cpubind(hwloc_cpuset_t cpuset){
 
 int roofline_hwloc_set_area_membind(hwloc_obj_t membind_location, void * ptr, size_t size){
   /* Bind on node */
-  if(membind_location != NULL && membind_location->type == HWLOC_OBJ_NODE){
+  if(membind_location != NULL && membind_location->arity != 1){
     if(hwloc_set_area_membind(topology, ptr, size, membind_location->nodeset,HWLOC_MEMBIND_BIND,
 			      HWLOC_MEMBIND_THREAD   |
 			      HWLOC_MEMBIND_NOCPUBIND|
@@ -223,7 +221,7 @@ int roofline_hwloc_cpubind(hwloc_obj_type_t leaf_type){
 int roofline_hwloc_obj_is_memory(hwloc_obj_t obj){
   hwloc_obj_cache_type_t type;
   
-  if (obj->type == HWLOC_OBJ_NODE || obj->type == HWLOC_OBJ_MACHINE) return 1;
+  if ((int)obj->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NODE)) return 1;
   if(roofline_hwloc_objtype_is_cache(obj->type)){
     type = obj->attr->cache.type;
     if(type == HWLOC_OBJ_CACHE_UNIFIED || type == HWLOC_OBJ_CACHE_DATA){
@@ -263,7 +261,9 @@ hwloc_obj_t roofline_hwloc_get_under_memory(hwloc_obj_t obj){
   while(child != NULL && !roofline_hwloc_obj_is_memory(child)) child = child->first_child;
   
   /* If we want whole system memory, we skip individual NUMANODES */
-  if(child!=NULL && (int)root->depth < hwloc_get_type_depth(topology, HWLOC_OBJ_NODE))
+  if(child!=NULL &&
+     (int)root->depth < hwloc_get_type_depth(topology, HWLOC_OBJ_NODE) &&
+     (int)child->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NODE))
     return roofline_hwloc_get_under_memory(child);
   return child;
 }
@@ -273,15 +273,11 @@ hwloc_obj_t roofline_hwloc_get_next_memory(hwloc_obj_t obj){
   /* If current_obj is not set, start from the bottom of the topology to return the first memory */
   if(obj == NULL) obj = hwloc_get_obj_by_depth(topology,hwloc_topology_get_depth(topology)-1,0);
   
-  /* If current obj is a node, then next memory is a node at same depth (case where we dont look whole system)*/
-  if(obj->type==HWLOC_OBJ_NODE && (int)root->depth >= hwloc_get_type_depth(topology, HWLOC_OBJ_NODE)) return obj->next_cousin;
+  /* If current obj is root, then next memory is at same depth than root */
+  if(obj->type==root->type && (int)root->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NODE)) return obj->next_cousin;
   
   /* get parent memory */
   do{obj=obj->parent;} while(obj!=NULL && !roofline_hwloc_obj_is_memory(obj));
-
-  /* We stopped on a memory subsystem or NULL. If we don't want a NUMANODE (case whole system) we skip it */
-  if(obj != NULL && obj->type == HWLOC_OBJ_NODE && (int)root->depth < hwloc_get_type_depth(topology, HWLOC_OBJ_NODE))
-    return roofline_hwloc_get_next_memory(obj);
   
   /* No memory left in topology */
   return obj;
