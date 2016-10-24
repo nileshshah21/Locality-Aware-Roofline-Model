@@ -24,7 +24,7 @@ static void usage(char * argv0){
     printf("\t-t, --type  <\"LOAD|LOAD_NT|STORE|STORE_NT|2LD1ST|MUL|ADD|MAD\">: choose the roofline types among load, load_nt, store, store_nt, or 2loads/1store for memory, add, mul, and fma for fpeak.\n");
     printf("\t-m, --memory <hwloc_ibj:idx>: benchmark a single memory level.\n");
     printf("\t--CARM: Build the Cache Aware Roofline Model.\n");
-    printf("\t-s, --src: Build the model with threads at leaves of src obj.\n");
+    printf("\t-s, --src <hwloc_ibj:idx>: Build the model with threads at leaves of src obj. Default is Node:0.\n");
     printf("\t-o, --output <output>: Set output file to write results.\n");
 #if defined(_OPENMP)
     printf("\t-ht, --with-hyperthreading: use hyperthreading for benchmarks\n");
