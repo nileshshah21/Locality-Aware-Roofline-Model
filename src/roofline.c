@@ -25,7 +25,8 @@ int roofline_lib_init(hwloc_topology_t topo, const char * threads_location, int 
 {
   hwloc_obj_t L1, LLC;
   char * cpu_freq_str;
-
+  unsigned n_LLC;
+  
   /* Check hwloc version */
   roofline_hwloc_check_version();
 
@@ -72,12 +73,13 @@ int roofline_lib_init(hwloc_topology_t topo, const char * threads_location, int 
   alignement = L1->attr->cache.linesize;
   L1_size = roofline_hwloc_get_memory_size(L1);
   
-  /* Find LLC cache size to set maximum buffer size */ 
+  /* Find LLC cache size to set maximum buffer size */
+  
   LLC = hwloc_get_root_obj(topology);
   while(LLC != NULL && !roofline_hwloc_objtype_is_cache(LLC->type)) LLC = LLC->first_child;
   if(LLC == NULL) ERR_EXIT("Error: no LLC cache found\n");
-  max_size = (((struct hwloc_cache_attr_s *)LLC->attr)->size)* 256 *
-    hwloc_get_nbobjs_inside_cpuset_by_depth(topology, root->cpuset, LLC->depth);
+  n_LLC = hwloc_get_nbobjs_inside_cpuset_by_depth(topology, root->cpuset, LLC->depth);
+  max_size = (((struct hwloc_cache_attr_s *)LLC->attr)->size)* 256 * roofline_MAX(n_LLC,1) ;
 
   /* Check if cpu frequency has been defined */
 #ifndef CPU_FREQ
