@@ -13,7 +13,7 @@ static hwloc_obj_t mem = NULL;          /* Do we restrict memory to one memory *
 static int hyperthreading = 0;          /* If compiled with openmp do we use hyperthreading */
 static double oi = 0;                   /* -1 => perform validation benchmarks, >0 => perform validation benchmarks on value */
 static unsigned int roofline_types = 0; /* What rooflines do we want in byte array */
-static int whole_system = 0;            /* do we benchmark the whole system (no NUMA effects, no heterogeneous memory) */
+static char * thread_location = NULL;   /* Threads location */
 
 static void usage(char * argv0){
     printf("%s <options...>\n\n", argv0);
@@ -24,6 +24,7 @@ static void usage(char * argv0){
     printf("\t-t, --type  <\"LOAD|LOAD_NT|STORE|STORE_NT|2LD1ST|MUL|ADD|MAD\">: choose the roofline types among load, load_nt, store, store_nt, or 2loads/1store for memory, add, mul, and fma for fpeak.\n");
     printf("\t-m, --memory <hwloc_ibj:idx>: benchmark a single memory level.\n");
     printf("\t--CARM: Build the Cache Aware Roofline Model.\n");
+    printf("\t-s, --src: Build the model with threads at leaves of src obj.\n");
     printf("\t-o, --output <output>: Set output file to write results.\n");
 #if defined(_OPENMP)
     printf("\t-ht, --with-hyperthreading: use hyperthreading for benchmarks\n");
@@ -60,10 +61,13 @@ static void parse_args(int argc, char ** argv){
 	else if(!strcmp(argv[i],"--memory") || !strcmp(argv[i],"-m")){
 	    mem_str = argv[++i];
 	}
+	else if(!strcmp(argv[i],"--src") || !strcmp(argv[i],"-s")){
+	    thread_location = argv[++i];
+	}
 	else if(!strcmp(argv[i],"--CARM")){
 	  hyperthreading = 0;
 	  roofline_types = ROOFLINE_MAD|ROOFLINE_2LD1ST;
-	  whole_system = 1;
+	  thread_location = "Machine:0";
 	}
 	else if(!strcmp(argv[i],"--output") || !strcmp(argv[i],"-o")){
 	    output = argv[++i];
@@ -72,9 +76,17 @@ static void parse_args(int argc, char ** argv){
 }
 
 static void bench_memory(FILE * out, hwloc_obj_t mem){
-  hwloc_obj_t core = hwloc_get_obj_by_type(topology, HWLOC_OBJ_CORE, 0);
-  int mem_type = roofline_filter_types(mem, roofline_types);
-  int flop_type = roofline_filter_types(core, roofline_types);
+  int mem_type, flop_type;
+  if(roofline_types == 0){
+    mem_type = roofline_default_types(mem);
+    flop_type = 0;
+  }
+  else{
+    hwloc_obj_t core = hwloc_get_obj_by_depth(topology, hwloc_topology_get_depth(topology)-1, 0);
+    mem_type = roofline_filter_types(mem, roofline_types);
+    flop_type = roofline_filter_types(core, roofline_types);
+  }
+  
   unsigned flops = 1, bytes = 8*sizeof(roofline_stream_t);
   
   if(mem_type != 0){
@@ -109,13 +121,13 @@ int main(int argc, char * argv[]){
     FILE * out;
     parse_args(argc,argv);
 
-    if(roofline_lib_init(NULL, hyperthreading, whole_system)==-1)
+    if(roofline_lib_init(NULL, thread_location, hyperthreading)==-1)
 	ERR_EXIT("roofline library init failure");
 
     if(mem_str != NULL){
 	mem = roofline_hwloc_parse_obj(mem_str);
 	if(mem == NULL)	ERR_EXIT("Unrecognized object");
-	if(!roofline_hwloc_obj_is_memory(mem)) mem = roofline_hwloc_get_under_memory(mem, whole_system);
+	if(!roofline_hwloc_obj_is_memory(mem)) mem = roofline_hwloc_get_under_memory(mem);
     }
 
     out = open_output(output);
@@ -129,7 +141,7 @@ int main(int argc, char * argv[]){
     
     /* roofline every memory obj */
     if(mem == NULL){
-      while((mem = roofline_hwloc_get_next_memory(mem, whole_system)) != NULL){
+      while((mem = roofline_hwloc_get_next_memory(mem)) != NULL){
 	  bench_memory(out, mem);
       }
     }

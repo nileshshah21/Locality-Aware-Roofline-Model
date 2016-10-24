@@ -18,9 +18,9 @@ off_t            L1_size;                    /* size of L1_cache */
 static hwloc_obj_type_t leaf_type;
 
 #if defined(_OPENMP)
-int roofline_lib_init(hwloc_topology_t topo, int with_hyperthreading, int whole_system)
+int roofline_lib_init(hwloc_topology_t topo, const char * threads_location, int with_hyperthreading)
 #else
-  int roofline_lib_init(hwloc_topology_t topo, __attribute__ ((unused)) int with_hyperthreading, int whole_system)
+  int roofline_lib_init(hwloc_topology_t topo, const char * threads_location,__attribute__ ((unused)) int with_hyperthreading)
 #endif
 {
   hwloc_obj_t L1, LLC;
@@ -44,8 +44,11 @@ int roofline_lib_init(hwloc_topology_t topo, int with_hyperthreading, int whole_
   }
     
   /* Get first node and number of threads */
-  if(!whole_system) root = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NODE, 0);
-  else root = hwloc_get_root_obj(topology);
+  if(threads_location == NULL){root = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NODE, 0);}
+  else{
+    root = roofline_hwloc_parse_obj(threads_location);
+    
+  }
 
   /* bind future threads to root */
   leaf_type = with_hyperthreading ? HWLOC_OBJ_PU:HWLOC_OBJ_CORE;
@@ -59,12 +62,12 @@ int roofline_lib_init(hwloc_topology_t topo, int with_hyperthreading, int whole_
 #endif
   
   /* get first cache linesize */
-  L1 = roofline_hwloc_get_next_memory(NULL, whole_system);
-  if(L1==NULL) ERR_EXIT("No cache found.");
+  L1 = roofline_hwloc_get_next_memory(NULL);
+  if(L1==NULL) ERR_EXIT("No cache found.\n");
   if(!roofline_hwloc_objtype_is_cache(L1->type) || 
      (L1->attr->cache.type != HWLOC_OBJ_CACHE_UNIFIED && 
       L1->attr->cache.type != HWLOC_OBJ_CACHE_DATA)){
-    ERR_EXIT("First memory obj is not a data cache.");
+    ERR_EXIT("First memory obj is not a data cache.\n");
   }
   alignement = L1->attr->cache.linesize;
   L1_size = roofline_hwloc_get_memory_size(L1);
@@ -132,13 +135,7 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
   long repeat;
   unsigned tid = 0;
   void (*  benchmark_function)(roofline_stream, roofline_output *, int, long) = benchmark;
-  
-  /* check memory is above root */
-  if(memory->depth < root->depth){
-    roofline_debug2("Skip memory level above top desired memory %s\n", hwloc_type_name(root->type));
-    return;
-  }
-  
+    
   /* Get memory size bounds */
   if(roofline_hwloc_get_memory_bounds(memory, &low_size, &up_size, op_type) == -1) return;
   
