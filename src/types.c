@@ -30,7 +30,7 @@ const char * roofline_type_str(int type){
   return "";
 }
 
-int roofline_default_types(hwloc_obj_t obj){
+unsigned roofline_default_types(hwloc_obj_t obj){
   int supported = benchmark_types_supported(); 
   if(obj->type == HWLOC_OBJ_L1CACHE){
     return (ROOFLINE_LOAD|ROOFLINE_STORE|ROOFLINE_2LD1ST) & supported;
@@ -49,7 +49,7 @@ int roofline_default_types(hwloc_obj_t obj){
   else return 0;
 }
 
-int roofline_filter_types(hwloc_obj_t obj, int type){
+unsigned roofline_filter_types(hwloc_obj_t obj, int type){
   int supported = benchmark_types_supported();
   int FP_possible = (ROOFLINE_ADD|ROOFLINE_MAD|ROOFLINE_MUL|ROOFLINE_FMA) & supported;
   int CACHE_possible = (ROOFLINE_LOAD|ROOFLINE_STORE|ROOFLINE_2LD1ST|ROOFLINE_COPY) & supported;

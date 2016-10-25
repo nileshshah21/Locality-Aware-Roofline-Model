@@ -77,12 +77,13 @@ static void parse_args(int argc, char ** argv){
 
 static void bench_memory(FILE * out, hwloc_obj_t mem){
   int mem_type, flop_type;
+  hwloc_obj_t core = hwloc_get_obj_by_depth(topology, hwloc_topology_get_depth(topology)-1, 0);
+  
   if(roofline_types == 0){
     mem_type = roofline_default_types(mem);
-    flop_type = 0;
+    flop_type = roofline_default_types(core);
   }
   else{
-    hwloc_obj_t core = hwloc_get_obj_by_depth(topology, hwloc_topology_get_depth(topology)-1, 0);
     mem_type = roofline_filter_types(mem, roofline_types);
     flop_type = roofline_filter_types(core, roofline_types);
   }
@@ -137,7 +138,9 @@ int main(int argc, char * argv[]){
     roofline_output_print_header(out);
 
     /* roofline for flops */
-    roofline_flops(out, roofline_types);
+    hwloc_obj_t core = hwloc_get_obj_by_depth(topology, hwloc_topology_get_depth(topology)-1, 0);
+    unsigned flop_deftype = roofline_default_types(core);
+    roofline_flops(out, roofline_types == 0 ? flop_deftype : roofline_types);
     
     /* roofline every memory obj */
     if(mem == NULL){
