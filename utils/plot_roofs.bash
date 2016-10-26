@@ -134,11 +134,11 @@ if($SINGLE){
 }
 
 if($VERBOSE){
-  if(nrow(fpeaks) > 0){print(fpeaks)}
-  if(nrow(bandwidths) > 0){print(bandwidths)}
+  if(nrow(fpeaks) > 1){print(fpeaks)}
+  if(nrow(bandwidths) > 1){print(bandwidths)}
 }
 
-if(nrow(fpeaks) > 0 && nrow(bandwidths) > 0){
+if(nrow(fpeaks) > 1 && nrow(bandwidths) > 1){
 
 #Logarithmic sequence of points
 lseq <- function(from=1, to=100000, length.out = 6) {
