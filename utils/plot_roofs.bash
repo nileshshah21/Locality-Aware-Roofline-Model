@@ -19,10 +19,12 @@ usage(){
     printf "\t-p (per_thread: divide roofs' value by the number of threads)\n"
     printf "\t-c (check model with validation points if any)\n"
     printf "\t-s (plot bandwidths deviation around median)\n"
+    printf "\t-l (filter thread location on input column 1. (Default to first element value)\n"
     printf "\t-v (verbose summary of roofs)\n" 
     exit
 }
 
+SRC=""
 FILTER=".*"
 TITLE="roofline chart"
 BEST="FALSE"
@@ -33,7 +35,7 @@ VERBOSE="FALSE"
 
 #################################################################################################################################
 ## Parse options
-while getopts :o:i:t:d:m:f:hbpvsc opt; do
+while getopts :o:i:t:d:m:f:l:hbpvsc opt; do
     case $opt in
 	o) OUTPUT=$OPTARG;;
 	d) DATA=$OPTARG;;
@@ -41,6 +43,7 @@ while getopts :o:i:t:d:m:f:hbpvsc opt; do
 	i) INPUT=$OPTARG;;
 	f) FILTER="$OPTARG";;
 	t) TITLE="$OPTARG";;
+	l) SRC="$OPTARG";;	
 	p) SINGLE="TRUE";;
 	c) VALIDATION="TRUE";;
 	s) DEVIATION="TRUE";;
@@ -75,8 +78,24 @@ filter <- function(df, col){
   subset(df, grepl("$FILTER", df[,col], perl=TRUE))
 }
 
-#load data
-d = filter(read.table("$INPUT",header=TRUE, stringsAsFactors=FALSE), dtype)
+#load and filter data
+d = read.table("$INPUT",header=TRUE, stringsAsFactors=FALSE)
+if(is.data.frame(d) && nrow(d)==0){
+  stop("input file cannot be converted to data frame", call. = TRUE, domain = NULL)
+}
+d = filter(d, dtype)
+if(nrow(d)==0){
+  stop("Data frame is empty after filter", call. = TRUE, domain = NULL)
+}
+if("$SRC" == ""){
+  location = d[1,1]
+} else {
+  location = "$SRC"
+}
+d = d[d[,1] == location,]
+if(nrow(d)==0){
+  stop(sprintf("Data frame is empty after location %s filtering", location), call. = TRUE, domain = NULL)
+}
 
 #get fpeaks
 fpeak_samples = d[d[,dbandwidth]==0,]
@@ -115,9 +134,11 @@ if($SINGLE){
 }
 
 if($VERBOSE){
-  print(fpeaks)
-  print(bandwidths)
+  if(nrow(fpeaks) > 0){print(fpeaks)}
+  if(nrow(bandwidths) > 0){print(bandwidths)}
 }
+
+if(nrow(fpeaks) > 0 && nrow(bandwidths) > 0){
 
 #Logarithmic sequence of points
 lseq <- function(from=1, to=100000, length.out = 6) {
@@ -252,6 +273,8 @@ box()
 
 #output
 graphics.off()
+
+} #if(nrow(fpeaks > 0) && nrow(bandwidths > 0))
 EOF
 }
 
