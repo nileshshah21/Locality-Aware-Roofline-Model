@@ -7,13 +7,14 @@
 #include "types.h"
 
 /* options */
-static char * output = NULL;            /* Where to print output */
-static char * mem_str = NULL;           /* Do we restrict memory to one memory */
-static hwloc_obj_t mem = NULL;          /* Do we restrict memory to one memory */
-static int hyperthreading = 0;          /* If compiled with openmp do we use hyperthreading */
-static double oi = 0;                   /* -1 => perform validation benchmarks, >0 => perform validation benchmarks on value */
+static char *       output = NULL;      /* Where to print output */
+static char *       mem_str = NULL;     /* Do we restrict memory to one memory */
+static hwloc_obj_t  mem = NULL;         /* Do we restrict memory to one memory */
+static int          hyperthreading = 0; /* If compiled with openmp do we use hyperthreading */
+static double       oi = 0;             /* -1 => perform validation benchmarks, >0 => perform validation benchmarks on value */
 static unsigned int roofline_types = 0; /* What rooflines do we want in byte array */
-static char * thread_location = NULL;   /* Threads location */
+static char *       thread_location = "Node:0"; /* Threads location */
+static int          matrix = 0;         /* Do we benchmark matrix ? */
 
 static void usage(char * argv0){
     printf("%s <options...>\n\n", argv0);
@@ -25,6 +26,7 @@ static void usage(char * argv0){
     printf("\t-m, --memory <hwloc_ibj:idx>: benchmark a single memory level.\n");
     printf("\t--CARM: Build the Cache Aware Roofline Model.\n");
     printf("\t-s, --src <hwloc_ibj:idx>: Build the model with threads at leaves of src obj. Default is Node:0.\n");
+    printf("\t-mat, --matrix: Benchmark bandwidth matrix at --src level.\n");
     printf("\t-o, --output <output>: Set output file to write results.\n");
 #if defined(_OPENMP)
     printf("\t-ht, --with-hyperthreading: use hyperthreading for benchmarks\n");
@@ -68,6 +70,9 @@ static void parse_args(int argc, char ** argv){
 	  hyperthreading = 0;
 	  roofline_types = ROOFLINE_MAD|ROOFLINE_2LD1ST;
 	  thread_location = "Machine:0";
+	}
+	else if(!strcmp(argv[i],"--matrix") || !strcmp(argv[i],"-mat")){
+	  matrix = 1;
 	}
 	else if(!strcmp(argv[i],"--output") || !strcmp(argv[i],"-o")){
 	    output = argv[++i];
@@ -141,7 +146,31 @@ int main(int argc, char * argv[]){
     hwloc_obj_t core = hwloc_get_obj_by_depth(topology, hwloc_topology_get_depth(topology)-1, 0);
     unsigned flop_deftype = roofline_default_types(core);
     roofline_flops(out, roofline_types == 0 ? flop_deftype : roofline_types);
-    
+
+    /* Benchmark matrix */
+    if(matrix){
+      hwloc_obj_t dst = NULL;
+      hwloc_obj_t src = roofline_hwloc_parse_obj(thread_location);
+      if(src == NULL) {
+	fprintf(stderr,"Provided source location %s does not match any object in topology\n", thread_location);
+	goto exit;
+      }
+      if(!roofline_hwloc_obj_is_memory(src)){
+	src = roofline_hwloc_get_next_memory(src);
+      }
+      if((int)src->depth > hwloc_get_type_depth(topology, HWLOC_OBJ_NODE)){
+        fprintf(stderr,"Cannot build matrix of memory below NUMANode\n");
+	goto exit;
+      }
+      for(src = hwloc_get_obj_by_depth(topology,src->depth,0); src != NULL; src = src->next_cousin){
+	root = src;
+	for(dst = hwloc_get_obj_by_depth(topology,src->depth,0); dst != NULL; dst = dst->next_cousin){
+	  bench_memory(out, dst);
+	}
+      }
+      goto exit;
+    }
+        
     /* roofline every memory obj */
     if(mem == NULL){
       while((mem = roofline_hwloc_get_next_memory(mem)) != NULL){
@@ -151,7 +180,8 @@ int main(int argc, char * argv[]){
     else{
       bench_memory(out, mem);
     }
-    
+
+exit:
     fclose(out);
     roofline_lib_finalize();
     return EXIT_SUCCESS;
