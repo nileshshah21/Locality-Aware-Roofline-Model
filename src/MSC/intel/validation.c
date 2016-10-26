@@ -126,6 +126,7 @@ static void  dprint_header(int fd) {
 static void dprint_oi_bench_begin(int fd, const char * id, const char * name){
   dprintf(fd, "void %s(roofline_stream data, roofline_output * out, __attribute__ ((unused)) int op_type, long repeat){\n", name);
   dprintf(fd, "volatile uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0;\n");
+  dprintf(fd, "zero_simd();\n");
   dprintf(fd, "roofline_rdtsc(c_high,c_low);\n");
   dprintf(fd, "__asm__ __volatile__ (\\\n");
   dprintf(fd, "\"loop_%s_repeat:\\n\\t\"\\\n", id);
