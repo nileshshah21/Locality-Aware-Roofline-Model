@@ -1,5 +1,6 @@
 #include <hwloc.h>
 #include "types.h"
+#include "topology.h"
 #include "MSC/MSC.h"
 
 int roofline_type_from_str(const char * type){
@@ -69,7 +70,7 @@ unsigned roofline_filter_types(hwloc_obj_t obj, int type){
     if(type & ROOFLINE_STORE_NT) fprintf(stderr, "skip store_nt type not meaningful for %s\n", hwloc_type_name(obj->type));
     obj_type = type & CACHE_possible;
   }
-  else if(obj->type == HWLOC_OBJ_NUMANODE || obj->type == HWLOC_OBJ_MACHINE){
+  else if((int)obj->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NUMANODE)){
     obj_type = type & NUMA_possible;
   }
   else if (obj->type == HWLOC_OBJ_PU || obj->type == HWLOC_OBJ_CORE){
