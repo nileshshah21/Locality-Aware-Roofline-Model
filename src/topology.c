@@ -67,7 +67,7 @@ int roofline_hwloc_obj_snprintf(hwloc_obj_t obj, char * info_in, size_t n){
     
   memset(info_in,0,n);
   nc = hwloc_obj_type_snprintf(info_in, n, obj, 0);
-  nc += snprintf(info_in+nc,n-nc,":%d ",obj->logical_index);
+  if(obj->depth <= root->depth) nc += snprintf(info_in+nc,n-nc,":%d ",obj->logical_index);
   return nc;
 }
 

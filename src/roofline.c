@@ -121,10 +121,9 @@ void roofline_fpeak(FILE * output, int op_type)
 
 #if defined(_OPENMP)
     }
-    roofline_output_print(output, root, &out, op_type);
+    roofline_output_print(output, root, NULL, &out, op_type);
 #else
-
-    roofline_output_print(output, hwloc_get_obj_by_type(topology, HWLOC_OBJ_PU, 0), &out, op_type);
+    roofline_output_print(output, hwloc_get_obj_by_type(topology, HWLOC_OBJ_PU, 0), NULL, &out, op_type);
 #endif
   }
 }
@@ -208,7 +207,7 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
 #ifdef _OPENMP
     }
 #endif
-    roofline_output_print(output, memory, &out, op_type);
+    roofline_output_print(output, root, memory, &out, op_type);
   }
 
   /* Cleanup */

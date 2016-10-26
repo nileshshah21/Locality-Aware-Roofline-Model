@@ -63,13 +63,13 @@ fi
 output_R(){
     R --vanilla --silent --slave <<EOF
 #Columns id
-dobj        = 1;    #The obj column id
-dthroughput = 2;    #The instruction throughput
-dbandwidth  = 3;    #The bandwidth column id
-dgflops     = 4;    #The gflop/s column id
-doi         = 5;    #The oi column id
-dthreads    = 6;    #The number of threads
-dtype       = 7;    #The info column id
+dobj        = 3;    #The obj column id
+dthroughput = 4;    #The instruction throughput
+dbandwidth  = 5;    #The bandwidth column id
+dgflops     = 6;    #The gflop/s column id
+doi         = 7;    #The oi column id
+dthreads    = 2;    #The number of threads
+dtype       = 8;    #The info column id
 
 filter <- function(df, col){
   subset(df, grepl("$FILTER", df[,col], perl=TRUE))
@@ -210,7 +210,7 @@ if($VALIDATION){
 #draw axes, title and legend
 axis(1, at=xticks, labels=xlabels)
 axis(2, at=yticks, labels=ylabels, las=1)
-title(main = "$TITLE", xlab="Flops/Byte", ylab="GFlops/s")
+title(main = sprintf("%s (%s, %d threads)", "$TITLE", d[1,1], d[1,2]), xlab="Flops/Byte", ylab="GFlops/s")
 legend("bottomright", legend=paste(bandwidths[,1], paste(bandwidths[,2], sprintf("%.2f", as.numeric(bandwidths[,3])), sep="="), "GB/s", sep=" "), cex=.7, lty=1, col=1:nrow(bandwidths), bg="white")
 
 #plot MISC points
