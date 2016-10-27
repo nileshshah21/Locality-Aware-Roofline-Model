@@ -109,7 +109,6 @@ for(i in 1:length(fpeak_types)){
   fpeaks[i,3] = sd(fpeak_s[,dgflops])
   fpeaks[i,4] = fpeak_s[1,dthreads]
 }
-
 fpeak_max = as.numeric(max(fpeaks[,2])) #the top peak performance
 
 #get bandwidths
@@ -127,18 +126,22 @@ for(i in 1:nrow(bandwidths_types)){
   bandwidths[i,4] = sd(bandwidths_s[,dbandwidth])
   bandwidths[i,5] = bandwidths_s[1,dthreads]
 }
+
 #check if results have to be presented per thread
 if($SINGLE){
   for( i in 1: nrow(fpeaks) ){fpeaks[i,2] = as.numeric(fpeaks[i,2])/as.numeric(fpeaks[i,4])}
   for( i in 1: nrow(bandwidths) ){bandwidths[i,3] = as.numeric(bandwidths[i,3])/as.numeric(bandwidths[i,5])}
 }
 
+fpeaks = na.omit(fpeaks)
+bandwidths = na.omit(bandwidths)
+
 if($VERBOSE){
-  if(nrow(fpeaks) > 1){print(fpeaks)}
-  if(nrow(bandwidths) > 1){print(bandwidths)}
+  if(nrow(fpeaks) > 0){print(fpeaks)}
+  if(nrow(bandwidths) > 0){print(bandwidths)}
 }
 
-if(nrow(fpeaks) > 1 && nrow(bandwidths) > 1){
+if(nrow(fpeaks) > 0 && nrow(bandwidths) > 0){
 
 #Logarithmic sequence of points
 lseq <- function(from=1, to=100000, length.out = 6) {
