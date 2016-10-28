@@ -77,6 +77,7 @@ static void parse_args(int argc, char ** argv){
 	else if(!strcmp(argv[i],"--output") || !strcmp(argv[i],"-o")){
 	    output = argv[++i];
 	}
+	else ERR_EXIT("Unrecognized option: %s\n", argv[i]);
     }
 }
 
