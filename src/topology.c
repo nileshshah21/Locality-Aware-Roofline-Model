@@ -278,11 +278,11 @@ hwloc_obj_t roofline_hwloc_get_next_memory(hwloc_obj_t obj){
   /* If current_obj is not set, start from the bottom of the topology to return the first memory */
   if(obj == NULL) obj = hwloc_get_obj_by_depth(topology,hwloc_topology_get_depth(topology)-1,0);
   
-  /* If current obj is root, then next memory is at same depth than root */
-  if(obj->type==root->type && (int)root->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NODE)) return obj->next_cousin;
+  /* If current obj is not a cache, then next memory is at same depth in root cpuset (if any) */
+  if((int)obj->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NODE) && obj->next_cousin != NULL) return obj->next_cousin;
   
   /* get parent memory */
-  do{obj=obj->parent;} while(obj!=NULL && !roofline_hwloc_obj_is_memory(obj));
+  do{obj=hwloc_get_obj_inside_cpuset_by_depth(topology, root->cpuset, obj->depth-1, 0);} while(obj!=NULL && !roofline_hwloc_obj_is_memory(obj));
   
   /* No memory left in topology */
   return obj;
