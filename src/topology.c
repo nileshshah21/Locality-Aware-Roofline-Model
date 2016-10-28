@@ -35,7 +35,7 @@ int roofline_hwloc_get_memory_bounds(hwloc_obj_t memory, size_t * lower, size_t 
     child_size = roofline_hwloc_get_memory_size(child);
     n_child = hwloc_get_nbobjs_inside_cpuset_by_type(topology, root->cpuset, child->type);
     n_child = n_threads>1 ? roofline_MAX(1,n_child) : 1;
-    if(memory->depth <= node_depth) *lower = 8 * child_size * n_child;
+    if(memory->depth <= node_depth) *lower = 4 * child_size * n_child;
     else                            *lower = 2 * child_size * n_child;
   }
 
@@ -55,7 +55,7 @@ int roofline_hwloc_get_memory_bounds(hwloc_obj_t memory, size_t * lower, size_t 
   if(*upper<*lower){
     if(child!=NULL){
       fprintf(stderr, "%s(%ld KB) above %s(%ld KB) is not large enough to be split into %u*%ld\n", 
-	      hwloc_type_name(memory->type), (unsigned long)(roofline_hwloc_get_memory_size(memory)/1e3), 
+	      hwloc_type_name(memory->type), *upper, 
 	      hwloc_type_name(child->type), (unsigned long)(roofline_hwloc_get_memory_size(child)/1e3), 
 	      n_child, (unsigned long)(roofline_hwloc_get_memory_size(child)/1e3));
     }
@@ -131,7 +131,12 @@ int roofline_hwloc_set_area_membind(hwloc_obj_t membind_location, void * ptr, si
      membind_location->depth != 0 &&
      (int)membind_location->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NODE))
   {
-    if(hwloc_set_area_membind(topology, ptr, size, membind_location->nodeset,HWLOC_MEMBIND_BIND,
+    hwloc_membind_policy_t policy = HWLOC_MEMBIND_BIND;
+    /* If memory is bound in remote memory including several nodes, we don't know which node is the best, 
+     * thus we interleave pages. */
+    if(!hwloc_bitmap_isincluded(membind_location->cpuset, root->cpuset)){policy = HWLOC_MEMBIND_INTERLEAVE;}
+    
+    if(hwloc_set_area_membind(topology, ptr, size, membind_location->nodeset,policy,
 			      HWLOC_MEMBIND_THREAD   |
 			      HWLOC_MEMBIND_NOCPUBIND|
 			      HWLOC_MEMBIND_STRICT   |
