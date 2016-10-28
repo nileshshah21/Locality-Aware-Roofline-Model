@@ -132,10 +132,24 @@ int roofline_hwloc_set_area_membind(hwloc_obj_t membind_location, void * ptr, si
      (int)membind_location->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NODE))
   {
     hwloc_membind_policy_t policy = HWLOC_MEMBIND_BIND;
-    /* If memory is bound in remote memory including several nodes, we don't know which node is the best, 
-     * thus we interleave pages. */
-    if(!hwloc_bitmap_isincluded(membind_location->cpuset, root->cpuset)){policy = HWLOC_MEMBIND_INTERLEAVE;}
-    
+    unsigned n_nodes = hwloc_get_nbobjs_inside_cpuset_by_type(topology, membind_location->cpuset, HWLOC_OBJ_NODE);
+    /* If there are several NUMA memory possible, we have to choose among them where to bind memory. */
+    if(n_nodes>1){
+      /* Balance with interleave on remote nodes. More efficient than balancing as for local nodes */
+      if(!hwloc_bitmap_isincluded(membind_location->cpuset, root->cpuset)){
+	policy = HWLOC_MEMBIND_INTERLEAVE;
+      }
+      /* Balance round robin per group of threads (NUMA:0 <- group:0, NUMA:1 <- group:1) */
+      else {	  
+	unsigned tid = 0;
+#ifdef _OPENMP
+	tid = omp_get_thread_num();
+#endif
+	membind_location = hwloc_get_obj_inside_cpuset_by_type(topology, membind_location->cpuset, HWLOC_OBJ_NODE,
+							       tid*n_nodes/n_threads);
+      }
+    }
+    /* Apply memory binding */
     if(hwloc_set_area_membind(topology, ptr, size, membind_location->nodeset,policy,
 			      HWLOC_MEMBIND_THREAD   |
 			      HWLOC_MEMBIND_NOCPUBIND|
