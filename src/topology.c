@@ -21,8 +21,8 @@ int roofline_hwloc_get_memory_bounds(hwloc_obj_t memory, size_t * lower, size_t 
   size_t child_size, mem_size = roofline_hwloc_get_memory_size(memory);
 
   /* Variable to bound size in order to avoid swap */
-  unsigned node_depth = (unsigned)hwloc_get_type_depth(topology, HWLOC_OBJ_NODE);
-  hwloc_obj_t first_node = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NODE, 0);
+  unsigned node_depth = (unsigned)hwloc_get_type_depth(topology, HWLOC_OBJ_NUMANODE);
+  hwloc_obj_t first_node = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NUMANODE, 0);
   size_t max_size = roofline_hwloc_get_memory_size(first_node) / 4;
   
   /* Set lower bound size according to child caches */
@@ -74,13 +74,13 @@ int roofline_hwloc_obj_snprintf(hwloc_obj_t obj, char * info_in, size_t n){
   int nc;
   memset(info_in,0,n);
   /* Special case for MCDRAM */
-  if(obj->arity == 0 && obj->type == HWLOC_OBJ_NODE){
+  if(obj->type == HWLOC_OBJ_NUMANODE && obj->subtype != NULL && !strcmp(obj->subtype, "MCDRAM")){
     nc = snprintf(info_in, n, "%s", obj->subtype);
     nc += snprintf(info_in+nc,n-nc,":%d ",obj->logical_index/obj->parent->arity);
   }
   else{
     nc = hwloc_obj_type_snprintf(info_in, n, obj, 0);
-    if((int)obj->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NODE)) nc += snprintf(info_in+nc,n-nc,":%d ",obj->logical_index);
+    if((int)obj->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NUMANODE)) nc += snprintf(info_in+nc,n-nc,":%d ",obj->logical_index);
   }
   return nc;
 }
@@ -106,28 +106,34 @@ int roofline_hwloc_check_cpubind(hwloc_cpuset_t cpuset){
 }
 
 #ifdef DEBUG2
+static hwloc_obj_t roofline_hwloc_get_largest_memory_inside_nodeset(hwloc_bitmap_t nodeset){
+  hwloc_obj_t obj = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NUMANODE, 0);
+  while(obj != NULL && !hwloc_bitmap_isincluded(obj->nodeset, nodeset)) obj = obj->next_cousin;
+  if(obj == NULL){roofline_debug2("No memory inside given nodeset\n"); return NULL;}
+  while(obj->parent != NULL && hwloc_bitmap_isincluded(obj->parent->nodeset, nodeset)) obj = obj->parent;
+  return obj;
+}
+
 static void roofline_hwloc_print_area_membind(hwloc_obj_t membind_location, void * ptr, size_t size){
-  hwloc_bitmap_t area = hwloc_bitmap_alloc();
+  hwloc_bitmap_t nodeset = hwloc_bitmap_alloc();
   hwloc_membind_policy_t policy;
 
-  if(hwloc_get_area_membind(topology, ptr, size, area, &policy, 0) == -1){
+  if(hwloc_get_area_membind(topology, ptr, size, nodeset, &policy, HWLOC_MEMBIND_BYNODESET) == -1){
     perror("hwloc_get_area_membind");
     goto print_area_error;
   }
-  hwloc_obj_t location;
-  if(hwloc_get_largest_objs_inside_cpuset(topology, area, &location, 1) == -1){
-    perror("hwloc_get_largest_objs_inside_cpuset");
-    goto print_area_error;
+  hwloc_obj_t location = roofline_hwloc_get_largest_memory_inside_nodeset(nodeset);
+  if(location != NULL){
+    roofline_mkstr(area_str,128);
+    roofline_mkstr(target,128);
+    roofline_hwloc_obj_snprintf(membind_location, target, sizeof(target));
+    if(location != NULL) roofline_hwloc_obj_snprintf(location, area_str, sizeof(area_str));
+    printf("area allocation on %s, allocated on %s\n", target, area_str);
   }
-  roofline_mkstr(area_str,128);
-  roofline_mkstr(target,128);
-  roofline_hwloc_obj_snprintf(membind_location, target, sizeof(target));
-  if(location != NULL) roofline_hwloc_obj_snprintf(location, area_str, sizeof(area_str));
-  printf("area allocation on %s, allocated on %s\n", target, area_str);
 
-  return;
 print_area_error:
-  hwloc_bitmap_free(area);
+  hwloc_bitmap_free(nodeset);
+  return;
 }
 #endif
 
@@ -135,10 +141,12 @@ int roofline_hwloc_set_area_membind(hwloc_obj_t membind_location, void * ptr, si
   /* Bind on node */
   if(membind_location != NULL     &&
      membind_location->depth != 0 &&
-     (int)membind_location->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NODE))
+     (int)membind_location->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NUMANODE))
   {
     hwloc_membind_policy_t policy = HWLOC_MEMBIND_BIND;
-    unsigned n_nodes = hwloc_get_nbobjs_inside_cpuset_by_type(topology, membind_location->cpuset, HWLOC_OBJ_NODE);
+    unsigned n_nodes = 1;
+    if((int)membind_location->depth < hwloc_get_type_depth(topology, HWLOC_OBJ_NUMANODE))
+      n_nodes = hwloc_get_nbobjs_inside_cpuset_by_type(topology, membind_location->cpuset, HWLOC_OBJ_NUMANODE);
     /* If there are several NUMA memory possible, we have to choose among them where to bind memory. */
     if(n_nodes>1){
       /* Balance with interleave on remote nodes. More efficient than balancing as for local nodes */
@@ -151,7 +159,7 @@ int roofline_hwloc_set_area_membind(hwloc_obj_t membind_location, void * ptr, si
 #ifdef _OPENMP
 	tid = omp_get_thread_num();
 #endif
-	membind_location = hwloc_get_obj_inside_cpuset_by_type(topology, membind_location->cpuset, HWLOC_OBJ_NODE,
+	membind_location = hwloc_get_obj_inside_cpuset_by_type(topology, membind_location->cpuset, HWLOC_OBJ_NUMANODE,
 							       tid*n_nodes/n_threads);
       }
     }
@@ -178,7 +186,7 @@ int roofline_hwloc_set_area_membind(hwloc_obj_t membind_location, void * ptr, si
       perror("hwloc_get_largest_objs_inside_cpuset");
       goto machine_bind_error;
     }
-    while(thread_location != NULL && thread_location->type != HWLOC_OBJ_NODE) thread_location = thread_location->parent;
+    while(thread_location != NULL && thread_location->type != HWLOC_OBJ_NUMANODE) thread_location = thread_location->parent;
     return roofline_hwloc_set_area_membind(thread_location, ptr, size);
 
   machine_bind_error:
@@ -257,7 +265,7 @@ int roofline_hwloc_cpubind(hwloc_obj_type_t leaf_type){
 int roofline_hwloc_obj_is_memory(hwloc_obj_t obj){
   hwloc_obj_cache_type_t type;
   
-  if ((int)obj->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NODE)) return 1;
+  if ((int)obj->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NUMANODE)) return 1;
   if(roofline_hwloc_objtype_is_cache(obj->type)){
     type = obj->attr->cache.type;
     if(type == HWLOC_OBJ_CACHE_UNIFIED || type == HWLOC_OBJ_CACHE_DATA){
@@ -271,7 +279,7 @@ size_t roofline_hwloc_get_memory_size(hwloc_obj_t obj){
   hwloc_obj_cache_type_t type;
   if(obj==NULL)
     return 0;
-  if ((int)obj->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NODE))
+  if ((int)obj->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NUMANODE))
     return obj->memory.total_memory;
   if(roofline_hwloc_objtype_is_cache(obj->type)){
     type = obj->attr->cache.type;
@@ -289,7 +297,7 @@ hwloc_obj_t roofline_hwloc_get_under_memory(hwloc_obj_t obj){
   child = obj->first_child;
   
   /* Handle memory without child case */
-  if(child == NULL && obj->type == HWLOC_OBJ_NODE){
+  if(child == NULL && obj->type == HWLOC_OBJ_NUMANODE){
     while(child == NULL && (obj = obj->prev_sibling) != NULL) child = obj->first_child;
   }
 
@@ -298,8 +306,8 @@ hwloc_obj_t roofline_hwloc_get_under_memory(hwloc_obj_t obj){
   
   /* If we want whole system memory, we skip individual NUMANODES */
   if(child!=NULL &&
-     (int)root->depth < hwloc_get_type_depth(topology, HWLOC_OBJ_NODE) &&
-     (int)child->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NODE))
+     (int)root->depth < hwloc_get_type_depth(topology, HWLOC_OBJ_NUMANODE) &&
+     (int)child->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NUMANODE))
     return roofline_hwloc_get_under_memory(child);
   return child;
 }
@@ -310,7 +318,7 @@ hwloc_obj_t roofline_hwloc_get_next_memory(hwloc_obj_t obj){
   if(obj == NULL) obj = hwloc_get_obj_inside_cpuset_by_depth(topology, root->cpuset, hwloc_topology_get_depth(topology)-1,0);
   
   /* If current obj is not a cache, then next memory is at same depth in root cpuset (if any) */
-  if((int)obj->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NODE) && obj->next_cousin != NULL) return obj->next_cousin;
+  if((int)obj->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NUMANODE) && obj->next_cousin != NULL) return obj->next_cousin;
   
   /* get parent memory */
   do{obj=hwloc_get_obj_inside_cpuset_by_depth(topology, root->cpuset, obj->depth-1, 0);} while(obj!=NULL && !roofline_hwloc_obj_is_memory(obj));
