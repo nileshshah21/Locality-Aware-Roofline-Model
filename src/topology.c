@@ -2,7 +2,7 @@
 #include "utils.h"
 #include "roofline.h"
 #include "topology.h"
-
+#include "utils.h"
 #include "MSC/MSC.h"
 
 void roofline_hwloc_check_version(){
@@ -72,10 +72,16 @@ int roofline_hwloc_get_memory_bounds(hwloc_obj_t memory, size_t * lower, size_t 
 
 int roofline_hwloc_obj_snprintf(hwloc_obj_t obj, char * info_in, size_t n){
   int nc;
-    
   memset(info_in,0,n);
-  nc = hwloc_obj_type_snprintf(info_in, n, obj, 0);
-  if((int)obj->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NODE)) nc += snprintf(info_in+nc,n-nc,":%d ",obj->logical_index);
+  /* Special case for MCDRAM */
+  if(obj->arity == 0 && obj->type == HWLOC_OBJ_NODE){
+    nc = snprintf(info_in, n, "%s", obj->subtype);
+    nc += snprintf(info_in+nc,n-nc,":%d ",obj->logical_index/obj->parent->arity);
+  }
+  else{
+    nc = hwloc_obj_type_snprintf(info_in, n, obj, 0);
+    if((int)obj->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NODE)) nc += snprintf(info_in+nc,n-nc,":%d ",obj->logical_index);
+  }
   return nc;
 }
 
@@ -231,6 +237,12 @@ int roofline_hwloc_cpubind(hwloc_obj_type_t leaf_type){
   tid = omp_get_thread_num();
 #endif
   unsigned n_leaves = hwloc_get_nbobjs_inside_cpuset_by_type(topology, root->cpuset, leaf_type);
+  if(n_leaves == 0){
+    roofline_mkstr(root_str, 32);
+    roofline_hwloc_obj_snprintf(root, root_str, sizeof(root_str));
+    fprintf(stderr,"cpubind failed because root %s has no child %s\n", root_str, hwloc_type_name(leaf_type));
+    return 0;
+  }
   hwloc_obj_t leaf = hwloc_get_obj_inside_cpuset_by_type(topology, root->cpuset, leaf_type, tid%n_leaves);
   if(leaf_type == HWLOC_OBJ_CORE) leaf = leaf->first_child;
   
@@ -295,7 +307,7 @@ hwloc_obj_t roofline_hwloc_get_under_memory(hwloc_obj_t obj){
 
 hwloc_obj_t roofline_hwloc_get_next_memory(hwloc_obj_t obj){
   /* If current_obj is not set, start from the bottom of the topology to return the first memory */
-  if(obj == NULL) obj = hwloc_get_obj_by_depth(topology,hwloc_topology_get_depth(topology)-1,0);
+  if(obj == NULL) obj = hwloc_get_obj_inside_cpuset_by_depth(topology, root->cpuset, hwloc_topology_get_depth(topology)-1,0);
   
   /* If current obj is not a cache, then next memory is at same depth in root cpuset (if any) */
   if((int)obj->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NODE) && obj->next_cousin != NULL) return obj->next_cousin;

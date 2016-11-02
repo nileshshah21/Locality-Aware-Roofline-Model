@@ -129,11 +129,11 @@ int main(int argc, char * argv[]){
     parse_args(argc,argv);
 
     if(roofline_lib_init(NULL, thread_location, hyperthreading)==-1)
-	ERR_EXIT("roofline library init failure");
+	ERR_EXIT("roofline library init failure\n");
 
     if(mem_str != NULL){
 	mem = roofline_hwloc_parse_obj(mem_str);
-	if(mem == NULL)	ERR_EXIT("Unrecognized object");
+	if(mem == NULL)	ERR_EXIT("Unrecognized object\n");
 	if(!roofline_hwloc_obj_is_memory(mem)) mem = roofline_hwloc_get_under_memory(mem);
     }
 
@@ -165,6 +165,7 @@ int main(int argc, char * argv[]){
       }
       for(src = hwloc_get_obj_by_depth(topology,src->depth,0); src != NULL; src = src->next_cousin){
 	root = src;
+	if(root->arity == 0 && root->type == HWLOC_OBJ_NODE) continue;
 	for(dst = hwloc_get_obj_by_depth(topology,src->depth,0); dst != NULL; dst = dst->next_cousin){
 	  bench_memory(out, dst);
 	}
