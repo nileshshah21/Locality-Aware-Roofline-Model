@@ -45,10 +45,16 @@ int roofline_lib_init(hwloc_topology_t topo, const char * threads_location, int 
   }
     
   /* Get first node and number of threads */
-  if(threads_location == NULL){root = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NODE, 0);}
+  if(threads_location == NULL){root = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NUMANODE, 0);}
   else{
     root = roofline_hwloc_parse_obj(threads_location);
-    
+    if(root == NULL){goto lib_err_with_topology;}
+    if(root->arity == 0){
+      roofline_mkstr(root_str, 32);
+      roofline_hwloc_obj_snprintf(root, root_str, sizeof(root_str));
+      fprintf(stderr, "hwloc obj %s has no children\n", root_str);
+      goto lib_err_with_topology;
+    }
   }
 
   /* bind future threads to root */
@@ -92,6 +98,10 @@ int roofline_lib_init(hwloc_topology_t topo, const char * threads_location, int 
 #endif 
 
   return 0;
+
+lib_err_with_topology:
+  hwloc_topology_destroy(topology);
+  return -1;
 }
 
 inline void roofline_lib_finalize(void)
