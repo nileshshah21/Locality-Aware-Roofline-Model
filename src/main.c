@@ -159,13 +159,13 @@ int main(int argc, char * argv[]){
       if(!roofline_hwloc_obj_is_memory(src)){
 	src = roofline_hwloc_get_next_memory(src);
       }
-      if((int)src->depth > hwloc_get_type_depth(topology, HWLOC_OBJ_NODE)){
+      if((int)src->depth > hwloc_get_type_depth(topology, HWLOC_OBJ_NUMANODE)){
         fprintf(stderr,"Cannot build matrix of memory below NUMANode\n");
 	goto exit;
       }
       for(src = hwloc_get_obj_by_depth(topology,src->depth,0); src != NULL; src = src->next_cousin){
 	root = src;
-	if(root->arity == 0 && root->type == HWLOC_OBJ_NODE) continue;
+	if(root->arity == 0 && root->type == HWLOC_OBJ_NUMANODE) continue;
 	for(dst = hwloc_get_obj_by_depth(topology,src->depth,0); dst != NULL; dst = dst->next_cousin){
 	  bench_memory(out, dst);
 	}
