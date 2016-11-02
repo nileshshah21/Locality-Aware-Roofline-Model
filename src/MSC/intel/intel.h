@@ -6,9 +6,9 @@
 #define SIMD_BYTES         64          /* Number Bytes in the vector register */
 #define SIMD_FLOPS         8           /* Number of double in the vector register */
 #define SIMD_STORE_NT      "vmovntpd"  /* Instruction for non temporal store */
-#define SIMD_LOAD_NT       "vmovntdqa" /* Instruction for non temporal load */
-#define SIMD_STORE         "vmovupd"   /* Instruction for store */
-#define SIMD_LOAD          "vmovupd"   /* Instruction for load */
+#define SIMD_LOAD_NT       "vmovapd" /* Instruction for non temporal load */
+#define SIMD_STORE         "vmovapd"   /* Instruction for store */
+#define SIMD_LOAD          "vmovapd"   /* Instruction for load */
 #define SIMD_MUL           "vmulpd"    /* Instruction for multiplication */
 #define SIMD_ADD           "vaddpd"    /* Instruction for addition */
 #elif defined (__AVX2__)
@@ -17,9 +17,9 @@
 #define SIMD_BYTES         32
 #define SIMD_FLOPS         4
 #define SIMD_STORE_NT      "vmovntpd"
-#define SIMD_LOAD_NT       "vmovntdqa"
-#define SIMD_STORE         "vmovupd"
-#define SIMD_LOAD          "vmovupd"
+#define SIMD_LOAD_NT       "vmovapd"
+#define SIMD_STORE         "vmovapd"
+#define SIMD_LOAD          "vmovapd"
 #define SIMD_MUL           "vmulpd"
 #define SIMD_ADD           "vaddpd"
 #elif defined (__AVX__)
@@ -28,9 +28,9 @@
 #define SIMD_BYTES         32
 #define SIMD_FLOPS         4
 #define SIMD_STORE_NT      "vmovntpd"
-#define SIMD_LOAD_NT       "vmovupd"
-#define SIMD_STORE         "vmovupd"
-#define SIMD_LOAD          "vmovupd"
+#define SIMD_LOAD_NT       "vmovapd"
+#define SIMD_STORE         "vmovapd"
+#define SIMD_LOAD          "vmovapd"
 #define SIMD_MUL           "vmulpd"
 #define SIMD_ADD           "vaddpd"
 #elif defined (__SSE4_1__)
@@ -39,9 +39,9 @@
 #define SIMD_BYTES         16
 #define SIMD_FLOPS         2
 #define SIMD_STORE_NT      "movntpd"
-#define SIMD_LOAD_NT       "movupd"
-#define SIMD_STORE         "movupd"
-#define SIMD_LOAD          "movupd"
+#define SIMD_LOAD_NT       "movapd"
+#define SIMD_STORE         "movapd"
+#define SIMD_LOAD          "movapd"
 #define SIMD_MUL           "mulpd"
 #define SIMD_ADD           "addpd"
 #elif defined (__SSE2__)
@@ -50,9 +50,9 @@
 #define SIMD_BYTES         16
 #define SIMD_FLOPS         2
 #define SIMD_STORE_NT      "movntpd"
-#define SIMD_LOAD_NT       "movupd"
-#define SIMD_STORE         "movupd"
-#define SIMD_LOAD          "movupd"
+#define SIMD_LOAD_NT       "movapd"
+#define SIMD_STORE         "movapd"
+#define SIMD_LOAD          "movapd"
 #define SIMD_MUL           "mulpd"
 #define SIMD_ADD           "addpd"
 #elif defined (__SSE__)
