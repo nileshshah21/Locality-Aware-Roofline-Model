@@ -74,14 +74,10 @@ int roofline_hwloc_obj_snprintf(hwloc_obj_t obj, char * info_in, size_t n){
   int nc;
   memset(info_in,0,n);
   /* Special case for MCDRAM */
-  if(obj->type == HWLOC_OBJ_NUMANODE && obj->subtype != NULL && !strcmp(obj->subtype, "MCDRAM")){
+  if(obj->type == HWLOC_OBJ_NUMANODE && obj->subtype != NULL && !strcmp(obj->subtype, "MCDRAM"))
     nc = snprintf(info_in, n, "%s", obj->subtype);
-    nc += snprintf(info_in+nc,n-nc,":%d ",obj->logical_index/obj->parent->arity);
-  }
-  else{
-    nc = hwloc_obj_type_snprintf(info_in, n, obj, 0);
-    if((int)obj->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NUMANODE)) nc += snprintf(info_in+nc,n-nc,":%d ",obj->logical_index);
-  }
+  else nc = hwloc_obj_type_snprintf(info_in, n, obj, 0);
+  nc += snprintf(info_in+nc,n-nc,":%d ",obj->logical_index);
   return nc;
 }
 
