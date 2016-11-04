@@ -6,7 +6,7 @@
 
 struct roofline_sample;
 
-void                     roofline_sampling_init (const char * output);
+void                     roofline_sampling_init (const char * output, int counting);
 void                     roofline_sampling_fini ();
 struct roofline_sample * new_roofline_sample    (int type);
 void                     roofline_sample_set(struct roofline_sample*, int type, long flops, long bytes);

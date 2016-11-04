@@ -9,7 +9,8 @@
 
 static unsigned BYTES = 8;
 static FILE *   output_file = NULL;  
- unsigned n_threads = 1;
+unsigned        n_threads = 1;
+static int      counting = 1;
 
 struct roofline_sample{
   /* All sample type specific data */
@@ -91,7 +92,7 @@ PAPI_handle_error(const int err)
 
 
 void roofline_sample_clear(struct roofline_sample * out){
-  if(out->eventset!=PAPI_NULL){
+  if(counting && out->eventset!=PAPI_NULL){
     PAPI_call_check(PAPI_reset(out->eventset), PAPI_OK, "Eventset reset failed\n");
   }
   out->nanoseconds = 0;
@@ -107,7 +108,8 @@ struct roofline_sample * new_roofline_sample(int type){
   s->bytes = 0;
   s->eventset = PAPI_NULL;
   s->type = type;
-  
+
+  if(counting){
 #ifdef _OPENMP
 #pragma omp critical
   {
@@ -127,6 +129,7 @@ struct roofline_sample * new_roofline_sample(int type){
 #ifdef _OPENMP
   }
 #endif
+  }
   return s;
 }
 
@@ -135,7 +138,7 @@ void roofline_sample_set(struct roofline_sample * s, int type, long flops, long 
 }
 
 void delete_roofline_sample(struct roofline_sample * s){
-  PAPI_destroy_eventset(&(s->eventset));
+  if(counting) PAPI_destroy_eventset(&(s->eventset));
   free(s);
 }
 
@@ -159,7 +162,7 @@ static inline void roofline_print_header(){
 	  "Nanoseconds", "Bytes", "Flops", "n_threads", "type", "info");
 }
 
-void roofline_sampling_init(const char * output){
+void roofline_sampling_init(const char * output, int count){
   if(output == NULL){
     output_file = stdout;
   }
@@ -184,9 +187,12 @@ void roofline_sampling_init(const char * output){
 
   /* AVX512 foundation. Not checked */
   if ((ebx & 1 << 16)) {BYTES = 64;}
-    
-  PAPI_call_check(PAPI_library_init(PAPI_VER_CURRENT), PAPI_VER_CURRENT, "PAPI version mismatch\n");
-  PAPI_call_check(PAPI_is_initialized(), PAPI_LOW_LEVEL_INITED, "PAPI initialization failed\n");
+
+  if(count){
+    counting = 1;
+    PAPI_call_check(PAPI_library_init(PAPI_VER_CURRENT), PAPI_VER_CURRENT, "PAPI version mismatch\n");
+    PAPI_call_check(PAPI_is_initialized(), PAPI_LOW_LEVEL_INITED, "PAPI initialization failed\n");
+  } else counting = 0;
   roofline_print_header(output_file, "info");
 }
 
@@ -197,7 +203,7 @@ void roofline_sampling_fini(){
 
 void roofline_sampling_start(struct roofline_sample * out){
   struct timespec t;
-  PAPI_start(out->eventset);
+  if(counting) PAPI_start(out->eventset);
   clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t);
   out->nanoseconds = t.tv_nsec + 1e9*t.tv_sec;
 }
@@ -207,7 +213,7 @@ void roofline_sampling_stop(struct roofline_sample * out){
   struct timespec t;
   long fp_op;
   clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t);
-  PAPI_stop(out->eventset,out->values);
+  if(counting) PAPI_stop(out->eventset,out->values);
   out->nanoseconds = (t.tv_nsec + 1e9*t.tv_sec) - out->nanoseconds;
   out->flops = out->values[0] + 2 * out->values[1] + 4 * out->values[2];
   fp_op = out->values[0] + out->values[1] + out->values[2];
