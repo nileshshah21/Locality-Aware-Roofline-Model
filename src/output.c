@@ -1,5 +1,7 @@
 #include "output.h"
 #include "types.h"
+#include "utils.h"
+#include "topology.h"
 
 extern float    cpu_freq;       /* In Hz */
 extern unsigned n_threads;      /* The number of threads for benchmark */
@@ -31,24 +33,32 @@ int roofline_compare_throughput(void * x, void * y){
 }
 
 void roofline_output_print_header(FILE * output){
-  fprintf(output, "%12s %10s %10s %10s %10s %10s %10s\n",
-	  "Obj", "Throughput", "GByte/s", "GFlop/s", "Flops/Byte", "n_threads", "type");
+  fprintf(output, "%12s %10s %12s %10s %10s %10s %10s %10s\n",
+	  "location", "n_threads", "memory", "throughput", "GByte/s", "GFlop/s", "Flops/Byte", "type");
 }
 
-void roofline_output_print(FILE * output, const hwloc_obj_t obj, const roofline_output * sample_out, const int type)
+void roofline_output_print(FILE * output,
+			   const hwloc_obj_t src,
+			   const hwloc_obj_t mem,
+			   const roofline_output * sample_out,
+			   const int type)
 {
-  char obj_str[12];
+  roofline_mkstr(src_str,12);
+  roofline_mkstr(mem_str,12);
+  roofline_hwloc_obj_snprintf(src, src_str, sizeof(src_str));
+  if(mem != NULL) roofline_hwloc_obj_snprintf(mem, mem_str, sizeof(mem_str));
+  else snprintf(mem_str, sizeof(mem_str), "NA");
+
   long cyc = sample_out->ts_end - sample_out->ts_start;
-  memset(obj_str,0,sizeof(obj_str));
-  hwloc_obj_type_snprintf(obj_str, 10, obj, 0);
-  snprintf(obj_str+strlen(obj_str),5,":%d",obj->logical_index);
-  fprintf(output, "%12s %10.2f %10.2f %10.2f %10.6f %10u %10s\n",
-	  obj_str, 
+
+  fprintf(output, "%12s %10u %12s %10.3f %10.3f %10.3f %10.6f %10s\n",
+	  src_str,
+	  n_threads,
+	  mem_str, 
 	  (float)sample_out->instructions / (float) cyc,
 	  (float)(sample_out->bytes * cpu_freq) / (float)(cyc*1e9), 
 	  (float)(sample_out->flops * cpu_freq) / (float)(1e9*cyc),
 	  (float)(sample_out->flops) / (float)(sample_out->bytes),
-	  n_threads,
 	  roofline_type_str(type));
   fflush(output);
 }

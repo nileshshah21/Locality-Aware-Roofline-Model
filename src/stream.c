@@ -1,7 +1,10 @@
 #include <stdio.h>
+#include <string.h>
 #include <errno.h>
 #include "utils.h"
 #include "stream.h"
+#include "stats.h"
+#include "topology.h"
 
 extern size_t alignement; /* Level 1 cache line size */
 
@@ -30,6 +33,7 @@ size_t get_chunk_size(int type);/* Minimum chunk size in MSC.h */
 
 static size_t resize_splitable_chunk(size_t size, int type){
   size_t ret, chunk_size = get_chunk_size(type);
+  if(chunk_size%alignement != 0) chunk_size = roofline_PPCM(chunk_size, alignement);
   if(size%chunk_size == 0) return size;
   else{
     ret = chunk_size*(size/chunk_size);
@@ -49,9 +53,11 @@ roofline_stream new_roofline_stream(const size_t size, const int op_type){
 void roofline_stream_split(roofline_stream in, roofline_stream chunk, unsigned n_chunk, unsigned chunk_id, int op_type)
 {
   chunk->alloc_size = in->alloc_size/n_chunk;
+  chunk->alloc_size -= chunk->alloc_size%alignement;
   chunk->size = resize_splitable_chunk(in->size/n_chunk, op_type);
-  chunk->stream = &(in->stream[(chunk_id%n_chunk)*chunk->alloc_size/sizeof(*(in->stream))]);
-  roofline_debug1("Split buffer(%luB) into %luB. Chunk is at %luB\n", in->size, chunk->size, chunk->stream-in->stream);
+  chunk->stream = in->stream + (chunk_id%n_chunk)*chunk->alloc_size/sizeof(*(in->stream));
+  roofline_debug1("Split buffer(%luB) into %luB. Chunk is at %luB\n",
+		  in->alloc_size, chunk->alloc_size, (chunk_id%n_chunk)*chunk->alloc_size);
 }
 
 void roofline_stream_set_size(roofline_stream in, const size_t size, const int op_type){

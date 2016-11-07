@@ -6,7 +6,7 @@
 #define SIMD_BYTES         64          /* Number Bytes in the vector register */
 #define SIMD_FLOPS         8           /* Number of double in the vector register */
 #define SIMD_STORE_NT      "vmovntpd"  /* Instruction for non temporal store */
-#define SIMD_LOAD_NT       "vmovntdqa" /* Instruction for non temporal load */
+#define SIMD_LOAD_NT       "vmovapd" /* Instruction for non temporal load */
 #define SIMD_STORE         "vmovapd"   /* Instruction for store */
 #define SIMD_LOAD          "vmovapd"   /* Instruction for load */
 #define SIMD_MUL           "vmulpd"    /* Instruction for multiplication */
@@ -17,7 +17,7 @@
 #define SIMD_BYTES         32
 #define SIMD_FLOPS         4
 #define SIMD_STORE_NT      "vmovntpd"
-#define SIMD_LOAD_NT       "vmovntdqa"
+#define SIMD_LOAD_NT       "vmovapd"
 #define SIMD_STORE         "vmovapd"
 #define SIMD_LOAD          "vmovapd"
 #define SIMD_MUL           "vmulpd"

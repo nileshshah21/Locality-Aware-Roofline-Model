@@ -10,7 +10,7 @@
 
   The tool is able to benchmarks severals types of micro-operations: mul, add, fma, mad, load, load_nt, store, store_nt, 2ld1st, copy, explained later.
 
-![](roofline_chart.png?raw=true)
+![](pictures/roofline_chart.png?raw=true)
 
 This plot shows load instructions' rooflines (lines) and validation kernels (points) hitting the measured bandwidth.
 
@@ -83,4 +83,39 @@ compile and run each benchmark.
 
 * plot output: `./utils/plot_roofs.bash -i input -b`
 
+###Library
+If you compile the package with `PAPI=yes`, then you probably want to get LARM metrics from your application.
+
+####Library Requirements
+* To compile the librfsampling library, you have to install the PAPI library.
+* The roofline library works only on broadwell processors with FP_ARITH counters. Older processor from Intel have no existing or accurate flops counter. Recently, PAPI KNL compatible version was released but no flops counters are yet available.
+
+####Library Setup
+* In order to use the library you have to copy the compiled file `librfsampling.so` in a directory pointed out by `LD_LIBRARY_PATH` variable or by your compiler linker flag (`-Lpath/to/librfsampling.so`). 
+* You also have to copy the file `sampling.h` in a directory pointed out by `C_INCLUDE_PATH` or by your compiler header flag (`-Ipath/to/sampling.h`).
+* The library is very lightweight and all the functions can be found in the header `sampling.h`
+* Compile your code using the library with `-lrfsampling` flag.
+
+####Library example
+```
+#include <sampling.h>
+
+roofline_sampling_init("my_CARM_result.roofs");
+struct roofline_sample * result = new_roofline_sample(TYPE_LOAD);
+
+roofline_sampling_start(result);
+...
+/* The code to evaluate */
+...
+roofline_sampling_stop(result);
+roofline_sample_print (result);
+
+delete_roofline_sample(result);
+roofline_sampling_fini()
+```
+
+Then plot the results in a handsome chart:
+`plot_roofs.bash -i plateform.roofs -d my_CARM_result.roofs -f "load$|MAD|ADD|avx_ddot" -t "LARM with my app" -o my_app_chart.pdf -p`
+
+![](pictures/my_app_chart.png?raw=true)
 

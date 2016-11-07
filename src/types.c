@@ -1,5 +1,6 @@
 #include <hwloc.h>
 #include "types.h"
+#include "topology.h"
 #include "MSC/MSC.h"
 
 int roofline_type_from_str(const char * type){
@@ -30,7 +31,26 @@ const char * roofline_type_str(int type){
   return "";
 }
 
-int roofline_filter_types(hwloc_obj_t obj, int type){
+unsigned roofline_default_types(hwloc_obj_t obj){
+  int supported = benchmark_types_supported(); 
+  if(obj->type == HWLOC_OBJ_L1CACHE){
+    return (ROOFLINE_LOAD|ROOFLINE_STORE|ROOFLINE_2LD1ST) & supported;
+  } 
+  else if(obj->type == HWLOC_OBJ_L2CACHE ||
+	  obj->type == HWLOC_OBJ_L3CACHE ||
+	  obj->type == HWLOC_OBJ_L4CACHE ||
+	  obj->type == HWLOC_OBJ_L5CACHE){
+    return (ROOFLINE_STORE|ROOFLINE_LOAD) & supported;
+  }
+  else if(obj->type == HWLOC_OBJ_NUMANODE || obj->type == HWLOC_OBJ_MACHINE){    
+    return (ROOFLINE_STORE_NT|ROOFLINE_LOAD_NT|ROOFLINE_STORE|ROOFLINE_LOAD) & supported;
+  }
+  else if (obj->type == HWLOC_OBJ_PU || obj->type == HWLOC_OBJ_CORE)
+    return (ROOFLINE_ADD|ROOFLINE_MAD|ROOFLINE_MUL|ROOFLINE_FMA) & supported;
+  else return 0;
+}
+
+unsigned roofline_filter_types(hwloc_obj_t obj, int type){
   int supported = benchmark_types_supported();
   int FP_possible = (ROOFLINE_ADD|ROOFLINE_MAD|ROOFLINE_MUL|ROOFLINE_FMA) & supported;
   int CACHE_possible = (ROOFLINE_LOAD|ROOFLINE_STORE|ROOFLINE_2LD1ST|ROOFLINE_COPY) & supported;
@@ -41,10 +61,7 @@ int roofline_filter_types(hwloc_obj_t obj, int type){
     if(type & ROOFLINE_LOAD_NT) fprintf(stderr, "skip load_nt type not meaningful for %s\n", hwloc_type_name(obj->type));
     if(type & ROOFLINE_STORE_NT) fprintf(stderr, "skip store_nt type not meaningful for %s\n", hwloc_type_name(obj->type));
     obj_type = type & CACHE_possible;
-    if(obj_type == 0) obj_type = ROOFLINE_2LD1ST & supported;
-    if(obj_type == 0) obj_type = (ROOFLINE_LOAD|ROOFLINE_STORE) & supported;
-  }
-    
+  }    
   else if(obj->type == HWLOC_OBJ_L2CACHE ||
 	  obj->type == HWLOC_OBJ_L3CACHE ||
 	  obj->type == HWLOC_OBJ_L4CACHE ||
@@ -52,19 +69,13 @@ int roofline_filter_types(hwloc_obj_t obj, int type){
     if(type & ROOFLINE_LOAD_NT) fprintf(stderr, "skip load_nt type not meaningful for %s\n", hwloc_type_name(obj->type));
     if(type & ROOFLINE_STORE_NT) fprintf(stderr, "skip store_nt type not meaningful for %s\n", hwloc_type_name(obj->type));
     obj_type = type & CACHE_possible;
-    if(obj_type == 0) obj_type = (ROOFLINE_STORE|ROOFLINE_LOAD) & supported;
   }
-
-  else if(obj->type == HWLOC_OBJ_NUMANODE || obj->type == HWLOC_OBJ_MACHINE){    
+  else if((int)obj->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NUMANODE)){
     obj_type = type & NUMA_possible;
-    if(obj_type == 0) obj_type = (ROOFLINE_STORE_NT|ROOFLINE_LOAD_NT|ROOFLINE_STORE|ROOFLINE_LOAD) & supported;
   }
-
   else if (obj->type == HWLOC_OBJ_PU || obj->type == HWLOC_OBJ_CORE){
     obj_type = type & FP_possible;
-    if(obj_type == 0) obj_type = (ROOFLINE_ADD|ROOFLINE_MAD) & supported;
   }
-
   return obj_type;
 }
 

@@ -6,6 +6,7 @@
 #include <dlfcn.h>
 #include "intel.h"
 #include "../../stats.h"
+#include "../../roofline.h"
 
 extern size_t oi_chunk_size;
 
@@ -32,7 +33,7 @@ static void dprint_FUOP(int fd, int type, unsigned * i, unsigned * regnum){
     if((*i)%2) dprint_FUOP_by_ins(fd, SIMD_MUL, regnum);
     else dprint_FUOP_by_ins(fd, SIMD_ADD, regnum);
     break;
-#if defined (__FMA__)  && defined (__AVX__)
+#if defined (__FMA__)
   case ROOFLINE_FMA:
     dprint_FUOP_by_ins(fd, SIMD_FMA, regnum);
     break;
@@ -125,6 +126,7 @@ static void  dprint_header(int fd) {
 static void dprint_oi_bench_begin(int fd, const char * id, const char * name){
   dprintf(fd, "void %s(roofline_stream data, roofline_output * out, __attribute__ ((unused)) int op_type, long repeat){\n", name);
   dprintf(fd, "volatile uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0;\n");
+  dprintf(fd, "zero_simd();\n");
   dprintf(fd, "roofline_rdtsc(c_high,c_low);\n");
   dprintf(fd, "__asm__ __volatile__ (\\\n");
   dprintf(fd, "\"loop_%s_repeat:\\n\\t\"\\\n", id);
@@ -173,13 +175,14 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int mem_type,
   do{
     for(i=0; i<mem_ins; i++) dprint_MUOP(fd, mem_type, &muops, &offset, &regnum);
     for(i=0; i<flop_ins; i++) dprint_FUOP(fd, flop_type, &fuops, &regnum);
-  } while(regnum != SIMD_N_REGS-1 && max--);
+  } while(regnum != SIMD_N_REGS-1 && offset < L1_size/2 && max--);
   dprint_oi_bench_end(fd, idx, offset);
   
-  long flops = SIMD_FLOPS * fuops * (flop_type == ROOFLINE_FMA ? 2 : 1);
-  
-  dprintf(fd, "out->instructions = repeat * %u * data->size / %lu;\n", muops+fuops, offset);
-  dprintf(fd, "out->flops = repeat * %ld * data->size / %lu;\n", flops, offset);
+  dprintf(fd, "out->instructions = repeat * data->size * %u / %u;\n", fuops+muops, muops*SIMD_BYTES);
+  dprintf(fd, "out->flops = repeat * data->size * %u * %u / %u;\n",
+	  flop_ins*SIMD_FLOPS,
+	  flop_type == ROOFLINE_FMA ? 2 : 1,
+	  mem_ins*SIMD_BYTES);
   dprintf(fd, "out->bytes = repeat * data->size;\n");
   dprintf(fd, "}\n\n");
   free(idx);

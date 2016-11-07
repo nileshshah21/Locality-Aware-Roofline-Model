@@ -3,6 +3,8 @@
 
 #include <malloc.h>
 #include <stdio.h>
+#include <string.h>
+
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -36,7 +38,7 @@
 
 #define roofline_MAX(x, y) ((x)>(y) ? (x):(y))
 #define roofline_MIN(x, y) ((x)<(y) ? (x):(y))
-
+#define roofline_mkstr(name, size) char name[size]; memset(name, 0,size)
 #define roofline_alloc(ptr,size) do{if(!(ptr=malloc(size))){PERR_EXIT("malloc");}} while(0)
 
 #ifdef _OPENMP

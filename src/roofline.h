@@ -7,13 +7,11 @@
 
 /***********************************  LIB GLOBALS ****************************************/
 
-extern hwloc_topology_t topology;   /* Current machine topology */
 extern float            cpu_freq;   /* In Hz */
 extern unsigned         n_threads;  /* Set number of threads */
-extern size_t           max_size;   /* The 32 * last level cache size */
-extern hwloc_obj_t      root;       /* The subroot of topology to select the amount of threads */
+extern off_t            L1_size;    /* size of L1_cache */
 
-int  roofline_lib_init(hwloc_topology_t topology, int with_hyperthreading, int whole_system);
+int roofline_lib_init(hwloc_topology_t topo, const char * threads_location, int with_hyperthreading);
 void roofline_lib_finalize(void);
 
 void roofline_flops    (FILE * output, const int op_type);

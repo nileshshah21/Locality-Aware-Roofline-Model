@@ -16,7 +16,8 @@
 
 int          roofline_type_from_str(const char * type);
 const char * roofline_type_str(int type);
-int          roofline_filter_types(hwloc_obj_t obj, int type);
+unsigned     roofline_default_types(hwloc_obj_t obj);
+unsigned     roofline_filter_types(hwloc_obj_t obj, int type);
 
 #endif /* TYPES_H */
 

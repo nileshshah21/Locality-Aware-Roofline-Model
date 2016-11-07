@@ -1,7 +1,7 @@
  #!/bin/bash 
 #################################################################################################################################
 # This is a script to plot results output by main benchmark.                                                                    #
-# usage: plot_roofs.sh -o <output> -f <format> -t <filter(for input info col)> -i <input>                                       #
+# usage: plot_roofs.sh -o <output> -t <title> -f <filter(for input info col)> -i <input>                                        #
 #                                                                                                                               #
 # Author: Nicolas Denoyelle (nicolas.denoyelle@inria.fr)                                                                        #
 # Date: 12/11/2015 (FR format)                                                                                                  #
@@ -13,25 +13,29 @@ usage(){
     printf "options:\n"
     printf "\t-o <output file(pdf)>\n"
     printf "\t-f <perl regular expression to filter input rows. (Match is done on info column)> \n"
-    printf "\t-b (if several bandwidths matches on a resource, the best only is kept)\n"
     printf "\t-i <input file given by roofline utility>\n"
     printf "\t-d <input data-file given by roofline library to plot applications on the roofline chart>\n"
-    printf "\t-t <plot title>\n"
+    printf "\t-t <title>\n"
     printf "\t-p (per_thread: divide roofs' value by the number of threads)\n"
-    printf "\t-v (plot validation points if any)\n"
-    printf "\t-s (plot bandwidths deviation around median)\n" 
+    printf "\t-c (check model with validation points if any)\n"
+    printf "\t-s (plot bandwidths deviation around median)\n"
+    printf "\t-l (filter thread location on input column 1. (Default to first element value)\n"
+    printf "\t-v (verbose summary of roofs)\n" 
     exit
 }
 
+SRC=""
 FILTER=".*"
 TITLE="roofline chart"
 BEST="FALSE"
 SINGLE="FALSE"
 VALIDATION="FALSE"
 DEVIATION="FALSE"
+VERBOSE="FALSE"
+
 #################################################################################################################################
 ## Parse options
-while getopts :o:i:t:d:m:f:hbpvs opt; do
+while getopts :o:i:t:d:m:f:l:hbpvsc opt; do
     case $opt in
 	o) OUTPUT=$OPTARG;;
 	d) DATA=$OPTARG;;
@@ -39,9 +43,11 @@ while getopts :o:i:t:d:m:f:hbpvs opt; do
 	i) INPUT=$OPTARG;;
 	f) FILTER="$OPTARG";;
 	t) TITLE="$OPTARG";;
+	l) SRC="$OPTARG";;	
 	p) SINGLE="TRUE";;
-	v) VALIDATION="TRUE";;
+	c) VALIDATION="TRUE";;
 	s) DEVIATION="TRUE";;
+	v) VERBOSE="TRUE";;
 	h) usage;;
 	:) echo "Option -$OPTARG requires an argument."; exit;;
     esac
@@ -60,20 +66,36 @@ fi
 output_R(){
     R --vanilla --silent --slave <<EOF
 #Columns id
-dobj        = 1;    #The obj column id
-dthroughput = 2;    #The instruction throughput
-dbandwidth  = 3;    #The bandwidth column id
-dgflops     = 4;    #The gflop/s column id
-doi         = 5;    #The oi column id
-dthreads    = 6;    #The number of threads
-dtype       = 7;    #The info column id
+dobj        = 3;    #The obj column id
+dthroughput = 4;    #The instruction throughput
+dbandwidth  = 5;    #The bandwidth column id
+dgflops     = 6;    #The gflop/s column id
+doi         = 7;    #The oi column id
+dthreads    = 2;    #The number of threads
+dtype       = 8;    #The info column id
 
 filter <- function(df, col){
   subset(df, grepl("$FILTER", df[,col], perl=TRUE))
 }
 
-#load data
-d = filter(read.table("$INPUT",header=TRUE, stringsAsFactors=FALSE), dtype)
+#load and filter data
+d = read.table("$INPUT",header=TRUE, stringsAsFactors=FALSE)
+if(is.data.frame(d) && nrow(d)==0){
+  stop("input file cannot be converted to data frame", call. = TRUE, domain = NULL)
+}
+d = filter(d, dtype)
+if(nrow(d)==0){
+  stop("Data frame is empty after filter", call. = TRUE, domain = NULL)
+}
+if("$SRC" == ""){
+  location = d[1,1]
+} else {
+  location = "$SRC"
+}
+d = d[d[,1] == location,]
+if(nrow(d)==0){
+  stop(sprintf("Data frame is empty after location %s filtering", location), call. = TRUE, domain = NULL)
+}
 
 #get fpeaks
 fpeak_samples = d[d[,dbandwidth]==0,]
@@ -104,14 +126,22 @@ for(i in 1:nrow(bandwidths_types)){
   bandwidths[i,4] = sd(bandwidths_s[,dbandwidth])
   bandwidths[i,5] = bandwidths_s[1,dthreads]
 }
+
 #check if results have to be presented per thread
 if($SINGLE){
   for( i in 1: nrow(fpeaks) ){fpeaks[i,2] = as.numeric(fpeaks[i,2])/as.numeric(fpeaks[i,4])}
   for( i in 1: nrow(bandwidths) ){bandwidths[i,3] = as.numeric(bandwidths[i,3])/as.numeric(bandwidths[i,5])}
 }
 
-print(fpeaks)
-print(bandwidths)
+fpeaks = na.omit(fpeaks)
+bandwidths = na.omit(bandwidths)
+
+if($VERBOSE){
+  if(nrow(fpeaks) > 0){print(fpeaks)}
+  if(nrow(bandwidths) > 0){print(bandwidths)}
+}
+
+if(nrow(fpeaks) > 0 && nrow(bandwidths) > 0){
 
 #Logarithmic sequence of points
 lseq <- function(from=1, to=100000, length.out = 6) {
@@ -138,9 +168,12 @@ plot_bandwidth <- function(val, sd = 0, color = 1){
   plot(oi, gflops, lty=1, type="l", log="xy", axes=FALSE, xlim=xlim, ylim=ylim, col=color, panel.first=abline(h=yticks, v=xticks,col = "darkgray", lty = 3))
   par(new=TRUE);
   if($DEVIATION){
-    xdev=sd*sd*sqrt(1+(1/(val*val)))
-    coord.x = c(xmin*(1-xdev), fpeak_max/val*(1 - xdev), fpeak_max/val*(1 + xdev), xmin*(1+xdev))
-    coord.y = c(xmin*val, fpeak_max, fpeak_max, xmin*val)
+    a0.x = oi[1];                  a0.y = oi[1]*(val-sd*0.5)
+    a1.x = oi[1];                  a1.y = oi[1]*(val+sd*0.5)
+    a2.x = fpeak_max/(val+sd*0.5); a2.y = fpeak_max
+    a3.x = fpeak_max/(val-sd*0.5); a3.y = fpeak_max
+    coord.x = c(a0.x, a1.x, a2.x, a3.x)
+    coord.y = c(a0.y, a1.y, a2.y, a3.y)
     polygon(coord.x,coord.y,col=adjustcolor(i,alpha.f=.25), lty="blank")
     par(new=TRUE);
   }
@@ -183,13 +216,16 @@ if($VALIDATION){
     if($SINGLE){
       valid[,dgflops] = valid[,dgflops]/valid[,dthreads]
     }
-    if(!$DEVIATION){
-      ois = unique(valid[,doi])
-      for(oi in ois){
-        points(oi, median(subset(valid[,dgflops], valid[,doi] == oi)), asp=1, pch=i, col=i)
+    ois = unique(valid[,doi])
+    for(oi in ois){
+      perf = median(subset(valid[,dgflops], valid[,doi] == oi))
+      if($DEVIATION){
+        dev = sd(subset(valid[,dgflops], valid[,doi] == oi))
+        points(oi, perf, asp=1, pch=1, col=i, cex=.4)
+        segments(x0 = oi, x1 = oi, y0 = perf-dev*0.5, y1=perf+dev*0.5, col=i, lty=1)
+      } else {
+        points(oi, perf, asp=1, pch=3, col=i, cex=.7)
       }
-    } else {
-      points(valid[,doi], valid[,dgflops], asp=1, pch=i, col=i)
     }
     par(new=TRUE);
   }
@@ -198,7 +234,7 @@ if($VALIDATION){
 #draw axes, title and legend
 axis(1, at=xticks, labels=xlabels)
 axis(2, at=yticks, labels=ylabels, las=1)
-title(main = "$TITLE", xlab="Flops/Byte", ylab="GFlops/s")
+title(main = sprintf("%s (%s, %d threads)", "$TITLE", d[1,1], d[1,2]), xlab="Flops/Byte", ylab="GFlops/s")
 legend("bottomright", legend=paste(bandwidths[,1], paste(bandwidths[,2], sprintf("%.2f", as.numeric(bandwidths[,3])), sep="="), "GB/s", sep=" "), cex=.7, lty=1, col=1:nrow(bandwidths), bg="white")
 
 #plot MISC points
@@ -230,7 +266,9 @@ if("$DATA" != ""){
     else{points(points[,"oi"], points[,"perf"], asp=1, pch=legend_range[i], col=legend_range[i])}
     par(new=TRUE);
   }
-  print(medians)
+  if($VERBOSE){
+    print(medians)
+  }
   legend("topright", legend=apply(types, 1, function(t){paste(t[1], t[2], sep=" ")}), cex=.7, col=legend_range, pch=legend_range, bg="white")
 }
 
@@ -238,6 +276,8 @@ box()
 
 #output
 graphics.off()
+
+} #if(nrow(fpeaks > 0) && nrow(bandwidths > 0))
 EOF
 }
 
