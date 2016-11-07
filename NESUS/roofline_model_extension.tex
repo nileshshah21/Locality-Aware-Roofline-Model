@@ -279,7 +279,7 @@ for the target memory level.
  \KwData{topology, repeat}
  n\_threads = hwloc\_get\_nbobjs\_by\_type(topology, HWLOC\_OBJ\_CORE)\;
  Core0 = hwloc\_get\_obj\_by\_type(topology, HWLOC\_OBJ\_CORE, 0)\;
- \tcc{See subsection~\ref{sub:arch_bounds} for benchmark details}
+ \tcc{See subsection~\ref{sub:arch_bounds}, figure~\ref{src:fpeak} for benchmark details}
  fpeak = median(parallel\_flop\_uops(repeat))\;
  \tcc{Cache here is a memory subsystem.}
  \ForEach{cache in ancestors(topology, Core0)}{
@@ -287,7 +287,7 @@ for the target memory level.
    max\_size = ancestor\_cache(topology, cache).size\;
    \For{size in min\_size:max\_size}{
      buffer = array\_of\_size(size/n\_threads)\;
-     \tcc{See subsection~\ref{sub:arch_bounds} for benchmark details}
+     \tcc{See subsection~\ref{sub:arch_bounds}, figure~\ref{src:bandwidth} for benchmark details}
      time = parallel\_mem\_uops(copy(buffer))\;
      bandwidths[size] = buffer.size*n\_threads/time\;
    }
@@ -324,7 +324,9 @@ loop:
 sub $1, (%[n_times])
 jnz loop
 \end{verbatim}
-\caption{assembly sample for MUL fpeak benchmark}
+\caption{assembly sample for MUL fpeak benchmark.
+  The run time, the register size, and the number of instructions, determine the floating point peak performance of the unit running the
+  benchmark.}
 \label{src:fpeak}
 \end{figure}
 
@@ -355,7 +357,9 @@ add $182, %[buf]
 sub $182, %[buf_size]
 jnz loop
 \end{verbatim}
-\caption{assembly sample for 2LD 1ST bandwidth benchmark}
+\caption{assembly sample for 2LD 1ST bandwidth benchmark.
+  The loop is run several times until the whole buffer is walked.
+  The run time, the register size, and the number of instructions determine the bandwidth of the unit running the benchmark.}
 \label{src:bandwidth}
 \end{figure}
 
