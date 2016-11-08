@@ -318,6 +318,9 @@ hwloc_obj_t roofline_hwloc_get_next_memory(hwloc_obj_t obj){
   
   /* get parent memory */
   do{obj=hwloc_get_obj_inside_cpuset_by_depth(topology, root->cpuset, obj->depth-1, 0);} while(obj!=NULL && !roofline_hwloc_obj_is_memory(obj));
+  /* If obj is a above NUMANode, then take the topology left most obj */
+  if(obj != NULL && (int)obj->depth <= hwloc_get_type_depth(topology, HWLOC_OBJ_NUMANODE))
+    obj = hwloc_get_obj_by_depth(topology, obj->depth, 0);
   
   /* No memory left in topology */
   return obj;
