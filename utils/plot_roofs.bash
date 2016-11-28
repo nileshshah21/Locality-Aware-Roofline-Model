@@ -216,16 +216,14 @@ if($VALIDATION){
   points = subset(d, d[,dgflops]!=0 & d[,dbandwidth]!=0)
   for(i in 1:nrow(bandwidths)){
     valid = subset(points, points[,dtype]==bandwidths[i,2] & points[,dobj]==bandwidths[i,1])
-    if($SINGLE){
-      valid[,dgflops] = valid[,dgflops]/valid[,dthreads]
-    }
+    if($SINGLE){valid[,dgflops] = valid[,dgflops]/valid[,dthreads]}
     ois = unique(valid[,doi])
     perfs = sapply(ois, function(oi){median(subset(valid[,dgflops], valid[,doi] == oi))})
     devs = sapply(ois, function(oi){sd(subset(valid[,dgflops], valid[,doi] == oi))})
     
     if($DEVIATION){
       points(ois, perfs, asp=1, pch=1, col=i, cex=.4)
-      segments(x0 = ois, x1 = ois, y0 = (perfs-devs)*0.5, y1=(perfs+devs)*0.5, col=i, lty=1)
+      segments(x0 = ois, x1 = ois, y0 = perfs-devs*0.5, y1=perfs+devs*0.5, col=i, lty=1)
     } else {
       points(ois, perfs, asp=1, pch=3, col=i, cex=.7)
     }
