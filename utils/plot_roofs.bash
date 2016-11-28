@@ -137,7 +137,9 @@ fpeaks = na.omit(fpeaks)
 bandwidths = na.omit(bandwidths)
 
 if($VERBOSE){
+  print(sprintf("Performances:"))
   if(nrow(fpeaks) > 0){print(fpeaks)}
+  print(sprintf("Bandwidths:"))
   if(nrow(bandwidths) > 0){print(bandwidths)}
 }
 
@@ -208,8 +210,9 @@ yticks = c(yticks, fpeaks[,2])
 ylabels = c(ylabels, sprintf("%.2f", as.numeric(fpeaks[,2])))
 axis(2, labels = fpeaks[,1], at = fpeaks[,2], las=1, tick=FALSE, pos=xmin, padj=0, hadj=0)
 
-#plot validation points
+#plot validation points and compute model fitness
 if($VALIDATION){
+  validation = data.frame(obj=character(0), type=character(0), performance.root.mean.square=numeric(0), sd=numeric(0), stringsAsFactors=FALSE)
   points = subset(d, d[,dgflops]!=0 & d[,dbandwidth]!=0)
   for(i in 1:nrow(bandwidths)){
     valid = subset(points, points[,dtype]==bandwidths[i,2] & points[,dobj]==bandwidths[i,1])
@@ -217,17 +220,29 @@ if($VALIDATION){
       valid[,dgflops] = valid[,dgflops]/valid[,dthreads]
     }
     ois = unique(valid[,doi])
-    for(oi in ois){
-      perf = median(subset(valid[,dgflops], valid[,doi] == oi))
-      if($DEVIATION){
-        dev = sd(subset(valid[,dgflops], valid[,doi] == oi))
-        points(oi, perf, asp=1, pch=1, col=i, cex=.4)
-        segments(x0 = oi, x1 = oi, y0 = perf-dev*0.5, y1=perf+dev*0.5, col=i, lty=1)
-      } else {
-        points(oi, perf, asp=1, pch=3, col=i, cex=.7)
-      }
+    perfs = sapply(ois, function(oi){median(subset(valid[,dgflops], valid[,doi] == oi))})
+    devs = sapply(ois, function(oi){sd(subset(valid[,dgflops], valid[,doi] == oi))})
+    
+    if($DEVIATION){
+      points(ois, perfs, asp=1, pch=1, col=i, cex=.4)
+      segments(x0 = ois, x1 = ois, y0 = (perfs-devs)*0.5, y1=(perfs+devs)*0.5, col=i, lty=1)
+    } else {
+      points(ois, perfs, asp=1, pch=3, col=i, cex=.7)
     }
     par(new=TRUE);
+
+    #Compute fitness
+    roof = sapply(ois*bandwidths[i,3], min, fpeak_max)
+    fitness = sqrt(sum((perfs-roof)^2))/length(perfs) #(GFlops/s RootMeanSquare)
+    sd_fitness = sd(perfs-roof)
+    validation[i,1] = bandwidths[i,1]
+    validation[i,2] = bandwidths[i,2]
+    validation[i,3] = fitness
+    validation[i,4] = sd_fitness
+  }
+  print(sprintf("Validation:"))
+  if($VERBOSE){
+    print(validation)
   }
 }
 
