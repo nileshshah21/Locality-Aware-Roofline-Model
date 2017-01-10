@@ -236,8 +236,8 @@ if($VALIDATION){
     validation[i,2] = bandwidths[i,2]
     validation[i,3] = fitness
   }
-  print(sprintf("Validation:"))
   if($VERBOSE){
+    print(sprintf("Validation:"))
     print(validation)
   }
 }
