@@ -11,7 +11,7 @@
  * by threads calling roofline_sampling_start() from this processing unit.
  * If the library is compiled with openmp enabled, it is thread safe, and thread synchronization occures on roofline_sampling_stop() call. 
  * @arg output: The file where to write the output on call to sampling stop.
- * @arg type: the hardware counters allow only a limited number of counter on each processing unit. Hence it is necessary to choos if bytes 
+ * @arg type: the hardware counters allow only a limited number of counter on each processing unit. Hence it is necessary to choose if bytes 
  *            will be counted for load operations or store operations. To count them both, it is necessary to restart the program with a new 
  *            initialization of the library.
  **/
