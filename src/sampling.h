@@ -30,7 +30,7 @@ void   roofline_sampling_fini ();
  * roofline_sampling_stop() must be called from the same scope as roofline_sampling_start().
  * If the library is compiled with openmp enabled, then a call from a parallel region will become parallel also.
  * If the library is compiled with openmp enabled and flag parallel is True, then a call from a sequential region will be parallel and thread 
- * sampling will be main with current thread affinity. Be aware that the parallel call add a great overhead to byte counter.
+ * sampling will be made with current thread affinity. Be aware that the parallel call add a great overhead to byte counter.
  * If the library is compiled with openmp enabled and flag parallel is False, then a call from a sequentail region will be sequential.
  * @arg force_parallel: a flag to tell if we have to count in parallel even if called from a sequential region
  * @arg flops: by hand flop count.
