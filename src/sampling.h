@@ -27,12 +27,18 @@ void   roofline_sampling_fini ();
  * and result accumulation is handled automatically to be presented by NUMA domain on roofline_sampling_stop() call.
  * If the library is compiled with PAPI enabled, then flops and bytes are counted using hardware counters; Else the arguments of the function
  * call are used to accumulate counts into the NUMA domains.
+ * roofline_sampling_stop() must be called from the same scope as roofline_sampling_start().
+ * If the library is compiled with openmp enabled, then a call from a parallel region will become parallel also.
+ * If the library is compiled with openmp enabled and flag parallel is True, then a call from a sequential region will be parallel and thread 
+ * sampling will be main with current thread affinity. Be aware that the parallel call add a great overhead to byte counter.
+ * If the library is compiled with openmp enabled and flag parallel is False, then a call from a sequentail region will be sequential.
+ * @arg force_parallel: a flag to tell if we have to count in parallel even if called from a sequential region
  * @arg flops: by hand flop count.
  * @arg bytes: by hand byte count.
  * @return a pointer to an opaque struct holding the current sample. 
  *         This sample pointer must be provided to roofline_sampling_stop().
  **/
-void * roofline_sampling_start(long flops, long bytes);
+void * roofline_sampling_start(int force_parallel, long flops, long bytes);
 
 /**
  * Stop sampling roofline metrics and output results for the whole machine. If compiled with openmp support, a barrier occures during this call.

@@ -20,6 +20,7 @@ static unsigned         BYTES = 8;
 static FILE *           output_file = NULL;
 static hwloc_topology_t topology;
 static list             samples;
+static uint64_t *       bindings;
 
 struct roofline_sample{
 #ifdef _PAPI_
@@ -244,6 +245,17 @@ void roofline_sampling_init(const char * output, int type){
     exit(EXIT_FAILURE);
   }
 
+  /* Initialize bindings array */
+  unsigned i, max_threads;
+#ifdef _OPENMP
+  #pragma omp parallel
+  max_threads = omp_get_max_threads();
+#else
+  max_threads = hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_PU);
+#endif
+  bindings = malloc(sizeof(*bindings)*max_threads);
+  for(i=0;i<max_threads;i++){bindings[i] = 0;}
+		    
 #ifdef _PAPI_
   /* Initialize PAPI library */
   PAPI_call_check(PAPI_library_init(PAPI_VER_CURRENT), PAPI_VER_CURRENT, "PAPI version mismatch\n");
@@ -252,7 +264,7 @@ void roofline_sampling_init(const char * output, int type){
 
   /* Create one sample per PU */
   struct roofline_sample * s;
-  int i, n_PU = hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_PU);
+  unsigned n_PU = hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_PU);
   hwloc_obj_t first_PU, obj = NULL;  
   samples = new_list(sizeof(s), n_PU, (void(*)(void*))delete_roofline_sample);
   for(i=0; i<n_PU; i++){
@@ -295,6 +307,7 @@ void roofline_sampling_fini(){
     if(Node->arity == 0){continue;}
     delete_list(Node->userdata);
   }
+  free(bindings);
   delete_list(samples);  
   hwloc_topology_destroy(topology);
   fclose(output_file);
@@ -313,7 +326,8 @@ static void roofline_samples_reduce(list l, const char * info){
   roofline_sample_print(s, n_threads, info);
 }
 
-static struct roofline_sample * roofline_sampling_caller(){
+static struct roofline_sample * roofline_sampling_caller(int id){
+  if(id > 0){return list_get(samples, bindings[id]);}
   long cpu = -1;
 
   /* Check if calling thread is bound on a PU */
@@ -328,6 +342,7 @@ static struct roofline_sample * roofline_sampling_caller(){
 
   if(cpu != -1){
     hwloc_obj_t PU = hwloc_get_pu_obj_by_os_index(topology, (int)cpu);
+    bindings[-id] = PU->logical_index;
     return list_get(samples, PU->logical_index);
   }
 
@@ -335,15 +350,20 @@ static struct roofline_sample * roofline_sampling_caller(){
 }
 
 #ifdef _PAPI_
-void * roofline_sampling_start(__attribute__ ((unused)) long flops,__attribute__ ((unused)) long bytes)
+static void * roofline_sequential_sampling_start(__attribute__ ((unused)) long flops,__attribute__ ((unused)) long bytes)
 #else
-void * roofline_sampling_start(long flops, long bytes)
+static void * roofline_sequential_sampling_start(long flops, long bytes)
 #endif
 {
   struct timespec t;
-  struct roofline_sample * s = roofline_sampling_caller();
+  int id = 0;
+#ifdef _OPENMP
+  id = omp_get_thread_num();
+#endif
+  struct roofline_sample * s = roofline_sampling_caller(-id);
   if(s != NULL){
     roofline_sample_reset(s);
+#pragma omp barrier        
 #ifdef _PAPI_
     s->started = 1;    
     PAPI_start(s->eventset);
@@ -357,8 +377,30 @@ void * roofline_sampling_start(long flops, long bytes)
   return (void*)s;
 }
 
+#ifdef _OPENMP
+void * roofline_sampling_start(int parallel, long flops, long bytes)
+#else
+  void * roofline_sampling_start(__attribute__ ((unused)) int parallel, long flops, long bytes)
+#endif
+{
+  struct roofline_sample * ret = NULL;
+#ifdef _OPENMP
+  if(parallel && !omp_in_parallel()){
+#pragma omp parallel
+    {
+      roofline_sequential_sampling_start(flops, bytes);
+    }
+  } else {
+    ret = roofline_sequential_sampling_start(flops, bytes);
+  }
+#else
+  ret = roofline_sequential_sampling_start(flops, bytes);
+#endif
+  return ret;
+}
 
-void roofline_sampling_stop(void *sample, const char* info){
+
+static void roofline_sequential_sampling_stop(void *sample, const char* info){
   if(sample == NULL){return;}
   struct roofline_sample * s = (struct roofline_sample*)sample;
   struct timespec t;  
@@ -383,6 +425,23 @@ void roofline_sampling_stop(void *sample, const char* info){
     list_apply(samples, roofline_sample_reset);
 #ifdef _OPENMP    
   }
+#endif
+}
+
+void roofline_sampling_stop(void *sample, const char* info){
+#ifdef _OPENMP
+  if(sample == NULL){
+    if(!omp_in_parallel()){
+#pragma omp parallel
+      roofline_sequential_sampling_stop(roofline_sampling_caller(omp_get_thread_num()), info);
+    } else {
+      roofline_sequential_sampling_stop(roofline_sampling_caller(omp_get_thread_num()), info);
+    }
+  } else {
+    roofline_sequential_sampling_stop(sample, info);
+  }
+#else
+  roofline_sequential_sampling_stop(sample, info);
 #endif
 }
 
