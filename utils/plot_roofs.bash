@@ -239,20 +239,24 @@ legend("bottomright", legend=paste(bandwidths[,1], paste(bandwidths[,2], sprintf
 
 #plot MISC points
 if("$DATA" != ""){
-  dnano   = 1
-  dbyte   = 2
-  dflop   = 3
-  dthread = 4
-  dtype   = 5
-  dinfo   = 6
+  loc     = 1
+  dnano   = 2
+  dbyte   = 3
+  dflop   = 4
+  dthread = 5
+  dtype   = 6
+  dinfo   = 7
 
   misc = read.table("$DATA",header=TRUE)
   misc = filter(misc, dtype)
   misc = filter(misc, dinfo)
+  misc = subset(misc, grepl(location, misc[,loc]))
+
   misc["oi"] = ifelse(misc[,dbyte]==0, NA, as.numeric(misc[,dflop])/as.numeric(misc[,dbyte]))
   misc["perf"] = ifelse(misc[,dnano]==0, NA, as.numeric(misc[,dflop])/as.numeric(misc[,dnano]))
   types = unique(misc[,c(dtype, dinfo)])
   medians = data.frame(arithmetic_intensity=numeric(0), performance=numeric(0), bandwidth=numeric(0), type=character(0), id=character(0), stringsAsFactors=FALSE)
+
   legend_range = seq(nrow(bandwidths)+1, nrow(bandwidths)+nrow(types), by=1)
   for(i in 1:nrow(types)){
     points      = subset(misc, misc[,dtype] == types[i,1] & misc[,dinfo] == types[i,2])
