@@ -53,7 +53,7 @@ void * roofline_sampling_start(int force_parallel, long flops, long bytes);
  * Additionnally, the environment variable "LARM_INFO" is read on each roofline_sampling_stop() call, and is appended to the info column of the
  * sample result.
  * @arg sample: The structure provided on roofline_sampling_start() call.
- * @arg info: an additional information to be appended at the end of output line.
+ * @arg info: an additional information to be written into info column.
  **/
 void   roofline_sampling_stop (void * sample, const char* info);
 
