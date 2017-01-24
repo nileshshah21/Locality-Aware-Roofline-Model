@@ -4,42 +4,51 @@
 #define TYPE_LOAD  1
 #define TYPE_STORE 2
 
-struct roofline_sample;
+/**
+ * Initialize the sampling library.
+ * This function internally initialize a topology where samples are stored, the PAPI library.
+ * Each processing unit of the topology own a sample containing flops and bytes count and is updated 
+ * by threads calling roofline_sampling_start() from this processing unit.
+ * If the library is compiled with openmp enabled, it is thread safe, and thread synchronization occures on roofline_sampling_stop() call. 
+ * @arg output: The file where to write the output on call to sampling stop.
+ * @arg type: the hardware counters allow only a limited number of counter on each processing unit. Hence it is necessary to choos if bytes 
+ *            will be counted for load operations or store operations. To count them both, it is necessary to restart the program with a new 
+ *            initialization of the library.
+ **/
+void   roofline_sampling_init(const char * output, int type);
 
-void                     roofline_sampling_init (const char * output, int counting);
-void                     roofline_sampling_fini ();
-struct roofline_sample * new_roofline_sample    (int type);
-void                     roofline_sample_set(struct roofline_sample*, int type, long flops, long bytes);
-void                     roofline_sample_clear  (struct roofline_sample *);
-void                     roofline_sampling_start(struct roofline_sample *);
-void                     roofline_sampling_stop (struct roofline_sample *);
-void                     roofline_sample_print  (struct roofline_sample* , const char * info);
-void                     delete_roofline_sample (struct roofline_sample *);
+/**
+ * Destroy structures initialized on call to roofline_sampling_init.
+ **/
+void   roofline_sampling_fini ();
 
-#ifdef _OPENMP
-#include <omp.h>
-extern struct roofline_sample shared;
-extern unsigned n_threads;
+/**
+ * Initialize a sampling structure and start counting. In an openmp context, each thread will count for itself,
+ * and result accumulation is handled automatically to be presented by NUMA domain on roofline_sampling_stop() call.
+ * If the library is compiled with PAPI enabled, then flops and bytes are counted using hardware counters; Else the arguments of the function
+ * call are used to accumulate counts into the NUMA domains.
+ * @arg flops: by hand flop count.
+ * @arg bytes: by hand byte count.
+ * @return a pointer to an opaque struct holding the current sample. 
+ *         This sample pointer must be provided to roofline_sampling_stop().
+ **/
+void * roofline_sampling_start(long flops, long bytes);
 
-void roofline_sample_accumulate(struct roofline_sample *, struct roofline_sample *);
+/**
+ * Stop sampling roofline metrics and output results for the whole machine. If compiled with openmp support, a barrier occures during this call.
+ * Result presentation is as follow:
+ * NUMA_domain Nanoseconds Bytes Flops n_threads type info.
+ * Results are accumulated by NUMA domain.
+ * Nanoseconds is the time between roofline_sampling_start() and roofline_sampling_stop() calls.
+ * Bytes and Flops are counted between roofline_sampling_start() and roofline_sampling_stop() calls, whether with hardware counters or with
+ * manually provided values.
+ * n_threads is the number of processing units where something was actually counted.
+ * type is whether load or store depending on the library initialization type.
+ * Additionnally, the environment variable "LARM_INFO" is read on each roofline_sampling_stop() call, and is appended to the info column of the
+ * sample result.
+ * @arg sample: The structure provided on roofline_sampling_start() call.
+ * @arg info: an additional information to be appended at the end of output line.
+ **/
+void   roofline_sampling_stop (void * sample, const char* info);
 
-#define roofline_sampling_parallel_start() do{			\
-    struct roofline_sample * out = new_roofline_sample();	\
-    _Pragma("omp single")					\
-      roofline_sample_clear(&shared);				\
-    _Pragma("omp barrier")					\
-      roofline_sampling_start(out)
-
-#define roofline_sampling_parallel_stop(info)	\
-  roofline_sampling_stop(out);			\
-  _Pragma("omp barrier")			\
-  _Pragma("omp critical")			\
-  roofline_sample_accumulate(&shared, &out);	\
-  delete_roofline_sample(out);			\
-  n_threads = omp_get_num_threads();		\
-  _Pragma("omp single")				\
-    roofline_sampling_print(&shared, info);	\
-} while(0)
-
-#endif /* _OPENMP */
 #endif /*  SAMPLING_H */

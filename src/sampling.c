@@ -1,25 +1,37 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <time.h>
+#include <unistd.h>
+#include <sched.h>
+#ifdef _PAPI_
 #include <papi.h>
-
+#endif
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+#include <hwloc.h>
 #include "sampling.h"
+#include "list.h"
 
-static unsigned BYTES = 8;
-static FILE *   output_file = NULL;  
-unsigned        n_threads = 1;
-static int      counting = 1;
+static unsigned         BYTES = 8;
+static FILE *           output_file = NULL;
+static hwloc_topology_t topology;
+static list             samples;
 
 struct roofline_sample{
-  /* All sample type specific data */
-  int type;
-  int eventset;        /* Eventset of this sample used to read events */
-  long long values[4]; /* Values to be store on counter read */
-  long nanoseconds;    /* Timestamp in cycles where the roofline started */
-  long flops;          /* The amount of flops computed */
-  long bytes;          /* The amount of bytes of type transfered */
+#ifdef _PAPI_
+  int         started;
+  int         eventset;    /* Eventset of this sample used to read events */
+  long long   values[4];   /* Values to be store on counter read */
+#endif
+  int         type;        /* TYPE_LOAD or TYPE_STORE */
+  long        nanoseconds; /* Timestamp in cycles where the roofline started */
+  long        flops;       /* The amount of flops computed */
+  long        bytes;       /* The amount of bytes of type transfered */
+  hwloc_obj_t location;    /* Where the thread is taking samples */
 };
 
 static char * roofline_cat_info(const char * info){
@@ -36,6 +48,32 @@ static char * roofline_cat_info(const char * info){
   return ret;
 }
 
+static int roofline_hwloc_obj_snprintf(hwloc_obj_t obj, char * info_in, size_t n){
+  int nc;
+  memset(info_in,0,n);
+  /* Special case for MCDRAM */
+  if(obj->type == HWLOC_OBJ_NUMANODE && obj->subtype != NULL && !strcmp(obj->subtype, "MCDRAM"))
+    nc = snprintf(info_in, n, "%s", obj->subtype);
+  else nc = hwloc_obj_type_snprintf(info_in, n, obj, 0);
+  nc += snprintf(info_in+nc,n-nc,":%d",obj->logical_index);
+  return nc;
+}
+
+static const char * roofline_type_str(int type){
+  switch(type){
+  case TYPE_LOAD:
+    return "load";
+    break;
+  case TYPE_STORE:
+    return "store";
+    break;    
+  default:
+    return "";
+    break;    
+  }
+}
+
+#ifdef _PAPI_
 static void
 PAPI_handle_error(const int err)
 {
@@ -90,145 +128,261 @@ PAPI_handle_error(const int err)
     }							\
   } while(0)
 
-
-void roofline_sample_clear(struct roofline_sample * out){
-  if(counting && out->eventset!=PAPI_NULL){
-    PAPI_call_check(PAPI_reset(out->eventset), PAPI_OK, "Eventset reset failed\n");
-  }
-  out->nanoseconds = 0;
-  out->flops = 0;
-  out->bytes = 0;
+void roofline_sampling_eventset_init(hwloc_obj_t PU, int * eventset, int type){
+#ifdef _OPENMP
+#pragma omp critical
+    {
+#endif /* _OPENMP */
+      
+      *eventset = PAPI_NULL;      
+      PAPI_call_check(PAPI_create_eventset(eventset), PAPI_OK, "PAPI eventset initialization failed\n");
+      /* assign eventset to a component */
+      PAPI_call_check(PAPI_assign_eventset_component(*eventset, 0), PAPI_OK, "Failed to assign eventset to commponent: ");
+      /* bind eventset to cpu */
+      PAPI_option_t cpu_option;
+      cpu_option.cpu.eventset=*eventset;
+      cpu_option.cpu.cpu_num = PU->os_index;
+      PAPI_call_check(PAPI_set_opt(PAPI_CPU_ATTACH,&cpu_option), PAPI_OK, "Failed to bind eventset to cpu: ");
+      
+      PAPI_call_check(PAPI_add_named_event(*eventset, "FP_ARITH:SCALAR_DOUBLE"), PAPI_OK, "Failed to add FP_ARITH:SCALAR_DOUBLE event\n");
+      PAPI_call_check(PAPI_add_named_event(*eventset, "FP_ARITH:128B_PACKED_DOUBLE"), PAPI_OK, "Failed to add FP_ARITH:128B_PACKED_DOUBLE event\n");
+      PAPI_call_check(PAPI_add_named_event(*eventset, "FP_ARITH:256B_PACKED_DOUBLE"), PAPI_OK, "Failed to add FP_ARITH:256B_PACKED_DOUBLE event\n");
+      switch(type){
+      case TYPE_STORE:
+	PAPI_call_check(PAPI_add_named_event(*eventset, "MEM_UOPS_RETIRED:ALL_STORES"), PAPI_OK, "Failed to add MEM_UOPS_RETIRED:ALL_STORES event\n");
+	break;
+      default:
+	PAPI_call_check(PAPI_add_named_event(*eventset, "MEM_UOPS_RETIRED:ALL_LOADS"), PAPI_OK, "Failed to add MEM_UOPS_RETIRED:ALL_LOADS event\n");
+	break;
+      } 
+#ifdef _OPENMP
+    }
+#endif /* _OPENMP */
 }
 
-struct roofline_sample * new_roofline_sample(int type){
+#endif /* _PAPI_ */
+
+static void roofline_sample_reset(struct roofline_sample * s){
+  s->nanoseconds = 0;
+  s->flops = 0;
+  s->bytes = 0;
+#ifdef _PAPI_
+  PAPI_reset(s->eventset);
+#endif /* _PAPI_ */
+}
+
+static struct roofline_sample * roofline_sample_accumulate(struct roofline_sample * out,
+							   struct roofline_sample * with){
+  out->nanoseconds = out->nanoseconds>with->nanoseconds ? out->nanoseconds : with->nanoseconds;
+  out->bytes      += with->bytes;
+  out->flops      += with->flops;
+  return out;
+}
+
+static struct roofline_sample * new_roofline_sample(hwloc_obj_t PU, int type){
   struct roofline_sample * s = malloc(sizeof(struct roofline_sample));
   if(s==NULL){perror("malloc"); return NULL;}
   s->nanoseconds = 0;
   s->flops = 0;
   s->bytes = 0;
-  s->eventset = PAPI_NULL;
   s->type = type;
+  s->location = PU;
+  do{s->location = s->location->parent;} while(s->location && s->location->type!=HWLOC_OBJ_NODE);
 
-  if(counting){
-#ifdef _OPENMP
-#pragma omp critical
-  {
-#endif
-    PAPI_call_check(PAPI_create_eventset(&(s->eventset)), PAPI_OK, "PAPI eventset initialization failed\n");
-    PAPI_call_check(PAPI_add_named_event(s->eventset, "FP_ARITH:SCALAR_DOUBLE"), PAPI_OK, "Failed to add FP_ARITH:SCALAR_DOUBLE event\n");
-    PAPI_call_check(PAPI_add_named_event(s->eventset, "FP_ARITH:128B_PACKED_DOUBLE"), PAPI_OK, "Failed to add FP_ARITH:128B_PACKED_DOUBLE event\n");
-    PAPI_call_check(PAPI_add_named_event(s->eventset, "FP_ARITH:256B_PACKED_DOUBLE"), PAPI_OK, "Failed to add FP_ARITH:256B_PACKED_DOUBLE event\n");
-    switch(type){
-    case TYPE_STORE:
-      PAPI_call_check(PAPI_add_named_event(s->eventset, "MEM_UOPS_RETIRED:ALL_STORES"), PAPI_OK, "Failed to add MEM_UOPS_RETIRED:ALL_STORES event\n");
-      break;
-    default:
-      PAPI_call_check(PAPI_add_named_event(s->eventset, "MEM_UOPS_RETIRED:ALL_LOADS"), PAPI_OK, "Failed to add MEM_UOPS_RETIRED:ALL_LOADS event\n");
-      break;
-    } 
-#ifdef _OPENMP
-  }
-#endif
-  }
+#ifdef _PAPI_
+  roofline_sampling_eventset_init(PU, &(s->eventset), type);
+  s->started = 0;
+#endif /* _PAPI_ */
   return s;
 }
 
-void roofline_sample_set(struct roofline_sample * s, int type, long flops, long bytes){
-  s->flops = flops; s->bytes=bytes; s->type = type;
-}
-
-void delete_roofline_sample(struct roofline_sample * s){
-  if(counting) PAPI_destroy_eventset(&(s->eventset));
+static void delete_roofline_sample(struct roofline_sample * s){
+#ifdef _PAPI_
+  PAPI_destroy_eventset(&(s->eventset));
+#endif
   free(s);
 }
 
-void roofline_sample_print(struct roofline_sample * s , const char * info)
+static void roofline_sample_print(struct roofline_sample * s , int n_threads, const char * info)
 {
+  char location[16]; roofline_hwloc_obj_snprintf(s->location, location, sizeof(location));
   char * info_cat = roofline_cat_info(info);
-  switch(s->type) {
-  case TYPE_STORE:
-    fprintf(output_file, "%16ld %16ld %16ld %10d %10s %s\n",
-	    s->nanoseconds, s->bytes, s->flops, n_threads, "store", info_cat);
-    break;
-  default:
-    fprintf(output_file, "%16ld %16ld %16ld %10d %10s %s\n",
-	    s->nanoseconds, s->bytes, s->flops, n_threads, "load", info_cat);
-    break;
-  }
+  
+  fprintf(output_file, "%16s %16ld %16ld %16ld %10d %10s %s\n",
+  	  location,
+  	  s->nanoseconds,
+  	  s->bytes,
+  	  s->flops,
+  	  n_threads,
+  	  roofline_type_str(s->type),
+  	  info_cat);
 }
 
 static inline void roofline_print_header(){
-  fprintf(output_file, "%16s %16s %16s %10s %10s %s\n",
-	  "Nanoseconds", "Bytes", "Flops", "n_threads", "type", "info");
+  fprintf(output_file, "%16s %16s %16s %16s %10s %10s %s\n",
+	  "Location", "Nanoseconds", "Bytes", "Flops", "n_threads", "type", "info");
 }
 
-void roofline_sampling_init(const char * output, int count){
+void roofline_sampling_init(const char * output, int type){
+
+  /* Open output */
   if(output == NULL){
     output_file = stdout;
-  }
-  else if((output_file = fopen(output,"w+")) == NULL){
+  } else if((output_file = fopen(output,"w+")) == NULL){
     perror("fopen");
     exit(EXIT_FAILURE);
   }
 
+  /* Initialize topology */
+  if(hwloc_topology_init(&topology) ==-1){
+    fprintf(stderr, "hwloc_topology_init failed.\n");
+    exit(EXIT_FAILURE);
+  }
+  hwloc_topology_set_icache_types_filter(topology, HWLOC_TYPE_FILTER_KEEP_ALL);
+  if(hwloc_topology_load(topology) ==-1){
+    fprintf(stderr, "hwloc_topology_load failed.\n");
+    exit(EXIT_FAILURE);
+  }
+
+#ifdef _PAPI_
+  /* Initialize PAPI library */
+  PAPI_call_check(PAPI_library_init(PAPI_VER_CURRENT), PAPI_VER_CURRENT, "PAPI version mismatch\n");
+  PAPI_call_check(PAPI_is_initialized(), PAPI_LOW_LEVEL_INITED, "PAPI initialization failed\n");
+#endif
+
+  /* Create one sample per PU */
+  struct roofline_sample * s;
+  int i, n_PU = hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_PU);
+  hwloc_obj_t first_PU, obj = NULL;  
+  samples = new_list(sizeof(s), n_PU, (void(*)(void*))delete_roofline_sample);
+  for(i=0; i<n_PU; i++){
+    obj = hwloc_get_obj_by_type(topology, HWLOC_OBJ_PU, i);
+    s = new_roofline_sample(obj, type);
+    while(obj && obj->type != HWLOC_OBJ_NODE){obj = obj->parent;}
+    s->location = obj;
+    list_push(samples, s);
+  }
+
+  /* Store a sublist of sample in each Node */
+  obj=NULL;
+  while((obj=hwloc_get_next_obj_by_type(topology, HWLOC_OBJ_NODE, obj)) != NULL){
+    if(obj->arity == 0){continue;}
+    n_PU = hwloc_get_nbobjs_inside_cpuset_by_type(topology, obj->cpuset, HWLOC_OBJ_PU);
+    first_PU = obj; while(first_PU->type!=HWLOC_OBJ_PU){first_PU = first_PU->first_child;}    
+    obj->userdata = sub_list(samples, first_PU->logical_index, n_PU);    
+  }
+   
   /* Check whether flops counted will be AVX or SSE */
   int eax = 0, ebx = 0, ecx = 0, edx = 0;
-    
   /* Check SSE */
   eax = 1;
   __asm__ __volatile__ ("CPUID\n\t": "=c" (ecx), "=d" (edx): "a" (eax));
   if ((edx & 1 << 25) || (edx & 1 << 26)) {BYTES = 16;}
-
   /* Check AVX */
   if ((ecx & 1 << 28) || (edx & 1 << 26)) {BYTES = 32;}
   eax = 7; ecx = 0;
   __asm__ __volatile__ ("CPUID\n\t": "=b" (ebx), "=c" (ecx): "a" (eax), "c" (ecx));
   if ((ebx & 1 << 5)) {BYTES = 32;}
-
-  /* AVX512 foundation. Not checked */
+  /* AVX512. Not checked */
   if ((ebx & 1 << 16)) {BYTES = 64;}
-
-  if(count){
-    counting = 1;
-    PAPI_call_check(PAPI_library_init(PAPI_VER_CURRENT), PAPI_VER_CURRENT, "PAPI version mismatch\n");
-    PAPI_call_check(PAPI_is_initialized(), PAPI_LOW_LEVEL_INITED, "PAPI initialization failed\n");
-  } else counting = 0;
+  
   roofline_print_header(output_file, "info");
 }
 
 void roofline_sampling_fini(){
+  hwloc_obj_t Node = NULL;
+  while((Node=hwloc_get_next_obj_by_type(topology, HWLOC_OBJ_NODE, Node)) != NULL){
+    if(Node->arity == 0){continue;}
+    delete_list(Node->userdata);
+  }
+  delete_list(samples);  
+  hwloc_topology_destroy(topology);
   fclose(output_file);
 }
 
-
-void roofline_sampling_start(struct roofline_sample * out){
-  struct timespec t;
-  if(counting) PAPI_start(out->eventset);
-  clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t);
-  out->nanoseconds = t.tv_nsec + 1e9*t.tv_sec;
+static void is_thread(struct roofline_sample * s, unsigned * n_threads){
+  *n_threads += (s->nanoseconds>0?1:0);
 }
 
-
-void roofline_sampling_stop(struct roofline_sample * out){
-  struct timespec t;
-  long fp_op;
-  clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t);
-  if(counting) PAPI_stop(out->eventset,out->values);
-  out->nanoseconds = (t.tv_nsec + 1e9*t.tv_sec) - out->nanoseconds;
-  out->flops = out->values[0] + 2 * out->values[1] + 4 * out->values[2];
-  fp_op = out->values[0] + out->values[1] + out->values[2];
-  out->bytes  = 8*out->values[3]*(4*out->values[2] + 2*out->values[1] + out->values[0])/fp_op;
+static void roofline_samples_reduce(list l, const char * info){
+  unsigned n_threads = 0;
+  struct roofline_sample *s;
+  
+  list_apply(l, is_thread, (&n_threads));
+  s = list_reduce(l, (void*(*)(void*,void*))roofline_sample_accumulate);
+  roofline_sample_print(s, n_threads, info);
 }
 
+static struct roofline_sample * roofline_sampling_caller(){
+  long cpu = -1;
 
-#ifdef _OPENMP
-#include <omp.h>
-struct roofline_sample shared;
+  /* Check if calling thread is bound on a PU */
+  hwloc_cpuset_t binding = hwloc_bitmap_alloc();
+  if(hwloc_get_cpubind(topology, binding, HWLOC_CPUBIND_THREAD) == -1){perror("get_cpubind");}
+  else if(hwloc_bitmap_weight(binding) == 1){cpu = hwloc_bitmap_first(binding);}
+  hwloc_bitmap_free(binding);
+  
+  if(cpu == -1){
+    if((cpu = sched_getcpu()) == -1){perror("getcpu");}
+  }
 
-void roofline_sample_accumulate(struct roofline_sample * out, struct roofline_sample * with){
-  out->nanoseconds = out->nanoseconds>with->nanoseconds ? out->nanoseconds : with->nanoseconds;
-  out->bytes      += with->bytes;
-  out->flops      += with->flops;
+  if(cpu != -1){
+    hwloc_obj_t PU = hwloc_get_pu_obj_by_os_index(topology, (int)cpu);
+    return list_get(samples, PU->logical_index);
+  }
+
+  return NULL;
 }
+
+#ifdef _PAPI_
+void * roofline_sampling_start(__attribute__ ((unused)) long flops,__attribute__ ((unused)) long bytes)
+#else
+void * roofline_sampling_start(long flops, long bytes)
 #endif
+{
+  struct timespec t;
+  struct roofline_sample * s = roofline_sampling_caller();
+  if(s != NULL){
+    roofline_sample_reset(s);
+#ifdef _PAPI_
+    s->started = 1;    
+    PAPI_start(s->eventset);
+#else
+    s->bytes = bytes;
+    s->flops = flops;
+#endif
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t);
+    s->nanoseconds = t.tv_nsec + 1e9*t.tv_sec;
+  }
+  return (void*)s;
+}
+
+
+void roofline_sampling_stop(void *sample, const char* info){
+  if(sample == NULL){return;}
+  struct roofline_sample * s = (struct roofline_sample*)sample;
+  struct timespec t;  
+  clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t);
+#ifdef _PAPI_
+  if(s->started){PAPI_stop(s->eventset, s->values);}
+  s->flops = s->values[0] + 2 * s->values[1] + 4 * s->values[2];
+  long fp_op = s->values[0] + s->values[1] + s->values[2];
+  s->bytes  = 8*s->values[3]*(4*s->values[2] + 2*s->values[1] + s->values[0])/fp_op;  
+#endif
+  s->nanoseconds = (t.tv_nsec + 1e9*t.tv_sec) - s->nanoseconds;
+#ifdef _OPENMP
+#pragma omp barrier
+#pragma omp single
+  {
+#endif
+    hwloc_obj_t Node = NULL;
+    while((Node=hwloc_get_next_obj_by_type(topology, HWLOC_OBJ_NODE, Node)) != NULL){
+      if(Node->arity == 0){continue;}
+      roofline_samples_reduce(Node->userdata, info);
+    }
+    list_apply(samples, roofline_sample_reset);
+#ifdef _OPENMP    
+  }
+#endif
+}
 
