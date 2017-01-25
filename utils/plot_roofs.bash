@@ -32,6 +32,7 @@ SINGLE="FALSE"
 VALIDATION="FALSE"
 DEVIATION="FALSE"
 VERBOSE="FALSE"
+WIDTH=$(tput cols)
 
 #################################################################################################################################
 ## Parse options
@@ -65,6 +66,9 @@ fi
 
 output_R(){
     R --vanilla --silent --slave <<EOF
+
+options("width"=$WIDTH)
+
 #Columns id
 dobj        = 3;    #The obj column id
 dthroughput = 4;    #The instruction throughput
@@ -137,8 +141,8 @@ fpeaks = na.omit(fpeaks)
 bandwidths = na.omit(bandwidths)
 
 if($VERBOSE){
-  if(nrow(fpeaks) > 0){print(fpeaks)}
-  if(nrow(bandwidths) > 0){print(bandwidths)}
+  if(nrow(fpeaks) > 0){cat("", sep="\n\n"); print(fpeaks)}
+  if(nrow(bandwidths) > 0){cat("", sep="\n\n"); print(bandwidths)}
 }
 
 if(nrow(fpeaks) > 0 && nrow(bandwidths) > 0){
@@ -271,6 +275,7 @@ if("$DATA" != ""){
     par(new=TRUE);
   }
   if($VERBOSE){
+    cat("", sep = "\n\n")
     print(medians)
   }
   legend("topright", legend=apply(types, 1, function(t){paste(t[1], t[2], sep=" ")}), cex=.7, col=legend_range, pch=legend_range, bg="white")
