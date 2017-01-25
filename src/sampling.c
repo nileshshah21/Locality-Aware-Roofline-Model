@@ -409,7 +409,11 @@ static void roofline_sequential_sampling_stop(void *sample, const char* info){
   if(s->started){PAPI_stop(s->eventset, s->values);}
   s->flops = s->values[0] + 2 * s->values[1] + 4 * s->values[2];
   long fp_op = s->values[0] + s->values[1] + s->values[2];
-  s->bytes = 8*s->values[3]*(fp_op==0)?1:((4*s->values[2] + 2*s->values[1] + s->values[0])/fp_op); 
+  if(fp_op > 0){
+    s->bytes = 8*s->values[3]*(4*s->values[2] + 2*s->values[1] + s->values[0])/fp_op;
+  } else {
+    s->bytes = 8*s->values[3];
+  }
 #endif
   s->nanoseconds = (t.tv_nsec + 1e9*t.tv_sec) - s->nanoseconds;
 #ifdef _OPENMP
