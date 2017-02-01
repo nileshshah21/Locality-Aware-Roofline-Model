@@ -7,7 +7,7 @@
 # Version: 0.1                                                                                                                  #
 #################################################################################################################################
 
-# options("width"=system(command = "tput cols", intern = T))
+options("width"=system(command = "tput cols", intern = T))
 
 #################################################################################################################################
 ## Parse options
@@ -315,7 +315,9 @@ roofline_plot <- function(df, bandwidths, fpeaks, validation=F, data=NULL){
 }
 
 for(loc in unique(df$location)){
+  roofs = df[df$location==loc,]
+  appli = NULL; if(!is.null(pt)){appli = pt[pt$Location==loc,]}
   pdf(sprintf("%s.%s", gsub(":", "-",loc), options$output), onefile=T, family = "Helvetica", basename(options$input), width=10, height=5)
-  roofline_plot(df, bandwidth_roofs(df, types=bandwidth_types), fpeak_roofs(df), options$validation, data_points(pt))
+  roofline_plot(roofs, bandwidth_roofs(roofs, types=bandwidth_types), fpeak_roofs(roofs), options$validation, data_points(appli))
   graphics.off()
 }
