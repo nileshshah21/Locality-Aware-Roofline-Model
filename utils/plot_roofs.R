@@ -17,17 +17,19 @@ library("optparse")
 
 ##Parse options
 inOpt = make_option(opt_str = c("-i", "--input"), type = "character",  default = NULL, 
-                    help = "Input plateform evaluation obtained with roofline binaray.")
+                    help = "Input plateform evaluation obtained with roofline binary.")
 outOpt = make_option(opt_str = c("-o", "--output"), type = "character", default = "roofline_chart.pdf", 
                      help = "Output pdf chart.")
 datOpt = make_option(opt_str = c("-d", "--data"), type = "character", default = NULL, 
-                     help = "Use a trace obtained with lib rfsampling to plot into the chart
-                            Each pair(type,info) is plot with a different color and legend.
-                            Points are included into a transparent circle which radius allow to compare runtime between points")
+                     help = "Use an application trace obtained with librfsampling to plot into the roofline chart.
+                Each pair(type,info) is plot as a single point even if it appears several times. 
+                In the latter case, it is possible to display the deviation with -s option.
+                Points are represented as a transparent circle which radius is set according to the point median runtime")
+
 dfilterOpt = make_option(opt_str = c("-f", "--filter"), type = "character", default = NULL, 
-                     help = "Filter the trace obtained with lib rfsampling on columns type and info.
-                            Option argument is a comma separated list of items.
-                            For instance: load|ddot,store|ddot")
+                     help = "Filter the trace obtained with librfsampling on columns type and info.
+                Option argument is a comma separated list of items.
+                For instance: load|ddot,store|ddot")
 validOpt = make_option(opt_str = c("-v", "--validation"), type = "logical", default=FALSE, action="store_true",
                       help = "Plot validation points acquired in the input file on the chart.")
 titleOpt = make_option(opt_str = c("-t", "--title"), type = "character", default = NULL,
@@ -35,13 +37,13 @@ titleOpt = make_option(opt_str = c("-t", "--title"), type = "character", default
 locationOpt = make_option(opt_str = c("-l", "--location"), type = "character", default = NULL,
                           help = "Select a specific location, contained in the input. (Filter on Obj column")
 bandwidthOpt = make_option(opt_str = c("-b", "--bandwidth"), type = "character", default = NULL,
-                           help = "Refine plot to keep only certain bandiwdths. The option argument is a comma seperated list items.
-                                  An item as the following syntax: 'memory|type'.
-                                  For instance: L1d:0|2LD1ST,NUMANode:0|LOAD
-                                  Note that items in data opt will not be filtered")
+                           help = "Refine plot to keep only certain bandwidths. The option argument is a comma seperated list items.
+                An item as the following syntax: 'memory|type'.
+                For instance: L1d:0|2LD1ST,NUMANode:0|LOAD
+                Note that items in data opt will not be filtered")
 fpeakOpt = make_option(opt_str = c("-p", "--fpeak"), type = "character", default = NULL,
                        help = "Refine plot to keep only certain fpeak roofs. The option argument is a comma seperated list of the roofs.
-                              For instance: ADD,MUL")
+                For instance: ADD,MUL")
 
 statOpt = make_option(opt_str = c("-s", "--stats"), type = "logical", default=FALSE, action="store_true",
                       help = "Output deviation on bandwidths, validation and additional points into the plot.")
