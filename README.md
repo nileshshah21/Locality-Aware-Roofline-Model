@@ -100,11 +100,10 @@ If you compile the package with `PAPI=yes`, then you probably want to get LARM m
 
 ####Library example
 ```
+#include <omp.h>
 #include <sampling.h>
 
 roofline_sampling_init("my_CARM_result.roofs", TYPE_LOAD);
-
-struct roofline_sample * result = new_roofline_sample(TYPE_LOAD);
 
 #pragma omp parallel
 {
