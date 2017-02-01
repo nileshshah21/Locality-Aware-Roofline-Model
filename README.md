@@ -102,22 +102,23 @@ If you compile the package with `PAPI=yes`, then you probably want to get LARM m
 ```
 #include <sampling.h>
 
-roofline_sampling_init("my_CARM_result.roofs");
+roofline_sampling_init("my_CARM_result.roofs", TYPE_LOAD);
+
 struct roofline_sample * result = new_roofline_sample(TYPE_LOAD);
 
-roofline_sampling_start(result);
+#pragma omp parallel
+{
+void * sample = roofline_sampling_start(0, hypothetic_flop_count, hypothetic_byte_count);
+
 ...
 /* The code to evaluate */
 ...
-roofline_sampling_stop(result);
-roofline_sample_print (result);
 
-delete_roofline_sample(result);
-roofline_sampling_fini()
+roofline_sampling_stop (sample, "my_test_code");
+}
+
+roofline_sampling_fini();
 ```
 
-Then plot the results in a handsome chart:
-`plot_roofs.R -i plateform.roofs -d my_CARM_result.roofs -t "LARM with my app" -o my_app_chart.pdf`
-
-![](pictures/my_app_chart.png?raw=true)
+Then plot the results of "my_CARM_result.roofs" in a handsome chart !
 
