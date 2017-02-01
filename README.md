@@ -1,5 +1,5 @@
 #LARM (Locality Aware Roofline Model)
-### Benchmark and plot your system bounds on the roofline model.
+### Benchmark and plot your system bounds in the Cache Aware Roofline Model.
   The ever growing complexity of high performance computing systems imposes significant challenges to exploit as much as
   possible their computational and communication resources.
   Recently, the Cache-aware Roofline Model has has gained popularity due to its simplicity modeling multi-cores with complex memory
