@@ -13,6 +13,8 @@
 ![](pictures/roofline_chart.png?raw=true)
 
 This plot shows load instructions' rooflines (lines) and validation kernels (points) hitting the measured bandwidth.
+Also some application monitored with the librfsampling of the project are represented on for a memory location of the system.
+This output was obtained with the plot script: plot_roofs.R `plot_roofs.R -i joe0.roofs -d kernels.roofs -b "L1d:0|load,L1d:0|2LD1ST,NUMANode:0|load,NUMANode:1|load,NUMANode:0|2LD1ST,NUMANode:1|2LD1ST" -f "load|ddot,load|triad" -v -t "Xeon E5-2650L (Broadwell)"`
 
 ###Set Up
 ```
@@ -79,9 +81,9 @@ compile and run each benchmark.
   In case you see better results with streaming instructions instead of regular instructions on caches, they are rather due to measures variation than better hardware efficiency.
   * store_nt: use streaming store instructions for bandwidth benchmarks.
   
-* plot help: `./utils/plot_roofs.bash -h`
+* plot help: `./utils/plot_roofs.R -h`
 
-* plot output: `./utils/plot_roofs.bash -i input -b`
+* plot output: `./utils/plot_roofs.R -i input`
 
 ###Library
 If you compile the package with `PAPI=yes`, then you probably want to get LARM metrics from your application.
@@ -115,7 +117,7 @@ roofline_sampling_fini()
 ```
 
 Then plot the results in a handsome chart:
-`plot_roofs.bash -i plateform.roofs -d my_CARM_result.roofs -f "load$|MAD|ADD|avx_ddot" -t "LARM with my app" -o my_app_chart.pdf -p`
+`plot_roofs.R -i plateform.roofs -d my_CARM_result.roofs -t "LARM with my app" -o my_app_chart.pdf`
 
 ![](pictures/my_app_chart.png?raw=true)
 
