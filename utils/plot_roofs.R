@@ -114,10 +114,10 @@ fpeak_roofs <- function(df, types=NULL, verbose=T){
   samples = df[is.na(df$memory),]
   if(is.null(types)){types = unique(samples$type)} 
   
-  for(i in 1:length(types)){
-    s = samples[samples$type==types[i],]
+  for(type in types){
+    s = samples[samples$type==type,]
     if(nrow(s) <= 0){next}
-    ns = data.frame(type=types[i], GFlop.s=median(s$GFlop.s), sd=sd(s$GFlop.s), nthreads=s$n_threads[1], stringsAsFactors=F)
+    ns = data.frame(type=type, GFlop.s=median(s$GFlop.s), sd=sd(s$GFlop.s), nthreads=s$n_threads[1], stringsAsFactors=F)
     fpeaks = rbind(fpeaks,ns)
   }
   if(verbose){print(fpeaks); cat("\n")}
@@ -349,7 +349,7 @@ for(loc in unique(df$location)){
   appli = NULL; if(!is.null(pt)){appli = pt[pt$Location==loc,]}
   file_output = sprintf("%s.%s", gsub(":", "-",loc), options$output)
   pdf(file_output, onefile=T, family = "Helvetica", basename(options$input), width=10, height=5)
-  roofline_plot(roofs, bandwidth_roofs(roofs, types=bandwidth_types), fpeak_roofs(roofs), options$validation, data_points(appli))
+  roofline_plot(roofs, bandwidth_roofs(roofs, types=bandwidth_types), fpeak_roofs(roofs, types=fpeak_types), options$validation, data_points(appli))
   cat(sprintf("Output to %s", file_output), "\n")
   graphics.off()
 }
