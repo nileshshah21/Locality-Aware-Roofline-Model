@@ -214,7 +214,11 @@ data_points <- function(pt, types=NULL, verbose=T){
     ret = rbind(ret, ns)
   }
   
-  if(verbose){print(ret); cat("\n")}
+  if(verbose){
+      print("Application points:")
+      print(ret);
+      cat("\n")
+  }
   ret
 }
 
@@ -310,7 +314,11 @@ roofline_plot <- function(df, bandwidths, fpeaks, validation=F, data=NULL, verbo
       plot_validation(valid$points, col=i)
       errors = rbind(errors, valid$error)
     }
-    if(verbose){print(errors); cat("\n")}
+    if(verbose){
+        print("Model fitness:")        
+        print(errors)
+        cat("\n")
+    }
   }
   
   #plot layout
