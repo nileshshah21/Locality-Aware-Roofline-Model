@@ -46,7 +46,7 @@ With the PAPI support flop and byte count is retrieved with hardware counters.
 * The library using hardware counters uses PAPI.
 * For now, it only works with intel processors but one can implement the interface MSC.h with other architectures code.
 * A gcc compiler on the machine running the validation benchmarks (`roofline -v`). Validation micro benchmarks are built, compiled and run on the fly during plateform evaluation. 
-* R to use the [plot script](./utils/plot_roofs.bash).
+* R to use the [plot script](./utils/plot_roofs.R).
 
 #### /!\ Important: 
 Generally speaking, if you want to get relevant results on such benchmarks, you have to assert that options like turbo-boost are disabled and
