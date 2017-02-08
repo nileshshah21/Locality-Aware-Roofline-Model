@@ -46,7 +46,7 @@ With the PAPI support flop and byte count is retrieved with hardware counters.
 * The library using hardware counters uses PAPI.
 * For now, it only works with intel processors but one can implement the interface MSC.h with other architectures code.
 * A gcc compiler on the machine running the validation benchmarks (`roofline -v`). Validation micro benchmarks are built, compiled and run on the fly during plateform evaluation. 
-* R to use the [plot script](LARM-Locality-Aware-Roofline-Model-/blob/master/utils/plot_roofs.bash).
+* R to use the [plot script](./utils/plot_roofs.bash).
 
 #### /!\ Important: 
 Generally speaking, if you want to get relevant results on such benchmarks, you have to assert that options like turbo-boost are disabled and
@@ -98,7 +98,7 @@ The library librfsampling defines a small set of C functions to project code sam
 ####Library Setup
 * In order to use the library you have to copy the compiled file `librfsampling.so` in a directory pointed out by `LD_LIBRARY_PATH` variable or by your compiler linker flag (`-Lpath/to/librfsampling.so`). 
 * You also have to copy the file `sampling.h` in a directory pointed out by `C_INCLUDE_PATH` or by your compiler header flag (`-Ipath/to/sampling.h`).
-* The library is very lightweight and all the functions can be found in the [header sampling.h](LARM-Locality-Aware-Roofline-Model-/blob/master/src/sampling.h)
+* The library is very lightweight and all the functions can be found in the [header sampling.h](./src/sampling.h)
 * Compile your code using the library with `-lrfsampling` flag.
 
 ####Library example
