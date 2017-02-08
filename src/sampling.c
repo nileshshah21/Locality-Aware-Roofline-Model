@@ -224,14 +224,25 @@ static inline void roofline_print_header(){
 	  "Location", "Nanoseconds", "Bytes", "Flops", "n_threads", "type", "info");
 }
 
-void roofline_sampling_init(const char * output, int type){
+void roofline_sampling_init(const char * output, int append_output, int type){
 
   /* Open output */
+  int print_header = 0;
+  char * mode = "a";
+  
   if(output == NULL){
     output_file = stdout;
-  } else if((output_file = fopen(output,"w+")) == NULL){
-    perror("fopen");
-    exit(EXIT_FAILURE);
+    print_header = 1;
+  } else {
+    /* Check file existence */
+    if(access( output, F_OK ) == -1 || !append_output ){
+      print_header = 1;
+      mode = "w+";
+    }
+    if((output_file = fopen(output, mode)) == NULL){
+      perror("fopen");
+      exit(EXIT_FAILURE);
+    }
   }
 
   /* Initialize topology */
@@ -297,8 +308,10 @@ void roofline_sampling_init(const char * output, int type){
   if ((ebx & 1 << 5)) {BYTES = 32;}
   /* AVX512. Not checked */
   if ((ebx & 1 << 16)) {BYTES = 64;}
-  
-  roofline_print_header(output_file, "info");
+
+
+  /* Passed initialization then print header */
+  if(print_header){roofline_print_header(output_file, "info");}
 }
 
 void roofline_sampling_fini(){
