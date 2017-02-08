@@ -277,13 +277,13 @@ plot_data <-function(pts, xlim, ylim, col_start=1, pch_start=1, cex=.5){
   for(i in 1:nrow(pts)){
     r = pts$time[i]*0.1/tmax
     symbols(pts$oi[i], pts$GFlop.s[i], circles=1, inches=r, add=T, fg=colors[i], bg=adjustcolor(colors[i],alpha.f=.25), xlim=xlim, ylim=ylim, lwd=.5)
-    points(pts$oi[i], pts$GFlop.s[i], pch=3, col=colors[i], cex=cex)
+    points(pts$oi[i], pts$GFlop.s[i], pch=colors[i], col=colors[i], cex=cex)
     if(options$stats){
       segments(x0 = pts$oi[i], x1 = pts$oi[i], y0 = pts$GFlop.s[i]-pts$sd[i]*0.5, y1=pts$GFlop.s[i]+pts$sd[i]*0.5, col=colors[i], lty=1)
     }
   }
   
-  legend("topright", legend=lgd, cex=cex, lty=0, pch=3, col=colors, bg="white")
+  legend("topright", legend=lgd, cex=cex, lty=0, pch=colors, col=colors, bg="white")
 }
 
 roofline_plot <- function(df, bandwidths, fpeaks, validation=F, data=NULL, verbose=T){
