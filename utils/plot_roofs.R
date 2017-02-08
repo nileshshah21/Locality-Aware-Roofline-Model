@@ -271,7 +271,7 @@ plot_validation <-function(pts, col=1, pch=1, cex=.5){
 
 plot_data <-function(pts, xlim, ylim, col_start=1, pch_start=1, cex=.5){
   tmax = max(pts$time)
-  colors = col_start+1:col_start+nrow(pts)+1
+  colors = (col_start+1):(col_start+nrow(pts))
   lgd = sapply(1:nrow(pts), function(i){sprintf("%s(%s)", pts$info[i], pts$type[i])})
   
   for(i in 1:nrow(pts)){
