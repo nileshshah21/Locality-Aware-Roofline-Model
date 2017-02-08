@@ -15,7 +15,10 @@
 This plot shows load instruction' rooflines (lines) and validation kernels (points) hitting the measured bandwidth.
 Additionnally, some application monitored with the librfsampling of the project are represented on the chart modeling a single memory location of the system.
 This output was obtained with the plot script: plot_roofs.R
-```plot_roofs.R -i joe0.roofs -d kernels.roofs -b "L1d:0|load,L1d:0|2LD1ST,NUMANode:0|load,NUMANode:1|load,NUMANode:0|2LD1ST,NUMANode:1|2LD1ST" -f "load|ddot,load|lagrange" -v -t "Xeon E5-2650L (Broadwell)"```
+
+```
+plot_roofs.R -i joe0.roofs -d kernels.roofs -b 'L1d:0|load,L1d:0|2LD1ST,NUMANode:0|load,NUMANode:1|load,NUMANode:0|2LD1ST,NUMANode:1|2LD1ST' -f 'load|ddot,load|lagrange' -v -t "Xeon E5-2650L (Broadwell)"
+```
 
 ###Set Up
 ```
