@@ -269,7 +269,7 @@ plot_validation <-function(pts, col=1, pch=1, cex=.5){
   }
 }
 
-plot_data <-function(pts, xlim, ylim, col_start=1, pch_start=1, cex=1){
+plot_data <-function(pts, xlim, ylim, col_start=1, pch_start=1, cex=.5){
   tmax = max(pts$time)
   colors = col_start+1:col_start+nrow(pts)+1
   lgd = sapply(1:nrow(pts), function(i){sprintf("%s(%s)", pts$info[i], pts$type[i])})
@@ -277,13 +277,13 @@ plot_data <-function(pts, xlim, ylim, col_start=1, pch_start=1, cex=1){
   for(i in 1:nrow(pts)){
     r = pts$time[i]*0.1/tmax
     symbols(pts$oi[i], pts$GFlop.s[i], circles=1, inches=r, add=T, fg=colors[i], bg=adjustcolor(colors[i],alpha.f=.25), xlim=xlim, ylim=ylim, lwd=.5)
-    points(pts$oi[i], pts$GFlop.s[i], pch=1, col=colors[i], cex=.3)
+    points(pts$oi[i], pts$GFlop.s[i], pch=3, col=colors[i], cex=cex)
     if(options$stats){
       segments(x0 = pts$oi[i], x1 = pts$oi[i], y0 = pts$GFlop.s[i]-pts$sd[i]*0.5, y1=pts$GFlop.s[i]+pts$sd[i]*0.5, col=colors[i], lty=1)
     }
   }
   
-  legend("topright", legend=lgd, cex=.7, lty=1, col=colors, bg="white")
+  legend("topright", legend=lgd, cex=cex, lty=0, pch=3, col=colors, bg="white")
 }
 
 roofline_plot <- function(df, bandwidths, fpeaks, validation=F, data=NULL, verbose=T){
