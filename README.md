@@ -65,7 +65,7 @@ Here you are ready to play
 
 * Running benchmark with validation `./roofline -v`
 
-Validation consists in writing a list of load/store operations, interleaved with mul/add operations depending for several arithmetic intensities.
+Validation consists in writing a list of load/store operations, interleaved with mul/add operations for several arithmetic intensities.
 
 * Run benchmark for precise types of micro operation: `./roofline -t "fma|load|store"`
   * fma: use fuse multiply add instructions for fpeak benchmarks (if architecture is capable of it)
