@@ -12,7 +12,7 @@
 
 ![](pictures/roofline_chart.png?raw=true)
 
-This plot shows load instruction' rooflines (lines) and validation kernels (points) hitting the measured bandwidth.
+This plot shows load instruction rooflines (lines) and validation kernels (points) hitting the measured bandwidth.
 Additionnally, some application monitored with the librfsampling of the project are represented on the chart modeling a single memory location of the system.
 This output was obtained with the plot script: plot_roofs.R
 
