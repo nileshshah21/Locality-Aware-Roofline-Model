@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include "./list.h"
 
 #define malloc_chk(ptr, size) do{					\
@@ -153,9 +154,9 @@ void * list_remove(list l, int i){
 }
 
 int list_find(list l, void * key, int (* compare)(void*, void*)){
-  void * found = bsearch(&key,l->cell, l->length, sizeof(*(l->cell)), (__compar_fn_t)compare);
+  void* found = bsearch(&key,l->cell, l->length, sizeof(*(l->cell)), (__compar_fn_t)compare);
   if(found == NULL){return -1;}
-  return (found - (void*)l->cell) / sizeof(*(l->cell));
+  return ((intptr_t)found - (intptr_t)l->cell) / sizeof(*(l->cell));
 }
 
 int list_find_unsorted(list l, void * key){
