@@ -311,7 +311,7 @@ void roofline_sampling_init(const char * output, int append_output, int type){
 
 
   /* Passed initialization then print header */
-  if(print_header){roofline_print_header(output_file, "info");}
+  if(print_header){roofline_print_header();}
 }
 
 void roofline_sampling_fini(){
