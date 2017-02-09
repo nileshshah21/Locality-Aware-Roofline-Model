@@ -22,7 +22,7 @@ long roofline_autoset_repeat(roofline_stream dst, roofline_stream src, const int
   long repeat = 1;
   float mul = 0, tv_ms = -1;
   roofline_output out;
-  void (*  benchmark_function)(roofline_stream, roofline_output *, int, long) = benchmark;
+  void (*  benchmark_function)(roofline_stream, roofline_output *, int, long) = (void (*)(roofline_stream, roofline_output *, int, long))benchmark;
   while(tv_ms < ROOFLINE_MIN_DUR){
     roofline_output_clear(&out);
     if(op_type == ROOFLINE_ADD ||
