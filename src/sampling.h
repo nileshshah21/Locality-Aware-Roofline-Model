@@ -40,18 +40,24 @@ void   roofline_sampling_init(const char * output, int append_output,
 void   roofline_sampling_fini ();
 
 /**
- * Initialize a sampling structure and start counting. In an openmp context, each thread will count for itself,
- * and result accumulation is handled automatically to be presented by NUMA domain on roofline_sampling_stop() call.
- * If the library is compiled with PAPI enabled, then flops and bytes are counted using hardware counters; 
- * Else the arguments of the function
- * call are used to accumulate counts into the NUMA domains.
- * roofline_sampling_stop() must be called from the same scope as roofline_sampling_start().
- * If the library is compiled with openmp enabled, then a call from a parallel region will become parallel also.
- * If the library is compiled with openmp enabled and flag parallel is True, 
- * then a call from a sequential region will be parallel and thread 
- * sampling will be made with current thread affinity. Be aware that the parallel call add a great overhead to byte counter.
- * If the library is compiled with openmp enabled and flag parallel is False, then a call from a sequential region will be 
- * sequential.
+ * Initialize a sampling structure and start counting flops, bytes and time.
+ * This function and its sibling roofline_sampling_stop() must be called from the same scope.
+ * Both can be called from a parallel or a sequential region.
+ * If the library is compiled with PAPI support, flops and bytes are acquired with hardware counters.
+ * If compiled with openmp support, a barrier occures during this call.
+ *
+ * If call is made from a parallel region with PAPI:
+ *    Then, values are measured by each processing element then accumulated into each parent reduction locations.
+ * If call is made from a sequential region with PAPI:
+ *    Then the user can choose to record a single processing element by setting the parameter \p force_parallel to 0 or 
+ *    record in parallel the whole machine anyway with the same parameter set to a non-zero value.
+ * If call is made without PAPI:
+ *    Then the parameters \p flops and \p bytes are used to set the flops and bytes results in the following fashion:
+ * If call is made from a sequential region without PAPI:
+ *    Then \p flops and \p bytes are assumed to be the total of all threads results for the scope of the call, and to be uniformely
+ *    spread among threads.
+ * If call is made from a parallel region with PAPI:
+ *    Then \p flops and \p bytes are assumed to be worth the calling thread only.
  * @arg force_parallel: a flag to tell if we have to count in parallel even if called from a sequential region
  * @arg flops: by hand flop count.
  * @arg bytes: by hand byte count.
@@ -61,15 +67,15 @@ void   roofline_sampling_fini ();
 void * roofline_sampling_start(int force_parallel, long flops, long bytes);
 
 /**
- * Stop sampling roofline metrics and output results for the whole machine. If compiled with openmp support, 
- * a barrier occures during this call.
+ * Stop sampling roofline metrics and output results for the whole machine. 
+ * If compiled with openmp support, a barrier occures during this call.
  * Result presentation is as follow:
- * NUMA_domain Nanoseconds Bytes Flops n_threads type info.
- * Results are accumulated by NUMA domain.
+ * reduction_location Nanoseconds Bytes Flops n_threads type info.
+ * Results are accumulated by location set in roofline_sampling_init().
  * Nanoseconds is the time between roofline_sampling_start() and roofline_sampling_stop() calls.
  * Bytes and Flops are counted between roofline_sampling_start() and roofline_sampling_stop() calls, 
  * whether with hardware counters or with manually provided values.
- * n_threads is the number of processing units where something was actually counted.
+ * n_threads is the number of threads actually used in a parallel region by the library.
  * type is whether load or store depending on the library initialization type.
  * Additionnally, the environment variable "LARM_INFO" is read on each roofline_sampling_stop() call, 
  * and is appended to the info column of the sample result.
