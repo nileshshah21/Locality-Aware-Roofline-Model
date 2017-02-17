@@ -31,7 +31,8 @@ struct roofline_sample{
 #endif
   int                    last_thread; /* A counter atomically incremented to know when the last thread has to stop timer */  
   enum roofline_mem_type type;        /* TYPE_LOAD or TYPE_STORE */
-  long                   nanoseconds; /* Timestamp in cycles where the roofline started */
+  long                   s_nano;      /* Timestamp in nanoseconds where the sampling started */
+  long                   e_nano;      /* Timestamp in nanoseconds where the sampling ended */  
   long                   flops;       /* The amount of flops computed */
   long                   bytes;       /* The amount of bytes of type transfered */
   hwloc_obj_t            location;    /* Where the thread is taking samples */
@@ -167,7 +168,8 @@ void roofline_sampling_eventset_init(const hwloc_obj_t PU, int * eventset, const
 #endif /* _PAPI_ */
 
 static void roofline_sample_reset(struct roofline_sample * s){
-  s->nanoseconds = 0;
+  s->s_nano = 0;
+  s->e_nano = 0;  
   s->flops = 0;
   s->bytes = 0;
   s->n_threads = 0;
@@ -176,9 +178,13 @@ static void roofline_sample_reset(struct roofline_sample * s){
 #endif /* _PAPI_ */
 }
 
+#define roofline_MIN(a,b) ((a)<(b)?(a):(b))
+#define roofline_MAX(a,b) ((a)>(b)?(a):(b))
+
 static struct roofline_sample * roofline_sample_accumulate(struct roofline_sample * out,
 							   const struct roofline_sample * with){
-  out->nanoseconds = out->nanoseconds>with->nanoseconds ? out->nanoseconds : with->nanoseconds;
+  out->s_nano     += with->s_nano;  
+  out->e_nano     += with->e_nano;  
   out->bytes      += with->bytes;
   out->flops      += with->flops;
   out->n_threads  += with->n_threads;
@@ -188,7 +194,8 @@ static struct roofline_sample * roofline_sample_accumulate(struct roofline_sampl
 static struct roofline_sample * new_roofline_sample(const hwloc_obj_t PU, const enum roofline_mem_type type){
   struct roofline_sample * s = malloc(sizeof(struct roofline_sample));
   if(s==NULL){perror("malloc"); return NULL;}
-  s->nanoseconds = 0;
+  s->s_nano = 0;
+  s->e_nano = 0;  
   s->flops = 0;
   s->bytes = 0;
   s->type = type;
@@ -218,7 +225,7 @@ static void roofline_sample_print(const struct roofline_sample * s, const char *
   
   fprintf(output_file, "%16s %16ld %16ld %16ld %10d %10s %s\n",
   	  location,
-  	  s->nanoseconds,
+  	  (s->e_nano-s->s_nano),
   	  s->bytes,
   	  s->flops,
   	  s->n_threads,
@@ -402,20 +409,25 @@ static void * roofline_sequential_sampling_start(long flops, long bytes)
   if(s != NULL){    
     roofline_sample_reset(s);
 
+#ifdef _OPENMP
 #pragma omp barrier
+#endif
     __sync_fetch_and_add(&s->n_threads, 1);
-    __sync_fetch_and_add(&s->last_thread, 1);  
-#pragma omp barrier        
+#ifdef _OPENMP
+#pragma omp barrier
+#endif
+    
 #ifdef _PAPI_
-    s->started = 1;    
-    PAPI_start(s->eventset);
+    if(!__sync_fetch_and_add(&s->started, 1)){ PAPI_start(s->eventset); }
 #else
     s->bytes = bytes;
     s->flops = flops;
 #endif
+
     clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t);
-    s->nanoseconds = t.tv_nsec + 1e9*t.tv_sec;
+    __sync_fetch_and_add(&s->s_nano, t.tv_nsec + 1e9*t.tv_sec);
   }
+  
   return (void*)s;
 }
 
@@ -447,10 +459,10 @@ static void roofline_sequential_sampling_stop(void *sample, const char* info){
   struct roofline_sample * s = (struct roofline_sample*)sample;
   struct timespec t;  
   clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t);
-  __sync_fetch_and_sub(&s->last_thread, 1);
 #ifdef _PAPI_
-  if(s->started && s->last_thread){PAPI_read(s->eventset, s->values);}
-  else if(s->started){PAPI_stop(s->eventset, s->values);}
+  if(__sync_fetch_and_sub(&s->started, 1) > 1){PAPI_read(s->eventset, s->values);}
+  else {PAPI_stop(s->eventset, s->values);}
+  
   s->flops = s->values[0] + 2 * s->values[1] + 4 * s->values[2];
   long fp_op = s->values[0] + s->values[1] + s->values[2];
   if(fp_op > 0){
@@ -459,7 +471,10 @@ static void roofline_sequential_sampling_stop(void *sample, const char* info){
     s->bytes = 8*s->values[3];
   }
 #endif
-  if(!s->last_thread){ s->nanoseconds = (t.tv_nsec + 1e9*t.tv_sec) - s->nanoseconds; }
+
+  /* In case of oversubscribing we sum updates */
+  __sync_fetch_and_add(&s->e_nano, t.tv_nsec + 1e9*t.tv_sec);
+
 #ifdef _OPENMP 
 #pragma omp barrier
 #pragma omp single
