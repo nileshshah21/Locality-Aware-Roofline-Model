@@ -25,7 +25,6 @@ static uint64_t *       bindings;
 
 struct roofline_sample{
 #ifdef _PAPI_
-  int                    started;
   int                    eventset;    /* Eventset of this sample used to read events */
   long long              values[4];   /* Values to be store on counter read */
 #endif
@@ -432,7 +431,7 @@ static void * roofline_sequential_sampling_start(long flops, long bytes)
   s->bytes = bytes;
   s->flops = flops;
 #endif
-  if(!__sync_fetch_and_add(&s->started, 1)){
+  if(!__sync_fetch_and_add(&s->last_thread, 1)){
 #ifdef _PAPI_    
     PAPI_start(s->eventset);
 #endif
@@ -472,7 +471,7 @@ static void roofline_sequential_sampling_stop(void *sample, const char* info){
   struct timespec t;  
   clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t);
 #ifdef _PAPI_
-  if(__sync_fetch_and_sub(&s->started, 1) == 1){
+  if(__sync_fetch_and_sub(&s->last_thread, 1) == 1){
     PAPI_stop(s->eventset, s->values);
     s->e_nano = t.tv_nsec + 1e9*t.tv_sec;
     s->flops = s->values[0] + 2 * s->values[1] + 4 * s->values[2];
@@ -484,7 +483,7 @@ static void roofline_sequential_sampling_stop(void *sample, const char* info){
     }
   }
 #else
-  if(__sync_fetch_and_sub(&s->started, 1) == 1){ s->e_nano = t.tv_nsec + 1e9*t.tv_sec; }
+  if(__sync_fetch_and_sub(&s->last_thread, 1) == 1){ s->e_nano = t.tv_nsec + 1e9*t.tv_sec; }
 #endif
 
 #ifdef _OPENMP 
