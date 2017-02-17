@@ -183,8 +183,12 @@ static void roofline_sample_reset(struct roofline_sample * s){
 
 static struct roofline_sample * roofline_sample_accumulate(struct roofline_sample * out,
 							   const struct roofline_sample * with){
-  out->s_nano     += with->s_nano;  
-  out->e_nano     += with->e_nano;  
+  /* Keep timing of the slowest */
+  long out_time = out->e_nano - out->s_nano;
+  long with_time = with->e_nano - with->s_nano;  
+  out->s_nano     = out_time > with_time ? out->s_nano : with->s_nano;
+  out->e_nano     = out_time > with_time ? out->e_nano : with->e_nano;  
+  /* But accumulate bytes */
   out->bytes      += with->bytes;
   out->flops      += with->flops;
   out->n_threads  += with->n_threads;
@@ -401,33 +405,41 @@ static void * roofline_sequential_sampling_start(long flops, long bytes)
 {
   struct timespec t;
   int id = 0;
+  struct roofline_sample * s;
+  
 #ifdef _OPENMP
   id = omp_get_thread_num();
 #endif
-  struct roofline_sample * s = roofline_sampling_caller(-id);
-    
-  if(s != NULL){    
-    roofline_sample_reset(s);
+
+  /* Initialize sample structure */
+  s = roofline_sampling_caller(-id);
+  if(s == NULL){return NULL;}
+  roofline_sample_reset(s);
 
 #ifdef _OPENMP
 #pragma omp barrier
 #endif
-    __sync_fetch_and_add(&s->n_threads, 1);
-#ifdef _OPENMP
-#pragma omp barrier
-#endif
-    
-#ifdef _PAPI_
-    if(!__sync_fetch_and_add(&s->started, 1)){ PAPI_start(s->eventset); }
-#else
-    s->bytes = bytes;
-    s->flops = flops;
-#endif
 
-    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t);
-    __sync_fetch_and_add(&s->s_nano, t.tv_nsec + 1e9*t.tv_sec);
-  }
+  /* Increment the number of threads modifying the sample */
+  __sync_fetch_and_add(&s->n_threads, 1);
   
+#ifdef _OPENMP
+#pragma omp barrier
+#endif
+
+  /* Start PAPI eventset or set the number of flops and bytes */
+#ifndef _PAPI_
+  s->bytes = bytes;
+  s->flops = flops;
+#endif
+  if(!__sync_fetch_and_add(&s->started, 1)){
+#ifdef _PAPI_    
+    PAPI_start(s->eventset);
+#endif
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t);
+    s->s_nano = t.tv_nsec + 1e9*t.tv_sec;
+  }
+    
   return (void*)s;
 }
 
@@ -460,20 +472,20 @@ static void roofline_sequential_sampling_stop(void *sample, const char* info){
   struct timespec t;  
   clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t);
 #ifdef _PAPI_
-  if(__sync_fetch_and_sub(&s->started, 1) > 1){PAPI_read(s->eventset, s->values);}
-  else {PAPI_stop(s->eventset, s->values);}
-  
-  s->flops = s->values[0] + 2 * s->values[1] + 4 * s->values[2];
-  long fp_op = s->values[0] + s->values[1] + s->values[2];
-  if(fp_op > 0){
-    s->bytes = 8*s->values[3]*(4*s->values[2] + 2*s->values[1] + s->values[0])/fp_op;
-  } else {
-    s->bytes = 8*s->values[3];
+  if(__sync_fetch_and_sub(&s->started, 1) == 1){
+    PAPI_stop(s->eventset, s->values);
+    s->e_nano = t.tv_nsec + 1e9*t.tv_sec;
+    s->flops = s->values[0] + 2 * s->values[1] + 4 * s->values[2];
+    long fp_op = s->values[0] + s->values[1] + s->values[2];
+    if(fp_op > 0){
+      s->bytes = 8*s->values[3]*(4*s->values[2] + 2*s->values[1] + s->values[0])/fp_op;
+    } else {
+      s->bytes = 8*s->values[3];
+    }
   }
+#else
+  if(__sync_fetch_and_sub(&s->started, 1) == 1){ s->e_nano = t.tv_nsec + 1e9*t.tv_sec; }
 #endif
-
-  /* In case of oversubscribing we sum updates */
-  __sync_fetch_and_add(&s->e_nano, t.tv_nsec + 1e9*t.tv_sec);
 
 #ifdef _OPENMP 
 #pragma omp barrier
