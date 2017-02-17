@@ -106,7 +106,7 @@ The library librfsampling defines a small set of C functions to project code sam
 #include <omp.h>
 #include <sampling.h>
 
-roofline_sampling_init("my_CARM_result.roofs", TYPE_LOAD);
+roofline_sampling_init("my_CARM_result.roofs", TYPE_LOAD, ROOFLINE_NUMA);
 
 #pragma omp parallel
 {
