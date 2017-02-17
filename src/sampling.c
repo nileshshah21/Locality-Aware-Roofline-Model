@@ -397,27 +397,17 @@ static struct roofline_sample * roofline_sampling_caller(const int id){
 }
 
 #ifdef _PAPI_
-static void * roofline_sequential_sampling_start(__attribute__ ((unused)) long flops,__attribute__ ((unused)) long bytes)
+static void * roofline_sequential_sampling_start(__attribute__ ((unused)) long flops,__attribute__ ((unused)) long bytes, int tid)
 #else
-static void * roofline_sequential_sampling_start(long flops, long bytes)
+  static void * roofline_sequential_sampling_start(long flops, long bytes, int tid)
 #endif
 {
   struct timespec t;
-  int id = 0;
   struct roofline_sample * s;
   
-#ifdef _OPENMP
-  id = omp_get_thread_num();
-#endif
-
   /* Initialize sample structure */
-  s = roofline_sampling_caller(-id);
+  s = roofline_sampling_caller(-tid);
   if(s == NULL){return NULL;}
-  roofline_sample_reset(s);
-
-#ifdef _OPENMP
-#pragma omp barrier
-#endif
 
   /* Increment the number of threads modifying the sample */
   __sync_fetch_and_add(&s->n_threads, 1);
@@ -453,13 +443,13 @@ void * roofline_sampling_start(const int parallel, const long flops, const long 
   if(parallel && !omp_in_parallel()){
 #pragma omp parallel
     {
-      roofline_sequential_sampling_start(flops, bytes);
+      roofline_sequential_sampling_start(flops/omp_get_num_threads(), bytes/omp_get_num_threads(), omp_get_thread_num());
     }
   } else {
-    ret = roofline_sequential_sampling_start(flops, bytes);
+    ret = roofline_sequential_sampling_start(flops, bytes, omp_get_thread_num());
   }
 #else
-  ret = roofline_sequential_sampling_start(flops, bytes);
+  ret = roofline_sequential_sampling_start(flops, bytes, 0);
 #endif
   return ret;
 }
