@@ -19,6 +19,7 @@ export CFLAGS= -g -Wall -Werror -Wextra\
 	-DROOFLINE_MIN_DUR=$(LAST)\
 	-DROOFLINE_N_SAMPLES=$(N_SAMPLES)\
 	-DCC=$(CC)\
+	-DOMP_FLAG=$(OMP_FLAG)\
 #	-DDEBUG2 # -DDEBUG1
 LDFLAGS=-ldl -lhwloc -lm $(OMP_FLAG)
 
