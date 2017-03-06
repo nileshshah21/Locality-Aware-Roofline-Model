@@ -76,7 +76,6 @@ static const char * roofline_type_str(const enum roofline_mem_type type){
     break;    
   }
 }
-
 #ifdef _PAPI_
 static void
 PAPI_handle_error(const int err)
@@ -182,16 +181,24 @@ static void roofline_sample_reset(struct roofline_sample * s){
 
 static struct roofline_sample * roofline_sample_accumulate(struct roofline_sample * out,
 							   const struct roofline_sample * with){
-  /* Keep timing of the slowest */
-  long out_time = out->e_nano - out->s_nano;
-  long with_time = with->e_nano - with->s_nano;  
-  out->s_nano     = out_time > with_time ? out->s_nano : with->s_nano;
-  out->e_nano     = out_time > with_time ? out->e_nano : with->e_nano;  
-  /* But accumulate bytes */
-  out->bytes      += with->bytes;
-  out->flops      += with->flops;
-  out->n_threads  += with->n_threads;
-  return out;
+#ifdef _OPENMP_
+#pragma omp critical
+  {
+#endif
+    /* Keep timing of the slowest */
+    long out_time = out->e_nano - out->s_nano;
+    long with_time = with->e_nano - with->s_nano;  
+    out->s_nano     = out_time > with_time ? out->s_nano : with->s_nano;
+    out->e_nano     = out_time > with_time ? out->e_nano : with->e_nano;  
+    /* But accumulate bytes */
+    out->bytes      += with->bytes;
+    out->flops      += with->flops;
+    out->n_threads  += with->n_threads;
+    return out;
+#ifdef _OPENMP_
+#pragma
+  }
+#endif  
 }
 
 static struct roofline_sample * new_roofline_sample(const hwloc_obj_t PU, const enum roofline_mem_type type){
@@ -204,9 +211,8 @@ static struct roofline_sample * new_roofline_sample(const hwloc_obj_t PU, const 
   s->type = type;
   s->location = PU;
   s->n_threads=0;
-  s->last_thread = 0;  
-  do{s->location = s->location->parent;} while(s->location && s->location->depth!=reduction_depth);
-
+  s->last_thread = 0;
+  while(s->location->depth>reduction_depth){s->location = s->location->parent;}
 #ifdef _PAPI_
   roofline_sampling_eventset_init(PU, &(s->eventset), type);
   s->started = 0;
@@ -223,7 +229,8 @@ static void delete_roofline_sample(struct roofline_sample * s){
 
 static void roofline_sample_print(const struct roofline_sample * s, const char * info)
 {
-  char location[16]; roofline_hwloc_obj_snprintf(s->location, location, sizeof(location));
+  char location[16];
+  roofline_hwloc_obj_snprintf(s->location, location, sizeof(location));
   char * info_cat = roofline_cat_info(info);
   
   fprintf(output_file, "%16s %16ld %16ld %16ld %10d %10s %s\n",
@@ -313,6 +320,9 @@ void roofline_sampling_init(const char * output, const int append_output,
   PAPI_call_check(PAPI_is_initialized(), PAPI_LOW_LEVEL_INITED, "PAPI initialization failed\n");
 #endif
 
+  /* Match reduction level */
+  reduction_depth = roofline_reduction_depth(reduction_location);
+
   /* Create one sample per PU */
   struct roofline_sample * s;
   unsigned n_PU = hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_PU);
@@ -325,10 +335,7 @@ void roofline_sampling_init(const char * output, const int append_output,
     s->location = obj;
     list_push(samples, s);
   }
-
-  /* Match reduction level */
-  reduction_depth = roofline_reduction_depth(reduction_location);
-
+  
   /* Store a sublist of sample in each node at reduction level */
   obj=NULL;
   while((obj=hwloc_get_next_obj_by_depth(topology, reduction_depth, obj)) != NULL){
@@ -354,7 +361,7 @@ void roofline_sampling_init(const char * output, const int append_output,
 
 
   /* Passed initialization then print header */
-  if(print_header){roofline_print_header(output_file, "info");}
+  if(print_header){roofline_print_header();}
 }
 
 void roofline_sampling_fini(){
@@ -370,8 +377,7 @@ void roofline_sampling_fini(){
 }
 
 static void roofline_samples_reduce(list l, const char * info){
-  struct roofline_sample *s;  
-  s = list_reduce(l, (void*(*)(void*,void*))roofline_sample_accumulate);
+  struct roofline_sample *s = list_reduce(l, (void*(*)(void*,void*))roofline_sample_accumulate);
   roofline_sample_print(s, info);
 }
 
@@ -411,7 +417,6 @@ static void * roofline_sequential_sampling_start(__attribute__ ((unused)) long f
 
   /* Increment the number of threads modifying the sample */
   __sync_fetch_and_add(&s->n_threads, 1);
-  
 #ifdef _OPENMP
 #pragma omp barrier
 #endif
