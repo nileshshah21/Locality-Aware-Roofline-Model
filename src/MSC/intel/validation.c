@@ -165,7 +165,7 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int mem_type,
   off_t offset = 0; size_t len;
   unsigned i, max = 40;
   unsigned muops = 0, fuops = 0, regnum = 0;
-  off_t maxsize = 1024;
+  off_t maxsize = 4096;
   char * idx;
   len = 2+strlen(roofline_type_str(mem_type))+strlen(roofline_type_str(flop_type));
   idx = malloc(len); memset(idx,0,len);
