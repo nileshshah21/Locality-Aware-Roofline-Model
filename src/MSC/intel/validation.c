@@ -165,7 +165,7 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int mem_type,
   off_t offset = 0; size_t len;
   unsigned i, max = 40;
   unsigned muops = 0, fuops = 0, regnum = 0;
-  
+  off_t maxsize = 1024;
   char * idx;
   len = 2+strlen(roofline_type_str(mem_type))+strlen(roofline_type_str(flop_type));
   idx = malloc(len); memset(idx,0,len);
@@ -175,7 +175,7 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int mem_type,
   do{
     for(i=0; i<mem_ins; i++) dprint_MUOP(fd, mem_type, &muops, &offset, &regnum);
     for(i=0; i<flop_ins; i++) dprint_FUOP(fd, flop_type, &fuops, &regnum);
-  } while(regnum != SIMD_N_REGS-1 && offset < L1_size/2 && max--);
+  } while(regnum != SIMD_N_REGS-1 && offset < maxsize && max--);
   dprint_oi_bench_end(fd, idx, offset);
   
   dprintf(fd, "out->instructions = repeat * data->size * %u / %u;\n", fuops+muops, muops*SIMD_BYTES);
@@ -252,8 +252,8 @@ void * benchmark_validation(int op_type, unsigned flops, unsigned bytes){
   /* Load the roofline function */
   benchmark = roofline_load_lib(so_path, func_name);
     
-  unlink(c_path);
-  unlink(so_path);
+  /* unlink(c_path); */
+  /* unlink(so_path); */
   free(c_path);
   free(so_path);
   return benchmark;
