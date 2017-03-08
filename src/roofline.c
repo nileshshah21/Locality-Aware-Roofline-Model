@@ -161,7 +161,7 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
 
   /* get input sizes */
   n_sizes = ROOFLINE_N_SAMPLES;
-  sizes = roofline_log_array(low_size, up_size, base_size, &n_sizes);
+  sizes = roofline_linear_array(low_size, up_size, base_size, &n_sizes);
   if(sizes==NULL){
     roofline_debug2("Computing array of input sizes from %lu to %lu failed\n", low_size, up_size);
     return;
