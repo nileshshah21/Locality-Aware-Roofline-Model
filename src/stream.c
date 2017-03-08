@@ -31,7 +31,7 @@ static size_t roofline_memalign(double ** data, size_t size){
 
 size_t get_chunk_size(int type);/* Minimum chunk size in MSC.h */
 
-static size_t resize_splitable_chunk(size_t size, int type){
+static size_t resize_splitable_chunk(const size_t size, const int type){
   size_t ret, chunk_size = get_chunk_size(type);
   if(chunk_size%alignement != 0) chunk_size = roofline_PPCM(chunk_size, alignement);
   if(size%chunk_size == 0) return size;
@@ -50,7 +50,11 @@ roofline_stream new_roofline_stream(const size_t size, const int op_type){
   return ret;
 }
 
-void roofline_stream_split(roofline_stream in, roofline_stream chunk, unsigned n_chunk, unsigned chunk_id, int op_type)
+void roofline_stream_split(const roofline_stream in,
+			   roofline_stream chunk,
+			   const unsigned n_chunk,
+			   const unsigned chunk_id,
+			   const int op_type)
 {
   chunk->alloc_size = in->alloc_size/n_chunk;
   chunk->alloc_size -= chunk->alloc_size%alignement;
@@ -59,6 +63,11 @@ void roofline_stream_split(roofline_stream in, roofline_stream chunk, unsigned n
   roofline_debug1("Split buffer(%luB) into %luB. Chunk is at %luB\n",
 		  in->alloc_size, chunk->alloc_size, (chunk_id%n_chunk)*chunk->alloc_size);
 }
+
+size_t roofline_stream_base_size(const unsigned n_split, const int op_type){
+    return n_split * get_chunk_size(op_type);
+}
+
 
 void roofline_stream_set_size(roofline_stream in, const size_t size, const int op_type){
   if(size>in->alloc_size){

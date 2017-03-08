@@ -145,16 +145,23 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
   roofline_output out;
   roofline_stream src = NULL, dst = NULL;
   long repeat;
-  unsigned tid = 0;
+  unsigned n_threads = 1, tid = 0;
   int parallel_stop = 0;
   void (*  benchmark_function)(roofline_stream, roofline_output *, int, long) = benchmark;
-    
+  
+#ifdef _OPENMP
+#pragma omp parallel
+  n_threads = omp_get_num_threads();
+#endif
+
+  size_t base_size = roofline_stream_base_size(n_threads, op_type);
+  
   /* Get memory size bounds */
   if(roofline_hwloc_get_memory_bounds(memory, &low_size, &up_size, op_type) == -1) return;
 
   /* get input sizes */
   n_sizes = ROOFLINE_N_SAMPLES;
-  sizes = roofline_log_array(low_size, up_size, &n_sizes);
+  sizes = roofline_log_array(low_size, up_size, base_size, &n_sizes);
   if(sizes==NULL){
     roofline_debug2("Computing array of input sizes from %lu to %lu failed\n", low_size, up_size);
     return;
@@ -315,46 +322,26 @@ void roofline_oi(FILE * output, const hwloc_obj_t mem, const int type, const uns
   }
 }
 
-size_t * roofline_log_array(size_t start, size_t end, int * n){
-  size_t * sizes; /*, size; */
-  /*double multiplier, val; */
-  int i;
-
+size_t * roofline_linear_array(const size_t start, const size_t end, const size_t base, int * n_elem){
+  size_t * sizes;
+  int i, n;
+  size_t size;
   
-  if(end<start)
-    return NULL;
+  if(end<start) return NULL;
+  n = *n_elem;
+  if(n <= 0) n = ROOFLINE_N_SAMPLES;  
+  roofline_alloc(sizes,sizeof(*sizes)*n);
 
-  if(*n <= 0)
-    *n = ROOFLINE_N_SAMPLES;
+  for(i=0; i<n; i++){
+    
+    size = start + i*(end-start)/n;
+    size = size - size%base;
+    while(size < start){size+=base;}
+    if(size > end)  {break;}
+    sizes[i] = size;
 
-  roofline_alloc(sizes,sizeof(*sizes)* (*n));
-
-  /* unsigned int seed = 43; */
-  for(i=0;i<*n;i++){ sizes[i] = start + i*(end-start)/(*n); }
-  /* size = start;     */
-  /* multiplier = 1; */
-  /* val = (double)start; */
-
-  /* if(start > 0){ */
-  /*   multiplier = pow((double)end/(double)start,1.0/(double)(*n)); */
-  /*   val = ((double)start*multiplier); */
-  /* } */
-  /* else{ */
-  /*   val = multiplier = pow((double)end,1.0/(double)(*n)); */
-  /* } */
-
-  /* i=0; */
-  /* while(size<=end && i<*n){ */
-  /*   sizes[i] = size; */
-  /*   val*=multiplier; */
-  /*   size = (size_t)val; */
-  /*   i++; */
-  /* } */
-
-  /* if(i==0){ */
-  /*   *n=0; free(sizes); return NULL; */
-  /* } */
-  /* *n=i; */
+  }
+  
   return sizes;
 }
 
