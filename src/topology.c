@@ -174,7 +174,8 @@ int roofline_hwloc_set_area_membind(const hwloc_obj_t membind_location, void * p
   /* Bind on node */
   if(where != NULL && where->depth <= node_depth)
   {
-    n_nodes = hwloc_get_nbobjs_inside_cpuset_by_type(topology, where->cpuset, HWLOC_OBJ_NUMANODE);
+    if(where->depth == node_depth){n_nodes = 1;}
+    else{n_nodes = hwloc_get_nbobjs_inside_cpuset_by_type(topology, where->cpuset, HWLOC_OBJ_NUMANODE);}
 #ifdef _OPENMP
     tid = omp_get_thread_num();
 #endif
@@ -205,7 +206,7 @@ int roofline_hwloc_set_area_membind(const hwloc_obj_t membind_location, void * p
 
   /* Print area location */
 #ifdef DEBUG2
-  roofline_hwloc_print_area_membind(membind_location, ptr, size);
+  roofline_hwloc_print_area_membind(where, ptr, size);
 #endif
 
 area_membind_success:
