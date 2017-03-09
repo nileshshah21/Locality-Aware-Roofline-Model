@@ -169,7 +169,8 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
 
   /*Initialize input stream */
   src = new_roofline_stream(up_size, op_type);
-  dst = new_roofline_stream(up_size, op_type);
+
+  if((ROOFLINE_2LD1ST & op_type) || ROOFLINE_COPY & op_type){ dst = new_roofline_stream(up_size, op_type); } else { dst = NULL; }
   
   /* bind memory */
 #ifdef _OPENMP
@@ -180,17 +181,20 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
     roofline_hwloc_cpubind(leaf_type);
     struct roofline_stream_s src_chunk, dst_chunk;
     roofline_stream_split(src, &(src_chunk), n_threads, tid, op_type);
-    roofline_stream_split(dst, &(dst_chunk), n_threads, tid, op_type);
-    /* bind memory */
     roofline_hwloc_set_area_membind(memory, src_chunk.stream, src_chunk.alloc_size);
-    roofline_hwloc_set_area_membind(memory, dst_chunk.stream, dst_chunk.alloc_size);
+    
+    if(dst != NULL){
+      roofline_stream_split(dst, &(dst_chunk), n_threads, tid, op_type);
+      roofline_hwloc_set_area_membind(memory, dst_chunk.stream, dst_chunk.alloc_size);
+    }
+    
 #ifdef _OPENMP
   }
 #endif
   
   for(i=0;i<n_sizes;i++){
     roofline_stream_set_size(src, sizes[i], op_type);
-    if(op_type == ROOFLINE_COPY) roofline_stream_set_size(dst, sizes[i], op_type);
+    if(dst != NULL) {roofline_stream_set_size(dst, sizes[i], op_type);}
     repeat = roofline_autoset_repeat(dst, src, op_type, benchmark);
     roofline_output_clear(&out);
     roofline_debug2("size = %luB\n", src->size);
@@ -204,9 +208,9 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
       roofline_hwloc_cpubind(leaf_type);
       struct roofline_stream_s src_chunk, dst_chunk;
       roofline_stream_split(src, &(src_chunk), n_threads, tid, op_type);
-      roofline_stream_split(dst, &(dst_chunk), n_threads, tid, op_type);
+      if(dst != NULL) {roofline_stream_split(dst, &(dst_chunk), n_threads, tid, op_type);}
       
-      if(src_chunk.size == 0 || dst_chunk.size == 0){parallel_stop = 1;}
+      if(src_chunk.size == 0){parallel_stop = 1;}
 #ifdef _OPENMP
 #pragma omp barrier
 #endif
@@ -237,7 +241,7 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
 
   /* Cleanup */
   delete_roofline_stream(src);
-  delete_roofline_stream(dst);
+  if(dst != NULL){delete_roofline_stream(dst);}
 }
 
 

@@ -18,5 +18,5 @@ void            roofline_stream_split(const roofline_stream in,
 				      const unsigned chunk_id,
 				      const int op_type);
 void            roofline_stream_set_size(roofline_stream in, const size_t size, const int op_type);
-
+size_t          roofline_stream_base_size(const unsigned n_split, const int op_type);
 #endif /* STREAM_H */

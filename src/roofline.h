@@ -29,6 +29,6 @@ void roofline_oi       (FILE * output, const hwloc_obj_t memory, const int op_ty
  * @arg n(in/out): the number of element in array.
  * @return A logarithmic array of sizes starting with start. Sizes are truncated to the closest integer value.
  **/
-size_t * roofline_log_array(size_t start, size_t end, int * n);
+size_t * roofline_linear_array(const size_t start, const size_t end, const size_t base, int * n);
 
 #endif /* BENCHMARK_H */
