@@ -243,7 +243,7 @@
 #elif defined(__AVX2__)
 #define zero_reg(regnum) "vpxor %%ymm" regnum ", %%ymm" regnum ",%%ymm" regnum
 #elif defined (__AVX__) || defined (__SSE__) || defined (__SSE4_1__) || defined (__SSE2__)
-#define zero_reg(regnum) "pxor %%xmm" regnum ", %%xmm" regnum "\n\t"
+#define zero_reg(regnum) "pxor %%xmm" regnum ", %%xmm" regnum
 #endif
 
 #define zero_simd()				\
