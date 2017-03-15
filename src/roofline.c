@@ -268,7 +268,9 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
       {
 #endif
 	/* Print result */
-	roofline_output_print(output, root, memory, out, op_type);	
+	out->n--;
+	roofline_output_print(output, root, memory, out, op_type);
+	
 #ifdef _OPENMP
       }
 #endif
