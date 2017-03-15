@@ -187,8 +187,8 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int mem_type,
     bytes += mem_ins  * SIMD_BYTES;
     flops += flop_ins * SIMD_FLOPS * (flop_type==ROOFLINE_FMA?2:1);
     ins   += flop_ins + mem_ins;
-    if(ins>64 && regnum>(unsigned)SIMD_N_REGS-8){ break; }
-  } while(regnum!=0);
+    if(ins>64 && regnum>=(unsigned)(SIMD_N_REGS/2) && (mem_type==ROOFLINE_2LD1ST?!(muops%3):1)){ break; }
+  } while(regnum!=0 || (mem_type==ROOFLINE_2LD1ST?muops%3:0));
   dprint_oi_bench_end(fd, idx, offset, bytes, flops, ins);
 
   /* overhead measure */
@@ -271,8 +271,8 @@ void * benchmark_validation(int op_type, unsigned flops, unsigned bytes){
   system(cmd);  
 #endif
   
-  unlink(c_path);
-  unlink(so_path);
+  /* unlink(c_path); */
+  /* unlink(so_path); */
   free(c_path);
   free(so_path);
   return benchmark;
