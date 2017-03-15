@@ -200,12 +200,10 @@ insertion:
   }
 }
 
-void * list_reduce(list l, void * reduction(void * a, void * b)){
-  if(l->length == 0){return NULL;}
-  if(l->length == 1){return l->cell[0];}
-  unsigned i; void * res = reduction(l->cell[0], l->cell[1]);
-  for(i=2;i<l->length;i++){res = reduction(res, l->cell[i]);}
-  return res;
+void list_reduce(list l, void * result, void * reduction(void * a, void * b)){
+  if(l->length == 0){return;}
+  unsigned i;
+  for(i=0;i<l->length;i++){reduction(result, l->cell[i]);}
 }
 
 inline void list_sort(list l, int (* compare)(const void*, const void*)){

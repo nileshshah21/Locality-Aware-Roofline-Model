@@ -27,7 +27,7 @@ unsigned     list_insert_sorted(list list, void * element, int (* compare)(const
 void         list_sort         (list list, int (* compare)(const void*, const void*));
 int          list_find         (list list, void * key, int (* compare)(const void*, const void*));
 int          list_find_unsorted(list list, void * key);
-void *       list_reduce       (list list, void * reduction(void * a, void * b));
+void         list_reduce       (list l, void * result, void * reduction(void * a, void * b));
 char **      list_to_char(list);
 
 #define      VA_ARGS(...) , ##__VA_ARGS__

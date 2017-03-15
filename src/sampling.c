@@ -376,9 +376,17 @@ void roofline_sampling_fini(){
   fclose(output_file);
 }
 
-static void roofline_samples_reduce(list l, const char * info){
-  struct roofline_sample *s = list_reduce(l, (void*(*)(void*,void*))roofline_sample_accumulate);
-  roofline_sample_print(s, info);
+static void roofline_samples_reduce(list l, hwloc_obj_t location, const char * info){
+  struct roofline_sample s;
+  s.type = TYPE_LOAD;
+  s.s_nano = 0;
+  s.e_nano = 0;
+  s.flops = 0;
+  s.bytes = 0;
+  s.location = location;
+  s.n_threads = 0;
+  list_reduce(l, &s, (void*(*)(void*,void*))roofline_sample_accumulate);
+  roofline_sample_print(&s, info);
 }
 
 static struct roofline_sample * roofline_sampling_caller(const int id){
@@ -489,7 +497,7 @@ static void roofline_sequential_sampling_stop(void *sample, const char* info){
     hwloc_obj_t Node = NULL;
     while((Node=hwloc_get_next_obj_by_depth(topology, reduction_depth, Node)) != NULL){
       if(Node->arity == 0){continue;}
-      roofline_samples_reduce(Node->userdata, info);
+      roofline_samples_reduce(Node->userdata, Node, info);
     }
     list_apply(samples, roofline_sample_reset);
 #ifdef _OPENMP    
