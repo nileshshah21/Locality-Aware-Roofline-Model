@@ -187,7 +187,8 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int mem_type,
     bytes += mem_ins  * SIMD_BYTES;
     flops += flop_ins * SIMD_FLOPS * (flop_type==ROOFLINE_FMA?2:1);
     ins   += flop_ins + mem_ins;
-  } while(regnum != SIMD_N_REGS-1 && offset < maxsize && max--);
+    if(ins>64 && regnum>(unsigned)SIMD_N_REGS-8){ break; }
+  } while(regnum!=0);
   dprint_oi_bench_end(fd, idx, offset, bytes, flops, ins);
 
   /* overhead measure */
@@ -263,7 +264,13 @@ void * benchmark_validation(int op_type, unsigned flops, unsigned bytes){
   roofline_compile_lib(c_path, so_path);
   /* Load the roofline function */
   benchmark = roofline_load_lib(so_path, func_name);
-    
+
+#ifdef DEUBG2  
+  roofline_mkstr(cmd, 1024);
+  snprintf(cmd, sizeof(cmd), "cat %s", c_path);
+  system(cmd);  
+#endif
+  
   unlink(c_path);
   unlink(so_path);
   free(c_path);
