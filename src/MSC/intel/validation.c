@@ -123,11 +123,8 @@ static void  dprint_header(int fd) {
   dprint_zero_simd(fd);
 }
  
-static void dprint_oi_bench_begin(int fd, const char * id, const char * name){
-  dprintf(fd, "void %s(roofline_stream data, roofline_output * out, __attribute__ ((unused)) int op_type, long repeat){\n", name);
-  dprintf(fd, "volatile uint64_t c_low=0, c_low1=0, c_high=0, c_high1=0;\n");
-  dprintf(fd, "zero_simd();\n");
-  dprintf(fd, "roofline_rdtsc(c_high,c_low);\n");
+static void dprint_oi_bench_begin(int fd, const char * id){
+  dprintf(fd, "roofline_output_begin_measure(out);\n");
   dprintf(fd, "__asm__ __volatile__ (\\\n");
   dprintf(fd, "\"loop_%s_repeat:\\n\\t\"\\\n", id);
   dprintf(fd, "\"mov %%1, %%%%r11\\n\\t\"\\\n");
@@ -135,17 +132,23 @@ static void dprint_oi_bench_begin(int fd, const char * id, const char * name){
   dprintf(fd, "\"buffer_%s_increment:\\n\\t\"\\\n", id);
 }
 
-static void dprint_oi_bench_end(int fd, const char * id, off_t offset){
+static void dprint_oi_bench_end(int           fd,
+				const char *  id,
+				off_t         offset,
+			        unsigned long bytes,
+				unsigned long flops,
+				unsigned long ins){
   dprintf(fd,"\"add $%lu, %%%%r11\\n\\t\"\\\n", offset);
   dprintf(fd,"\"sub $%lu, %%%%r12\\n\\t\"\\\n", offset);
   dprintf(fd,"\"jnz buffer_%s_increment\\n\\t\"\\\n", id);
   dprintf(fd,"\"sub $1, %%0\\n\\t\"\\\n");
   dprintf(fd,"\"jnz loop_%s_repeat\\n\\t\"\\\n", id);
-  dprintf(fd,":: \"r\" (repeat), \"r\" (data->stream), \"r\" (data->size)\\\n"); 
-  dprintf(fd,": \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"memory\" );\n", SIMD_CLOBBERED_REGS);
-  dprintf(fd,"roofline_rdtsc(c_high1,c_low1);\n");
-  dprintf(fd, "out->ts_end = roofline_rdtsc_diff(c_high1, c_low1);\n");
-  dprintf(fd, "out->ts_start = roofline_rdtsc_diff(c_high, c_low);\n");
+  dprintf(fd,":: \"r\" (%s), \"r\" (data->stream), \"r\" (data->size)\\\n", (bytes==0?"1":"repeat")); 
+  dprintf(fd,": \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%%r11\", \"%%r12\", \"memory\" );\n", SIMD_CLOBBERED_REGS);
+  if(bytes == 0){ dprintf(fd,"roofline_output_end_measure(out, 0, 0, 0);\n"); } else {
+    dprintf(fd,"roofline_output_end_measure(out, repeat*data->size, repeat*data->size*%lu/%lu, repeat*data->size*%lu/%lu);\n",
+	    flops, bytes, ins, bytes);
+  }
 }
 
 static int roofline_compile_lib(char * c_path, char* so_path){
@@ -156,7 +159,7 @@ static int roofline_compile_lib(char * c_path, char* so_path){
   system(cmd);
 #endif
   memset(cmd,0,sizeof(cmd));
-  sprintf(cmd, "%s -g -fPIC -shared %s -rdynamic -o %s %s", STRINGIFY(CC), c_path, so_path, STRINGIFY(OMP_FLAG));
+  sprintf(cmd, "%s -g -fPIC -shared %s -rdynamic -o %s roofline.so %s", STRINGIFY(CC), c_path, so_path, STRINGIFY(OMP_FLAG));
   return system(cmd);
 }
 
@@ -167,23 +170,32 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int mem_type,
   unsigned muops = 0, fuops = 0, regnum = 0;
   off_t maxsize = 4096;
   char * idx;
-  len = 2+strlen(roofline_type_str(mem_type))+strlen(roofline_type_str(flop_type));
-  idx = malloc(len); memset(idx,0,len);
+  unsigned long bytes = 0;
+  unsigned long flops = 0;
+  unsigned long ins = 0;  
+  len = 3+strlen(roofline_type_str(mem_type))+strlen(roofline_type_str(flop_type))+strlen("validation");
+  idx = malloc(len);
+  dprintf(fd, "void %s(roofline_stream data, roofline_output out, __attribute__ ((unused)) int op_type, long repeat){\n", name);
+  dprintf(fd, "zero_simd();\n");
+  
+  memset(idx,0,len);
   snprintf(idx,len,"%s_%s", roofline_type_str(mem_type), roofline_type_str(flop_type));
-
-  dprint_oi_bench_begin(fd, idx, name);
+  dprint_oi_bench_begin(fd, idx);
   do{
     for(i=0; i<mem_ins; i++) dprint_MUOP(fd, mem_type, &muops, &offset, &regnum);
     for(i=0; i<flop_ins; i++) dprint_FUOP(fd, flop_type, &fuops, &regnum);
+    bytes += mem_ins  * SIMD_BYTES;
+    flops += flop_ins * SIMD_FLOPS * (flop_type==ROOFLINE_FMA?2:1);
+    ins   += flop_ins + mem_ins;
   } while(regnum != SIMD_N_REGS-1 && offset < maxsize && max--);
-  dprint_oi_bench_end(fd, idx, offset);
-  
-  dprintf(fd, "out->instructions = repeat * data->size * %u / %u;\n", fuops+muops, muops*SIMD_BYTES);
-  dprintf(fd, "out->flops = repeat * data->size * %u * %u / %u;\n",
-	  flop_ins*SIMD_FLOPS,
-	  flop_type == ROOFLINE_FMA ? 2 : 1,
-	  mem_ins*SIMD_BYTES);
-  dprintf(fd, "out->bytes = repeat * data->size;\n");
+  dprint_oi_bench_end(fd, idx, offset, bytes, flops, ins);
+
+  /* overhead measure */
+  memset(idx,0,len);
+  snprintf(idx,len,"%s_%s_%s", roofline_type_str(mem_type), roofline_type_str(flop_type), "validation");
+  dprint_oi_bench_begin(fd, idx);
+  dprint_oi_bench_end(fd, idx, offset, 0, 0, 0);
+
   dprintf(fd, "}\n\n");
   free(idx);
   return offset;
@@ -252,8 +264,8 @@ void * benchmark_validation(int op_type, unsigned flops, unsigned bytes){
   /* Load the roofline function */
   benchmark = roofline_load_lib(so_path, func_name);
     
-  /* unlink(c_path); */
-  /* unlink(so_path); */
+  unlink(c_path);
+  unlink(so_path);
   free(c_path);
   free(so_path);
   return benchmark;

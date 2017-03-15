@@ -132,7 +132,6 @@ int main(int argc, char * argv[]){
     char * item = strtok_r(mem_str, "|", &save_ptr);    
     mem = malloc(sizeof(hwloc_obj_t)*hwloc_get_type_depth(topology, HWLOC_OBJ_PU));
     while(item != NULL){
-      printf("parsing %s\n", item);
       mem[n_mem] = roofline_hwloc_parse_obj(item);
       if(mem[n_mem] != NULL && roofline_hwloc_obj_is_memory(mem[n_mem])){n_mem++;}
       item = strtok_r(NULL, "|", &save_ptr);

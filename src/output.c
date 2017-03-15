@@ -4,33 +4,98 @@
 #include "topology.h"
 
 extern float    cpu_freq;       /* In Hz */
-extern unsigned n_threads;      /* The number of threads for benchmark */
 
-void roofline_output_clear(roofline_output * out){
-  out->ts_start = 0;
-  out->ts_end = 0;
+void roofline_output_clear(roofline_output out){
+  out->ts_high_start = 0;
+  out->ts_high_end = 0;
+  out->ts_low_start = 0;
+  out->ts_low_end = 0;
+  out->cycles = 0;  
   out->bytes = 0;
   out->flops = 0;
   out->instructions = 0;
+  out->n = 1;
+  out->overhead = 0;
 }
 
-void roofline_output_accumulate(roofline_output * dst, roofline_output * src){
-  dst->ts_start = src->ts_start;
-  dst->ts_end = src->ts_end;
+void roofline_output_accumulate(roofline_output dst, const roofline_output src){
+  dst->cycles += src->cycles;
   dst->bytes += src->bytes;
   dst->flops += src->flops;
   dst->instructions += src->instructions;
+  dst->overhead += src->overhead;
+  dst->n++;
 }
 
-int roofline_compare_throughput(void * x, void * y){
-  roofline_output * a = *(roofline_output **)x;
-  roofline_output * b = *(roofline_output **)y;
-  float a_throughput = a->instructions / (float)(a->ts_end - a->ts_start);
-  float b_throughput = b->instructions / (float)(b->ts_end - b->ts_start);
-  if(a_throughput < b_throughput) return -1;
-  if(a_throughput > b_throughput) return  1;
+roofline_output new_roofline_output(){
+  roofline_output o = malloc(sizeof(*o));
+  if(o == NULL) return NULL;
+  roofline_output_clear(o);
+  return o;
+}
+
+roofline_output roofline_output_copy(roofline_output o){
+  roofline_output out = malloc(sizeof(*out));
+  if(out == NULL) return NULL;
+  out->ts_high_start = o->ts_high_start;
+  out->ts_high_end = o->ts_high_end;
+  out->ts_low_start = o->ts_low_start;
+  out->ts_low_end = o->ts_low_end;
+  out->cycles = 0;o->cycles;
+  out->bytes = o->bytes;
+  out->flops = o->flops;
+  out->instructions = o->instructions;
+  out->n = o->n;
+  out->overhead = o->overhead;
+  return out;
+}
+
+void delete_roofline_output(roofline_output o){ free(o); }
+
+float roofline_output_throughput(const roofline_output s){
+  return (float)(s->instructions)/(float)(s->cycles);
+}
+
+void roofline_output_begin_measure(roofline_output o){
+#ifdef _OPENMP
+#pragma omp barrier
+#endif
+  __asm__ __volatile__ ("CPUID\n\t" "RDTSC\n\t" "movq %%rdx, %0\n\t" "movq %%rax, %1\n\t" \
+			:"=r" (o->ts_high_start), "=r" (o->ts_low_start)::"%rax", "%rbx", "%rcx", "%rdx");
+}
+
+void roofline_output_end_measure(roofline_output o, const uint64_t bytes, const uint64_t flops, const uint64_t ins){
+#ifdef _OPENMP
+#pragma omp barrier
+#endif
+  __asm__ __volatile__ ("CPUID\n\t" "RDTSC\n\t" "movq %%rdx, %0\n\t" "movq %%rax, %1\n\t" \
+			:"=r" (o->ts_high_end), "=r" (o->ts_low_end)::"%rax", "%rbx", "%rcx", "%rdx");
+  if((flops == 0 && bytes == 0) || ins == 0){
+    o->overhead = (o->ts_high_end<<32|o->ts_low_end)-(o->ts_high_start<<32|o->ts_low_start);
+  } else {
+    o->cycles = (o->ts_high_end<<32|o->ts_low_end)-(o->ts_high_start<<32|o->ts_low_start);
+    o->flops = flops;
+    o->bytes = bytes;
+    o->instructions = ins;    
+  }
+}
+
+int roofline_compare_throughput(const void * x, const void * y){
+  float x_thr = roofline_output_throughput(*(roofline_output*)x);
+  float y_thr = roofline_output_throughput(*(roofline_output*)y);
+  if(x_thr < y_thr) return -1;
+  if(x_thr > y_thr) return  1;
   return 0;
 }
+
+int roofline_compare_cycles(const void * x, const void * y){
+  roofline_output a = *(roofline_output*)x;
+  roofline_output b = *(roofline_output*)y;
+  if(a->cycles < b->cycles) return -1;
+  if(a->cycles > b->cycles) return  1;
+  return 0;
+}
+
 
 void roofline_output_print_header(FILE * output){
   fprintf(output, "%12s %10s %12s %10s %10s %10s %10s %10s\n",
@@ -40,7 +105,7 @@ void roofline_output_print_header(FILE * output){
 void roofline_output_print(FILE * output,
 			   const hwloc_obj_t src,
 			   const hwloc_obj_t mem,
-			   const roofline_output * sample_out,
+			   const roofline_output out,
 			   const int type)
 {
   roofline_mkstr(src_str,12);
@@ -49,17 +114,16 @@ void roofline_output_print(FILE * output,
   if(mem != NULL) roofline_hwloc_obj_snprintf(mem, mem_str, sizeof(mem_str));
   else snprintf(mem_str, sizeof(mem_str), "NA");
 
-  long cyc = sample_out->ts_end - sample_out->ts_start;
+  float    cycles               = (float)(out->cycles-out->overhead)/(float)(out->n);
+  float    throughput           = (float)(out->instructions)/cycles;
+  float    bandwidth            = (float)(out->bytes*cpu_freq)/(cycles*1e9);
+  float    performance          = (float)(out->flops*cpu_freq)/(cycles*1e9);
+  float    arithmetic_intensity = (float)(out->flops)/(float)(out->bytes);      
 
+  /* printf("overhead = %lu cyc, cycles = %lu\n", out->overhead, out->cycles); */
   fprintf(output, "%12s %10u %12s %10.3f %10.3f %10.3f %10.6f %10s\n",
-	  src_str,
-	  n_threads,
-	  mem_str, 
-	  (float)sample_out->instructions / (float) cyc,
-	  (float)(sample_out->bytes * cpu_freq) / (float)(cyc*1e9), 
-	  (float)(sample_out->flops * cpu_freq) / (float)(1e9*cyc),
-	  (float)(sample_out->flops) / (float)(sample_out->bytes),
-	  roofline_type_str(type));
+	  src_str, out->n, mem_str, throughput, bandwidth, performance, arithmetic_intensity, roofline_type_str(type));
+  
   fflush(output);
 }
 

@@ -113,41 +113,54 @@ inline void roofline_lib_finalize(void)
 void roofline_fpeak(FILE * output, int op_type)
 {
   int i;
-  roofline_output out;
+  roofline_output out = new_roofline_output();
   long repeat = roofline_autoset_repeat(NULL, NULL, op_type, NULL);
   
-#ifdef _OPENMP
-#pragma omp declare reduction(+ : roofline_output : roofline_output_accumulate(&omp_out,&omp_in))
-#endif
   for(i=0; i<ROOFLINE_N_SAMPLES; i++){
-    roofline_output_clear(&out);
+    roofline_output_clear(out);
     
 #ifdef _OPENMP
-#pragma omp parallel reduction(+:out)
+#pragma omp parallel
     {
       roofline_hwloc_cpubind(leaf_type);
+#endif      
+      roofline_output local_out = new_roofline_output();        
+      benchmark_fpeak(op_type, local_out, repeat);
+      
+#ifdef _OPENMP
+#pragma omp barrier
+#pragma omp critical
+      {
 #endif
-      benchmark_fpeak(op_type, &out, repeat);
-
+	roofline_output_accumulate(out, local_out);
+#ifdef _OPENMP
+      }
+#pragma omp barrier
+#pragma omp single
+#endif        
+	out->n--;
+      delete_roofline_output(local_out);
 #if defined(_OPENMP)
     }
-    roofline_output_print(output, root, NULL, &out, op_type);
+    
+    roofline_output_print(output, root, NULL, out, op_type);
 #else
-    roofline_output_print(output, hwloc_get_obj_by_type(topology, HWLOC_OBJ_PU, 0), NULL, &out, op_type);
+    roofline_output_print(output, hwloc_get_obj_by_type(topology, HWLOC_OBJ_PU, 0), NULL, out, op_type);
 #endif
   }
+
+  delete_roofline_output(out);  
 }
 
 static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int op_type, void * benchmark)
 {
   int i, n_sizes;
   size_t * sizes, low_size, up_size;
-  roofline_output out;
+  roofline_output out = new_roofline_output();
   roofline_stream src = NULL, dst = NULL;
   long repeat;
   unsigned n_threads = 1, tid = 0;
-  int parallel_stop = 0;
-  void (*  benchmark_function)(roofline_stream, roofline_output *, int, long) = benchmark;
+  void (*  benchmark_function)(roofline_stream, roofline_output, int, long) = benchmark;
   
 #ifdef _OPENMP
 #pragma omp parallel
@@ -169,8 +182,7 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
 
   /*Initialize input stream */
   src = new_roofline_stream(up_size, op_type);
-
-  if((ROOFLINE_2LD1ST & op_type) || ROOFLINE_COPY & op_type){ dst = new_roofline_stream(up_size, op_type); } else { dst = NULL; }
+  dst = new_roofline_stream(up_size, op_type);  
   
   /* bind memory */
 #ifdef _OPENMP
@@ -178,70 +190,101 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
   {
     tid = omp_get_thread_num();
 #endif
+
+    /* Bind threads */
     roofline_hwloc_cpubind(leaf_type);
     struct roofline_stream_s src_chunk, dst_chunk;
+
+    /* Bind memory */
     roofline_stream_split(src, &(src_chunk), n_threads, tid, op_type);
+    roofline_stream_split(src, &(dst_chunk), n_threads, tid, op_type);    
     roofline_hwloc_set_area_membind(memory, src_chunk.stream, src_chunk.alloc_size);
-    
-    if(dst != NULL){
-      roofline_stream_split(dst, &(dst_chunk), n_threads, tid, op_type);
-      roofline_hwloc_set_area_membind(memory, dst_chunk.stream, dst_chunk.alloc_size);
-    }
+    roofline_hwloc_set_area_membind(memory, dst_chunk.stream, src_chunk.alloc_size);    
     
 #ifdef _OPENMP
   }
 #endif
-  
+
+  /* measure for several sizes inside bounds */
   for(i=0;i<n_sizes;i++){
+    /* Split the buffer size */
     roofline_stream_set_size(src, sizes[i], op_type);
-    if(dst != NULL) {roofline_stream_set_size(dst, sizes[i], op_type);}
-    repeat = roofline_autoset_repeat(dst, src, op_type, benchmark);
-    roofline_output_clear(&out);
-    roofline_debug2("size = %luB\n", src->size);
+    roofline_stream_set_size(dst, sizes[i], op_type);
+    if(src->size == 0){ continue; }    
+    roofline_debug2("size = %luB\n", src->sizes[i]);
+
+    /* Set the length of the benchmark to have a small variance */
+    struct roofline_stream_s src_chunk, dst_chunk;
+    roofline_stream_split(src, &(src_chunk), n_threads, 0, op_type);
+    roofline_stream_split(dst, &(dst_chunk), n_threads, 0, op_type);
+    if(src_chunk.size == 0){continue;}
+    repeat = roofline_autoset_repeat(&(dst_chunk), &(src_chunk), op_type, benchmark);
+    roofline_output_clear(out);
     
 #ifdef _OPENMP
-#pragma omp declare reduction(+ : roofline_output : roofline_output_accumulate(&omp_out,&omp_in))
-#pragma omp parallel private(tid) reduction(+:out)
+#pragma omp parallel private(tid, src_chunk, dst_chunk)
     {
       tid = omp_get_thread_num();
 #endif
+
+      /* Bind the threads */
       roofline_hwloc_cpubind(leaf_type);
-      struct roofline_stream_s src_chunk, dst_chunk;
+
+      /* Split the work */
       roofline_stream_split(src, &(src_chunk), n_threads, tid, op_type);
-      if(dst != NULL) {roofline_stream_split(dst, &(dst_chunk), n_threads, tid, op_type);}
-      
-      if(src_chunk.size == 0){parallel_stop = 1;}
-#ifdef _OPENMP
-#pragma omp barrier
-#endif
-      
-      if(!parallel_stop){
-	if(op_type == ROOFLINE_COPY)
-	{
-	  benchmark_double_stream(&(dst_chunk), &(src_chunk), &out, op_type, repeat);
-	}
-	else if(op_type == ROOFLINE_LOAD    ||
-		op_type == ROOFLINE_LOAD_NT ||
-		op_type == ROOFLINE_STORE   ||
-		op_type == ROOFLINE_STORE_NT||
-		op_type == ROOFLINE_2LD1ST)
-	{
-	  benchmark_single_stream(&(src_chunk), &out, op_type, repeat);
-	}
-	else if(benchmark != NULL)
-	{
-	  benchmark_function(&(src_chunk), &out, op_type, repeat);
-	}
+      roofline_stream_split(dst, &(dst_chunk), n_threads, tid, op_type);
+      if(src_chunk.size == 0){goto skip_size;}
+
+      /* Benchmark */
+      roofline_output local_out = new_roofline_output();
+      if(op_type == ROOFLINE_COPY)
+      {
+	benchmark_double_stream(&(dst_chunk), &(src_chunk), local_out, op_type, repeat);
       }
+      else if(op_type == ROOFLINE_LOAD    ||
+	      op_type == ROOFLINE_LOAD_NT ||
+	      op_type == ROOFLINE_STORE   ||
+	      op_type == ROOFLINE_STORE_NT||
+	      op_type == ROOFLINE_2LD1ST)
+      {
+	benchmark_single_stream(&(src_chunk), local_out, op_type, repeat);
+      }
+      else if(benchmark != NULL)
+      {
+	benchmark_function(&(src_chunk), local_out, op_type, repeat);
+      }
+      
 #ifdef _OPENMP
+#pragma omp critical
+#endif
+
+      /* Reduction */
+      roofline_output_accumulate(out, local_out);
+      delete_roofline_output(local_out);
+      
+#ifdef _OPENMP
+#pragma omp barrier      
+#pragma omp_single
+      {
+#endif
+	
+	/* Print result */
+	out->n--;    
+	roofline_output_print(output, root, memory, out, op_type);
+	
+#ifdef _OPENMP
+      }
+#endif
+    skip_size:;
+#ifdef _OPENMP      
     }
 #endif
-    roofline_output_print(output, root, memory, &out, op_type);
   }
 
   /* Cleanup */
   delete_roofline_stream(src);
   if(dst != NULL){delete_roofline_stream(dst);}
+  delete_roofline_output(out);
 }
 
 

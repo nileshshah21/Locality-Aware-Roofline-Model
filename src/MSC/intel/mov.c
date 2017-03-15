@@ -1,4 +1,5 @@
 #include "intel.h"
+#include "../../list.h"
 
 #define asm_mov(op1, op2, reg)			\
   op1(STRIDE_0,reg,REG_0)			\
@@ -33,30 +34,46 @@
   op2(STRIDE_29,reg,REG_29)
 
 #define asm_benchmark_mov(repeat, data, out, op1, op2, op_str) do{	\
-    uint64_t c_low0=0, c_low1=0, c_high0=0, c_high1=0;			\
-    zero_simd();							\
-    roofline_rdtsc(c_high0, c_low0);					\
-    __asm__ __volatile__ (						\
-      "loop_"op_str"_repeat:\n\t"					\
-      "mov %1, %%r11\n\t"						\
-      "mov %2, %%r12\n\t"						\
-      "buffer_"op_str"_increment:\n\t"					\
-      asm_mov(op1, op2, "%%r11")					\
-      "add $"STRINGIFY(CHUNK_SIZE)", %%r11\n\t"				\
-      "sub $"STRINGIFY(CHUNK_SIZE)", %%r12\n\t"				\
-      "jnz buffer_"op_str"_increment\n\t"				\
-      "sub $1, %0\n\t"							\
-      "jnz loop_"op_str"_repeat\n\t"					\
-      :: "r" (repeat), "r" (data->stream), "r" (data->size)		\
-      : "%r11", "%r12", SIMD_CLOBBERED_REGS, "memory");			\
-    roofline_rdtsc(c_high1, c_low1);					\
-    out->ts_start = roofline_rdtsc_diff(c_high0, c_low0);		\
-    out->ts_end = roofline_rdtsc_diff(c_high1, c_low1);			\
-    out->bytes = (data->size)*repeat;					\
-    out->instructions = out->bytes/SIMD_BYTES;				\
+  zero_simd();								\
+  roofline_output_begin_measure(out);					\
+  __asm__ __volatile__ (						\
+    "loop_"op_str"_repeat:\n\t"						\
+    "mov %1, %%r11\n\t"							\
+    "mov %2, %%r12\n\t"							\
+    "buffer_"op_str"_increment:\n\t"					\
+    asm_mov(op1, op2, "%%r11")						\
+    "add $"STRINGIFY(CHUNK_SIZE)", %%r11\n\t"				\
+    "sub $"STRINGIFY(CHUNK_SIZE)", %%r12\n\t"				\
+    "jnz buffer_"op_str"_increment\n\t"					\
+    "sub $1, %0\n\t"							\
+    "jnz loop_"op_str"_repeat\n\t"					\
+    :: "r" (repeat), "r" (data->stream), "r" (data->size)		\
+    : "%r11", "%r12", SIMD_CLOBBERED_REGS, "memory");			\
+  roofline_output_end_measure(out, (data->size)*repeat, 0, repeat*data->size/SIMD_BYTES); \
   } while(0)
 
-void benchmark_mov(roofline_stream data, roofline_output * out, long repeat, int op_type){
+#define asm_mov_overhead(data, out) do{					\
+    zero_simd();							\
+    roofline_output_begin_measure(out);					\
+    __asm__ __volatile__ (						\
+      "loop_overhead_repeat:\n\t"					\
+      "mov %1, %%r11\n\t"						\
+      "mov %2, %%r12\n\t"						\
+      "buffer_overhead_increment:\n\t"					\
+      "add $"STRINGIFY(CHUNK_SIZE)", %%r11\n\t"				\
+      "sub $"STRINGIFY(CHUNK_SIZE)", %%r12\n\t"				\
+      "jnz buffer_overhead_increment\n\t"				\
+      "sub $1, %0\n\t"							\
+      "jnz loop_overhead_repeat\n\t"					\
+      :: "r" (1), "r" (data->stream), "r" (data->size)			\
+      : "%r11", "%r12", SIMD_CLOBBERED_REGS, "memory");			\
+    roofline_output_end_measure(out, 0, 0, 0);				\
+  } while(0)
+
+void benchmark_mov(roofline_stream data, roofline_output out, long repeat, int op_type){
+  /* Overhead measure */
+  asm_mov_overhead(data, out);
+  
   switch(op_type){
   case ROOFLINE_LOAD:
     asm_benchmark_mov(repeat, data, out, roofline_load_ins, roofline_load_ins, "load");

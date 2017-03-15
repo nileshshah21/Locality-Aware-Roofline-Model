@@ -12,17 +12,17 @@ size_t get_chunk_size(int op_type);
 int benchmark_types_supported();
 
 void benchmark_fpeak(int op_type,
-		     roofline_output * out,
+		     roofline_output out,
 		     long repeat);
 
 void benchmark_single_stream(roofline_stream data,
-			     roofline_output * out,
+			     roofline_output out,
 			     int op_type,
 			     long repeat);
 
 void benchmark_double_stream(roofline_stream dst,
 			     roofline_stream src,
-			     roofline_output * out,
+			     roofline_output out,
 			     int op_type,
 			     long repeat);
 

@@ -1,19 +1,19 @@
 #include "intel.h"
 
 void
-benchmark_fpeak(int op_type, roofline_output * out, long repeat)
+benchmark_fpeak(int op_type, roofline_output out, long repeat)
 {
   benchmark_flops(repeat, out, op_type);
 }
 
 void
-benchmark_single_stream(roofline_stream data, roofline_output * out, int op_type, long repeat)
+benchmark_single_stream(roofline_stream data, roofline_output out, int op_type, long repeat)
 {
   benchmark_mov(data, out, repeat, op_type);
 }
 
 void
-benchmark_double_stream(roofline_stream dst, roofline_stream src, roofline_output * out, int op_type, long repeat)
+benchmark_double_stream(roofline_stream dst, roofline_stream src, roofline_output out, int op_type, long repeat)
 {
   switch(op_type){
   case ROOFLINE_COPY:
@@ -55,7 +55,7 @@ int benchmark_types_supported(){
 }
 
 void validation_single_stream(roofline_stream data,
-			      roofline_output * out,
+			      roofline_output out,
 			      int op_type,
 			      long repeat,
 			      unsigned flops,
@@ -63,7 +63,7 @@ void validation_single_stream(roofline_stream data,
 
 void validation_double_stream(roofline_stream dst,
 			      roofline_stream src,
-			      roofline_output * out,
+			      roofline_output out,
 			      int op_type,
 			      long repeat,
 			      unsigned flops,

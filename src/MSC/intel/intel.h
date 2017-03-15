@@ -293,7 +293,7 @@
 #define roofline_store_ins(stride,dstreg, regnum) SIMD_STORE " %%" SIMD_REG  regnum ", " stride "("dstreg")\n\t"
 #define roofline_storent_ins(stride,dstreg, regnum) SIMD_STORE_NT " %%" SIMD_REG  regnum ", " stride "("dstreg")\n\t"
 
-void benchmark_flops(long repeat, roofline_output * out, int op_type);
-void benchmark_mov(roofline_stream data, roofline_output * out, long repeat, int op_type);
-void benchmark_2ld1st(roofline_stream dst, roofline_stream src, roofline_output * out, long repeat);
-void benchmark_copy(roofline_stream dst, roofline_stream src, roofline_output * out, long repeat);
+void benchmark_flops(long repeat, roofline_output out, int op_type);
+void benchmark_mov(roofline_stream data, roofline_output out, long repeat, int op_type);
+void benchmark_2ld1st(roofline_stream dst, roofline_stream src, roofline_output out, long repeat);
+void benchmark_copy(roofline_stream dst, roofline_stream src, roofline_output out, long repeat);

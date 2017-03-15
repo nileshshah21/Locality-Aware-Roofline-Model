@@ -1,9 +1,12 @@
+#include <math.h>
 #include "MSC/MSC.h"
+#include "list.h"
 #include "types.h"
 #include "utils.h"
 #include "output.h"
 
-extern float cpu_freq;   /* In Hz */
+static unsigned n_samples = 5;
+extern float    cpu_freq;   /* In Hz */
 
 unsigned roofline_PGCD(unsigned a, unsigned b){
   unsigned max,min, r;
@@ -17,49 +20,85 @@ unsigned roofline_PPCM(unsigned a, unsigned b){
   return a*b/roofline_PGCD(a,b);
 }
 
+static float roofline_throughput_var(list samples){
+  unsigned i, n = list_length(samples);
+  list_sort(samples, roofline_compare_throughput);
+  
+  float median = roofline_output_throughput(list_get(samples, n/2));
+  float ssqerr=0, err;
+  for(i=0; i<n; i++){
+    err = roofline_output_throughput(list_get(samples, i))-median;
+    ssqerr += err*err;
+  }
+  return sqrt(ssqerr/n);
+}
+
 long roofline_autoset_repeat(roofline_stream dst, roofline_stream src, const int op_type, const void * benchmark)
 {
+  unsigned i;
   long repeat = 1;
-  float mul = 0, tv_ms = -1;
-  roofline_output out;
-  void (*  benchmark_function)(roofline_stream, roofline_output *, int, long) = (void (*)(roofline_stream, roofline_output *, int, long))benchmark;
-  while(tv_ms < ROOFLINE_MIN_DUR){
-    roofline_output_clear(&out);
-    if(op_type == ROOFLINE_ADD ||
-       op_type == ROOFLINE_MUL ||
-       op_type == ROOFLINE_MAD ||
-       op_type == ROOFLINE_FMA){
-      benchmark_fpeak(op_type, &out, repeat);
-    }
-    else if(op_type == ROOFLINE_LOAD    ||
-	    op_type == ROOFLINE_LOAD_NT ||
-	    op_type == ROOFLINE_STORE   ||
-	    op_type == ROOFLINE_STORE_NT||
-	    op_type == ROOFLINE_2LD1ST){
-      benchmark_single_stream(src, &out, op_type, repeat);
-    }
-    else if(op_type  == ROOFLINE_COPY){
-      benchmark_double_stream(dst, src, &out, op_type, repeat);
-    }
-    else if(benchmark != NULL){
-      benchmark_function(src, &out, op_type, repeat);
-    }
-    else{
-      ERR("Not suitable op_type %s\n", roofline_type_str(op_type));
-      return 1;
-    }
-    tv_ms = (out.ts_end - out.ts_start)*1e3/cpu_freq;
-    if( tv_ms < ROOFLINE_MIN_DUR){
-      mul = (float)(ROOFLINE_MIN_DUR)/tv_ms;
-      if((long)mul <= 1)
-        repeat *= 2;
-      else
-	repeat *= mul;
-    }
-  }
+  list samples;
+  float var = 0, median=0;
+  roofline_output median_output, sample;
+  uint64_t cycles;
+  void (*  benchmark_function)(roofline_stream,
+			       roofline_output,
+			       int,
+			       long) = (void (*)(roofline_stream,
+						 roofline_output,
+						 int,
+						 long)) benchmark;
+  samples = new_list(sizeof(roofline_output), n_samples, (void (*)(void*))delete_roofline_output);
+  for(i=0; i<n_samples; i++){ list_push(samples, new_roofline_output()); }
 
-  roofline_debug1("repeat loop %ld times\n", repeat);
+  do{
+    cycles = 0;    
+    repeat *= 2;
+    
+    for(i=0; i<n_samples; i++){
+      sample = list_get(samples, i);
+      roofline_output_clear(sample);
+      
+      if(op_type == ROOFLINE_ADD ||
+	 op_type == ROOFLINE_MUL ||
+	 op_type == ROOFLINE_MAD ||
+	 op_type == ROOFLINE_FMA){
+	benchmark_fpeak(op_type, sample, repeat);
+      }
+      else if(op_type == ROOFLINE_LOAD    ||
+	      op_type == ROOFLINE_LOAD_NT ||
+	      op_type == ROOFLINE_STORE   ||
+	      op_type == ROOFLINE_STORE_NT||
+	      op_type == ROOFLINE_2LD1ST){
+	benchmark_single_stream(src, sample, op_type, repeat);
+      }
+      else if(op_type  == ROOFLINE_COPY){
+	benchmark_double_stream(dst, src, sample, op_type, repeat);
+      }
+      else if(benchmark != NULL){
+	benchmark_function(src, sample, op_type, repeat);
+      }
+      else{
+	ERR("Not suitable op_type %s\n", roofline_type_str(op_type));
+	goto roofline_repeat_error;
+      }
+      cycles += sample->overhead+sample->cycles;
+    }
+    var = roofline_throughput_var(samples);
+    median_output = list_get(samples, n_samples/2);
+    median = roofline_output_throughput(median_output);
+    /* bound sample execution between 10 ms and 1s */
+    if(cycles*(1e3/cpu_freq)>1000){break;}
+    
+  } while((median_output->cycles)*(1e3/cpu_freq)<10 || var*100 > median);
+
+  roofline_debug1("variance = %f, throughput = %f, time=%dus, repeat=%ld\n", var, median, (median_output->cycles*(1e3/cpu_freq)), repeat);
+  delete_list(samples);  
   return repeat;
+
+roofline_repeat_error:
+  delete_list(samples);  
+  return 1;
 }
 
 

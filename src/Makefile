@@ -1,8 +1,6 @@
 #############################################################################################
 #                                      Configuration                                        #
 #############################################################################################
-#Duration time of each sample (millisecond)
-LAST=1000
 #Number of samples per memory.
 N_SAMPLES=16
 #Use PAPI and compile tool for code sampling
@@ -14,19 +12,24 @@ MSC=intel
 #                                              BUILD                                        #
 #############################################################################################
 export CC=gcc
-export OMP_FLAG=-fopenmp
-export CFLAGS= -g -Wall -Werror -Wextra\
+export OMP_FLAG= #-fopenmp
+export CFLAGS= -g \
 	-DROOFLINE_MIN_DUR=$(LAST)\
 	-DROOFLINE_N_SAMPLES=$(N_SAMPLES)\
 	-DCC=$(CC)\
-	-DOMP_FLAG=$(OMP_FLAG)\
-#	-DDEBUG2 # -DDEBUG1
+	-DOMP_FLAG=$(OMP_FLAG)
+
 LDFLAGS=-ldl -lhwloc -lm $(OMP_FLAG)
+
+ifdef DEBUG
+CFLAGS+=-Wall -Werror -Wextra -DDEBUG2 -DDEBUG1
+endif
 
 SRC=stream.c output.c types.c stats.c topology.c roofline.c list.c
 OBJ=$(patsubst %.c, %.o, $(SRC)) MSC/$(MSC)/MSC.a
 PREFIX=$(HOME)/local
 BIN=roofline
+SO=roofline.so
 LIB=librfsampling.so
 LIB_DEFINE=
 LIB_LDFLAGS=-lrt -lhwloc $(OMP_FLAG)
@@ -38,19 +41,19 @@ LIB_DEFINE=-D_PAPI_
 LIB_LDFLAGS+=-lpapi
 endif
 
-all: $(BIN) $(LIB)
-
-list.o: list.c
-	$(CC) $(CFLAGS) -c -o $@ $^ $(OMP_FLAG) -fPIC
+all: $(BIN) $(SO) $(LIB)
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c -o $@ $^ $(OMP_FLAG)
+	$(CC) $(CFLAGS) -c -o $@ $^ $(OMP_FLAG) -fPIC
 
 MSC/$(MSC)/MSC.a: MSC/$(MSC)/*.c
 	make -C MSC/$(MSC)
 
 $(BIN): main.c $(OBJ)
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+
+$(SO): $(OBJ)
+	$(CC) $(CFLAGS) -fPIC -shared $^ -o $@ $(LDFLAGS)
 
 $(LIB): sampling.c list.o
 	$(CC) $(CFLAGS) $(LIB_DEFINE) -fPIC -shared $^ -o $@ $(LIB_LDFLAGS)

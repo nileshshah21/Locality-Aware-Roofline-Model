@@ -1,4 +1,5 @@
 #include "intel.h"
+#include "../../list.h"
 
 #define copy_write roofline_storent_ins
 #define copy_read  roofline_load_ins
@@ -65,10 +66,27 @@
   copy_read(STRIDE_29,src,REG_29)		\
   copy_write(STRIDE_29,dst,REG_29)
 
-void benchmark_copy(roofline_stream dst, roofline_stream src, roofline_output * out, long repeat){
-  uint64_t c_low0=0, c_low1=0, c_high0=0, c_high1=0;
+void benchmark_copy(roofline_stream dst, roofline_stream src, roofline_output out, long repeat){
   zero_simd();
-  roofline_rdtsc(c_high0, c_low0);
+  
+  roofline_output_begin_measure(out);
+  __asm__ __volatile__ (						\
+    "loop_copy_overhead_repeat:\n\t"					\
+    "mov %1, %%r11\n\t"							\
+    "mov %3, %%r12\n\t"							\
+    "mov %2, %%r13\n\t"							\
+    "buffer_copy_overhead_increment:\n\t"				\
+    "add $"STRINGIFY(CHUNK_SIZE)", %%r11\n\t"				\
+    "add $"STRINGIFY(CHUNK_SIZE)", %%r12\n\t"				\
+    "sub $"STRINGIFY(CHUNK_SIZE)", %%r13\n\t"				\
+    "jnz buffer_copy_overhead_increment\n\t"				\
+    "sub $1, %0\n\t"							\
+    "jnz loop_copy_overhead_repeat\n\t"					\
+    :: "r" (1), "r" (src->stream), "r" (src->size), "r" (dst->stream)	\
+    : "%r11", "%r12", "%r13", SIMD_CLOBBERED_REGS, "memory");
+  roofline_output_end_measure(out, 0, 0, 0);
+    
+  roofline_output_begin_measure(out);
   __asm__ __volatile__ (						\
     "loop_copy_repeat:\n\t"						\
     "mov %1, %%r11\n\t"							\
@@ -84,11 +102,7 @@ void benchmark_copy(roofline_stream dst, roofline_stream src, roofline_output * 
     "jnz loop_copy_repeat\n\t"						\
     :: "r" (repeat), "r" (src->stream), "r" (src->size), "r" (dst->stream) \
     : "%r11", "%r12", "%r13", SIMD_CLOBBERED_REGS, "memory");
-  roofline_rdtsc(c_high1, c_low1);
-  out->ts_start = roofline_rdtsc_diff(c_high0, c_low0);
-  out->ts_end = roofline_rdtsc_diff(c_high1, c_low1);
-  out->bytes = (src->size+dst->size)*repeat;
-  out->instructions = out->bytes/SIMD_BYTES;
+  roofline_output_end_measure(out, (src->size+dst->size)*repeat, 0, (src->size+dst->size)*repeat/SIMD_BYTES);
 }
 
 

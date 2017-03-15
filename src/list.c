@@ -153,7 +153,7 @@ void * list_remove(list l, int i){
   return ret;
 }
 
-int list_find(list l, void * key, int (* compare)(void*, void*)){
+int list_find(list l, void * key, int (* compare)(const void*, const void*)){
   void* found = bsearch(&key,l->cell, l->length, sizeof(*(l->cell)), (__compar_fn_t)compare);
   if(found == NULL){return -1;}
   return ((intptr_t)found - (intptr_t)l->cell) / sizeof(*(l->cell));
@@ -168,7 +168,7 @@ int list_find_unsorted(list l, void * key){
 }
 
 
-unsigned list_insert_sorted(list l, void * element, int (* compare)(void*, void*)){
+unsigned list_insert_sorted(list l, void * element, int (* compare)(const void*, const void*)){
   unsigned insert_index;
   unsigned left_bound = 0,right_bound = l->length-1;
   int comp;
@@ -208,7 +208,7 @@ void * list_reduce(list l, void * reduction(void * a, void * b)){
   return res;
 }
 
-inline void list_sort(list l, int (* compare)(void*, void*)){
+inline void list_sort(list l, int (* compare)(const void*, const void*)){
   qsort(l->cell, l->length, sizeof(*(l->cell)), (__compar_fn_t)compare);
 }
 

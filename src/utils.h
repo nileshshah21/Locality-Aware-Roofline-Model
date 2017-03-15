@@ -41,27 +41,4 @@
 #define roofline_mkstr(name, size) char name[size]; memset(name, 0,size)
 #define roofline_alloc(ptr,size) do{if(!(ptr=malloc(size))){PERR_EXIT("malloc");}} while(0)
 
-#ifdef _OPENMP
-
-#define roofline_rdtsc(c_high,c_low)					\
-  _Pragma("omp barrier")						\
-  __asm__ __volatile__ (						\
-    "CPUID\n\t"								\
-    "RDTSC\n\t"								\
-    "movq %%rdx, %0\n\t"						\
-    "movq %%rax, %1\n\t" :"=r" (c_high), "=r" (c_low)::"%rax", "%rbx", "%rcx", "%rdx")
-
-#else
-
-#define roofline_rdtsc(c_high,c_low)		\
-  __asm__ __volatile__ (\
-    "CPUID\n\t"								\
-    "RDTSC\n\t"								\
-    "movq %%rdx, %0\n\t"						\
-    "movq %%rax, %1\n\t" :"=r" (c_high), "=r" (c_low)::"%rax", "%rbx", "%rcx", "%rdx")
-#endif
-#define roofline_rdtsc_diff(high, low) ((high << 32) | low)
-
-
-
 #endif /* UTILS_H */
