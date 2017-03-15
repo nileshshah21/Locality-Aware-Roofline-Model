@@ -256,22 +256,19 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
       
 #ifdef _OPENMP
 #pragma omp critical
-#endif
-
-      /* Reduction */
-      roofline_output_accumulate(out, local_out);
-      delete_roofline_output(local_out);
-      
-#ifdef _OPENMP
-#pragma omp barrier      
-#pragma omp_single
       {
 #endif
-	
+	roofline_output_accumulate(out, local_out); /* Reduction */
+	delete_roofline_output(local_out);
+      
+#ifdef _OPENMP
+      }
+#pragma omp barrier
+#pragma omp single
+      {
+#endif
 	/* Print result */
-	out->n--;    
-	roofline_output_print(output, root, memory, out, op_type);
-	
+	roofline_output_print(output, root, memory, out, op_type);	
 #ifdef _OPENMP
       }
 #endif
