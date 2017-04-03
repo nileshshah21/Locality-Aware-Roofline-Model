@@ -14,25 +14,55 @@ int roofline_type_from_str(const char * type){
   if(!strcmp(type, "MUL") || !strcmp(type, "mul")){return ROOFLINE_MUL;}
   if(!strcmp(type, "MAD") || !strcmp(type, "mad")){return ROOFLINE_MAD;}
   if(!strcmp(type, "FMA") || !strcmp(type, "fma")){return ROOFLINE_FMA;}
+  if(!strcmp(type, "LATENCY_LOAD") || !strcmp(type, "latency_load")){return ROOFLINE_LATENCY_LOAD;}
   return -1;
 }
 
-const char * roofline_type_str(int type){
-  if(type & ROOFLINE_LOAD) return "load";
-  if(type & ROOFLINE_LOAD_NT) return "load_nt";
-  if(type & ROOFLINE_STORE) return "store";
-  if(type & ROOFLINE_STORE_NT) return "store_nt";
+const char * roofline_type_str(const int type){
+  if(type & ROOFLINE_LOAD) return "LOAD";
+  if(type & ROOFLINE_LOAD_NT) return "LOAD_NT";
+  if(type & ROOFLINE_STORE) return "STORE";
+  if(type & ROOFLINE_STORE_NT) return "STORE_NT";
   if(type & ROOFLINE_2LD1ST) return "2LD1ST";
-  if(type & ROOFLINE_COPY) return "copy";
+  if(type & ROOFLINE_COPY) return "COPY";
   if(type & ROOFLINE_ADD) return "ADD";
   if(type & ROOFLINE_MUL) return "MUL";
   if(type & ROOFLINE_MAD) return "MAD";
   if(type & ROOFLINE_FMA) return "FMA";
+  if(type & ROOFLINE_LATENCY_LOAD) return "LATENCY_LOAD";  
   return "";
 }
 
+int roofline_types_snprintf(const int types, char * str, const size_t len){
+  int n = 0;
+  if(types & ROOFLINE_LOAD)
+    n+=snprintf(str+n,len-n,"%s, ", roofline_type_str(ROOFLINE_LOAD));
+  if(types & ROOFLINE_LOAD_NT)
+    n+=snprintf(str+n,len-n,"%s, ", roofline_type_str(ROOFLINE_LOAD_NT));
+  if(types & ROOFLINE_STORE)
+    n+=snprintf(str+n,len-n,"%s, ", roofline_type_str(ROOFLINE_STORE));
+  if(types & ROOFLINE_STORE_NT)
+    n+=snprintf(str+n,len-n,"%s, ", roofline_type_str(ROOFLINE_STORE_NT));
+  if(types & ROOFLINE_2LD1ST)
+    n+=snprintf(str+n,len-n,"%s, ", roofline_type_str(ROOFLINE_2LD1ST));
+  if(types & ROOFLINE_COPY)
+    n+=snprintf(str+n,len-n,"%s, ", roofline_type_str(ROOFLINE_COPY));
+  if(types & ROOFLINE_ADD)
+    n+=snprintf(str+n,len-n,"%s, ", roofline_type_str(ROOFLINE_ADD));
+  if(types & ROOFLINE_MUL)
+    n+=snprintf(str+n,len-n,"%s, ", roofline_type_str(ROOFLINE_MUL));
+  if(types & ROOFLINE_MAD)
+    n+=snprintf(str+n,len-n,"%s, ", roofline_type_str(ROOFLINE_MAD));
+  if(types & ROOFLINE_FMA)
+    n+=snprintf(str+n,len-n,"%s, ", roofline_type_str(ROOFLINE_FMA));
+  if(types & ROOFLINE_LATENCY_LOAD)
+    n+=snprintf(str+n,len-n,"%s, ", roofline_type_str(ROOFLINE_LATENCY_LOAD));
+  if(str[n-2] == ','){ str[n-2] = '\0'; str[n-1] = '\0'; }
+  return n;
+}
+
 unsigned roofline_default_types(hwloc_obj_t obj){
-  int supported = benchmark_types_supported(); 
+  int supported = benchmark_types_supported() | ROOFLINE_LATENCY_LOAD; 
   if(obj->type == HWLOC_OBJ_L1CACHE){
     return (ROOFLINE_LOAD|ROOFLINE_STORE|ROOFLINE_2LD1ST) & supported;
   } 
@@ -43,7 +73,7 @@ unsigned roofline_default_types(hwloc_obj_t obj){
     return (ROOFLINE_STORE|ROOFLINE_LOAD) & supported;
   }
   else if(obj->type == HWLOC_OBJ_NUMANODE || obj->type == HWLOC_OBJ_MACHINE){    
-    return (ROOFLINE_STORE_NT|ROOFLINE_LOAD_NT|ROOFLINE_STORE|ROOFLINE_LOAD) & supported;
+    return (ROOFLINE_STORE_NT|ROOFLINE_STORE|ROOFLINE_LOAD) & supported;
   }
   else if (obj->type == HWLOC_OBJ_PU || obj->type == HWLOC_OBJ_CORE)
     return (ROOFLINE_ADD|ROOFLINE_MAD|ROOFLINE_MUL|ROOFLINE_FMA) & supported;
@@ -51,9 +81,9 @@ unsigned roofline_default_types(hwloc_obj_t obj){
 }
 
 unsigned roofline_filter_types(hwloc_obj_t obj, int type){
-  int supported = benchmark_types_supported();
+  int supported = benchmark_types_supported() | ROOFLINE_LATENCY_LOAD;
   int FP_possible = (ROOFLINE_ADD|ROOFLINE_MAD|ROOFLINE_MUL|ROOFLINE_FMA) & supported;
-  int CACHE_possible = (ROOFLINE_LOAD|ROOFLINE_STORE|ROOFLINE_2LD1ST|ROOFLINE_COPY) & supported;
+  int CACHE_possible = (ROOFLINE_LOAD|ROOFLINE_STORE|ROOFLINE_2LD1ST|ROOFLINE_COPY|ROOFLINE_LATENCY_LOAD) & supported;
   int NUMA_possible = (CACHE_possible|ROOFLINE_LOAD_NT|ROOFLINE_STORE_NT) & supported;
   int obj_type = 0;
   

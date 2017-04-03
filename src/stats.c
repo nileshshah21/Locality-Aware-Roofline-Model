@@ -36,11 +36,12 @@ static float roofline_throughput_var(list samples){
 long roofline_autoset_repeat(roofline_stream dst, roofline_stream src, const int op_type, const void * benchmark)
 {
   unsigned i;
-  long repeat = 1;
   list samples;
   float var = 0, median=0;
   roofline_output median_output, sample;
   uint64_t cycles;
+  static int test_stop = 0;
+  long repeat = 1;
   void (*  benchmark_function)(roofline_stream,
 			       roofline_output,
 			       int,
@@ -50,11 +51,8 @@ long roofline_autoset_repeat(roofline_stream dst, roofline_stream src, const int
 						 long)) benchmark;
   samples = new_list(sizeof(roofline_output), n_samples, (void (*)(void*))delete_roofline_output);
   for(i=0; i<n_samples; i++){ list_push(samples, new_roofline_output()); }
-
-  do{
-    cycles = 0;    
-    repeat *= 2;
-    
+  while(1){
+    cycles = 0;        
     for(i=0; i<n_samples; i++){
       sample = list_get(samples, i);
       roofline_output_clear(sample);
@@ -72,6 +70,9 @@ long roofline_autoset_repeat(roofline_stream dst, roofline_stream src, const int
 	      op_type == ROOFLINE_2LD1ST){
 	benchmark_single_stream(src, sample, op_type, repeat);
       }
+      else if(op_type == ROOFLINE_LATENCY_LOAD){
+	roofline_latency_stream_load(src, sample, 0, repeat);
+      }
       else if(op_type  == ROOFLINE_COPY){
 	benchmark_double_stream(dst, src, sample, op_type, repeat);
       }
@@ -88,9 +89,22 @@ long roofline_autoset_repeat(roofline_stream dst, roofline_stream src, const int
     median_output = list_get(samples, n_samples/2);
     median = roofline_output_throughput(median_output);
     /* bound sample execution between 10 ms and 1s */
-    if(cycles*(1e3/cpu_freq)>1000){break;}
-    
-  } while((median_output->cycles)*(1e3/cpu_freq)<10 || var*100 > median);
+
+#ifdef _OPENMP
+#pragma omp single
+    {
+#endif
+      test_stop = 0;
+      if(cycles*(1e3/cpu_freq)>1000) {test_stop = 1;}
+      if((median_output->cycles)*(1e3/cpu_freq)>=10 || var*100 < median){ test_stop = 1; }
+      if(cycles*(1e3/cpu_freq)<10) {test_stop = 0;}      
+#ifdef _OPENMP      
+    }
+#pragma omp barrier
+#endif
+    if(test_stop){break;}
+    repeat *= 2;
+  }
 
   roofline_debug1("variance = %f, throughput = %f, time=%dus, repeat=%ld\n", var, median, (median_output->cycles*(1e3/cpu_freq)), repeat);
   delete_list(samples);  

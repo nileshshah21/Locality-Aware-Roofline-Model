@@ -18,9 +18,9 @@
     fprintf(stderr, __VA_ARGS__ );			\
   } while(0)
 
-#define ERR_EXIT(...) do{						\
-    ERR(__VA_ARGS__);							\
-    exit(EXIT_FAILURE);							\
+#define ERR_EXIT(...) do{			\
+    ERR(__VA_ARGS__);				\
+    exit(EXIT_FAILURE);				\
   } while(0);
 
 #define PERR_EXIT(msg) do{perror(msg); exit(EXIT_FAILURE);} while(0);

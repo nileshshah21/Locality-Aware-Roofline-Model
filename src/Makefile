@@ -12,7 +12,7 @@ MSC=intel
 #                                              BUILD                                        #
 #############################################################################################
 export CC=gcc
-export OMP_FLAG= -fopenmp
+export OMP_FLAG= #-fopenmp
 export CFLAGS= -g \
 	-DROOFLINE_MIN_DUR=$(LAST)\
 	-DROOFLINE_N_SAMPLES=$(N_SAMPLES)\

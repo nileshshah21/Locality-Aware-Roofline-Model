@@ -29,23 +29,17 @@ int roofline_hwloc_get_memory_bounds(const hwloc_obj_t memory, size_t * lower, s
     child  = roofline_hwloc_get_under_memory(child);
   } while(child!=NULL && child->depth <= first_node->depth);
   if(child == NULL) {
-    *lower = get_chunk_size(op_type)*n_threads;
+    *lower = get_chunk_size(op_type);
   } else{    
     child_size = roofline_hwloc_get_memory_size(child);
-    n_child = hwloc_get_nbobjs_inside_cpuset_by_type(topology, root->cpuset, child->type);
-    n_child = n_threads>1 ? roofline_MAX(1,n_child) : 1;
-    *lower = 2*child_size*n_child;
+    *lower = 2*child_size;    
   }
 
-  /* Set upper bound size as memory size/2 or MAX_SIZE */
-  n_mem = hwloc_get_nbobjs_inside_cpuset_by_type(topology, root->cpuset, memory->type);
-  n_mem = n_threads>1 ? roofline_MAX(1,n_mem) : 1;
-  *upper = mem_size * n_mem / 2;
-  *upper = roofline_MIN(*upper, max_size);
-
+  *upper = roofline_MIN(mem_size, max_size);
+  
   /* Shrink if possible to save time */
-  if(*upper > *lower*4){*upper = *upper/4;}
-  else if(*upper > *lower*2){*upper = *upper/2;}
+  if(*upper > *lower*4 && child != NULL){*upper = *lower*4;}
+  else if(*upper > *lower*2 && child != NULL){*upper = *upper/2;}
 
 #ifdef DEBUG2
   roofline_mkstr(target, 128);

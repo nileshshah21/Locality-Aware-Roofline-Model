@@ -9,15 +9,18 @@
 #include "../../roofline.h"
 
 extern size_t oi_chunk_size;
+static const unsigned reg_index[32] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+/* static const unsigned reg_index[32] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,1,0,3,2,5,4,7,6,9,8,11,10,13,12,15,14}; */
+				   
 
 /***************************************** OI BENCHMARKS GENERATION ******************************************/
 #if defined (__AVX__)  || defined (__AVX2__)  ||defined (__AVX512__)
 static void dprint_FUOP_by_ins(int fd, const char * op, unsigned * regnum){
-  dprintf(fd, "\"%s %%%%%s%d, %%%%%s%d, %%%%%s%d\\n\\t\"\\\n", op, SIMD_REG, *regnum, SIMD_REG, *regnum, SIMD_REG, *regnum);
+  dprintf(fd, "\"%s %%%%%s%d, %%%%%s%d, %%%%%s%d\\n\\t\"\\\n", op, SIMD_REG, reg_index[*regnum], SIMD_REG, reg_index[*regnum], SIMD_REG, reg_index[*regnum]);
 }
 #else 
 static void dprint_FUOP_by_ins(int fd, const char * op, unsigned * regnum){
-  dprintf(fd, "\"%s %%%%%s%d, %%%%%s%d\\n\\t\"\\\n", op, SIMD_REG, *regnum, SIMD_REG, *regnum);
+  dprintf(fd, "\"%s %%%%%s%d, %%%%%s%d\\n\\t\"\\\n", op, SIMD_REG, reg_index[*regnum], SIMD_REG, reg_index[*regnum]);
 }
 #endif
 
@@ -41,7 +44,7 @@ static void dprint_FUOP(int fd, int type, unsigned * i, unsigned * regnum){
   default:
     break;
   }
-  *regnum = (*regnum+1)%SIMD_N_REGS;
+  *regnum = (*regnum+1)%(SIMD_N_REGS*2);
   *i += 1;
 }
 
@@ -49,16 +52,16 @@ static void dprint_FUOP(int fd, int type, unsigned * i, unsigned * regnum){
 static void dprint_MUOP(int fd, int type, unsigned *i, off_t * offset, unsigned * regnum){
   switch(type){
   case ROOFLINE_LOAD:
-    dprintf(fd, "\"%s %lu(%%%%r11), %%%%%s%d\\n\\t\"\\\n", SIMD_LOAD, *offset, SIMD_REG, *regnum);
+    dprintf(fd, "\"%s %lu(%%%%r11), %%%%%s%u\\n\\t\"\\\n", SIMD_LOAD, *offset, SIMD_REG, reg_index[*regnum]);
     break;
   case ROOFLINE_LOAD_NT:
-    dprintf(fd, "\"%s %lu(%%%%r11), %%%%%s%d\\n\\t\"\\\n", SIMD_LOAD_NT, *offset, SIMD_REG, *regnum);
+    dprintf(fd, "\"%s %lu(%%%%r11), %%%%%s%u\\n\\t\"\\\n", SIMD_LOAD_NT, *offset, SIMD_REG, reg_index[*regnum]);
     break;
   case ROOFLINE_STORE:
-    dprintf(fd, "\"%s %%%%%s%d, %lu(%%%%r11)\\n\\t\"\\\n", SIMD_STORE, SIMD_REG, *regnum, *offset);
+    dprintf(fd, "\"%s %%%%%s%u, %lu(%%%%r11)\\n\\t\"\\\n", SIMD_STORE, SIMD_REG, reg_index[*regnum], *offset);
     break;
   case ROOFLINE_STORE_NT:
-    dprintf(fd, "\"%s %%%%%s%d, %lu(%%%%r11)\\n\\t\"\\\n", SIMD_STORE_NT, SIMD_REG, *regnum, *offset);
+    dprintf(fd, "\"%s %%%%%s%u, %lu(%%%%r11)\\n\\t\"\\\n", SIMD_STORE_NT, SIMD_REG, reg_index[*regnum], *offset);
     break;
   case ROOFLINE_2LD1ST:
     if((*i)%3) return dprint_MUOP(fd, ROOFLINE_LOAD, i, offset, regnum);
@@ -73,7 +76,7 @@ static void dprint_MUOP(int fd, int type, unsigned *i, off_t * offset, unsigned 
   }
   
   *offset+=SIMD_BYTES;
-  *regnum = (*regnum+1)%(SIMD_N_REGS);
+  *regnum = (*regnum+1)%(SIMD_N_REGS*2);
   *i += 1;
 }
 
@@ -172,7 +175,9 @@ off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int mem_type,
   char * idx;
   unsigned long bytes = 0;
   unsigned long flops = 0;
-  unsigned long ins = 0;  
+  unsigned long ins = 0;
+  /* mem_ins*=2; */
+  /* flop_ins*=2;   */
   len = 3+strlen(roofline_type_str(mem_type))+strlen(roofline_type_str(flop_type))+strlen("validation");
   idx = malloc(len);
   dprintf(fd, "void %s(roofline_stream data, roofline_output out, __attribute__ ((unused)) int op_type, long repeat){\n", name);
@@ -271,8 +276,8 @@ void * benchmark_validation(int op_type, unsigned flops, unsigned bytes){
   system(cmd);  
 #endif
   
-  /* unlink(c_path); */
-  /* unlink(so_path); */
+  unlink(c_path);
+  unlink(so_path);
   free(c_path);
   free(so_path);
   return benchmark;

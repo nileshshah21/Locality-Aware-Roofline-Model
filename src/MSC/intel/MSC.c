@@ -30,14 +30,14 @@ benchmark_double_stream(roofline_stream dst, roofline_stream src, roofline_outpu
 #elif (__SSE__) || defined (__SSE2__) || defined (__SSE4_1__)
 #endif
 
-size_t oi_chunk_size;
+size_t oi_chunk_size = 64;
 
 size_t get_chunk_size(int op_type){
   if(op_type & ~(ROOFLINE_LOAD|ROOFLINE_LOAD_NT|ROOFLINE_STORE|ROOFLINE_STORE_NT|ROOFLINE_2LD1ST|ROOFLINE_COPY))
     return oi_chunk_size;
   else if(op_type & (ROOFLINE_LOAD|ROOFLINE_LOAD_NT|ROOFLINE_STORE|ROOFLINE_STORE_NT|ROOFLINE_2LD1ST|ROOFLINE_COPY))
     return CHUNK_SIZE;
-  else return 0;
+  else return 64;
 }
 
 int benchmark_types_supported(){
