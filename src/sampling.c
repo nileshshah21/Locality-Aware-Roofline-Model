@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include <errno.h>
 #include <time.h>
 #include <unistd.h>
@@ -17,6 +18,7 @@
 #include "list.h"
 
 static unsigned         BYTES = 8;
+static unsigned         FLOPS = 1;
 static FILE *           output_file = NULL;
 static hwloc_topology_t topology;
 static unsigned         reduction_depth;
@@ -29,11 +31,10 @@ struct roofline_sample{
   long long              values[4];   /* Values to be store on counter read */
 #endif
   int                    last_thread; /* A counter atomically incremented to know when the last thread has to stop timer */  
-  enum roofline_mem_type type;        /* TYPE_LOAD or TYPE_STORE */
-  long                   s_nano;      /* Timestamp in nanoseconds where the sampling started */
-  long                   e_nano;      /* Timestamp in nanoseconds where the sampling ended */  
-  long                   flops;       /* The amount of flops computed */
-  long                   bytes;       /* The amount of bytes of type transfered */
+  uint64_t               s_nano;      /* Timestamp in nanoseconds where the sampling started */
+  uint64_t               e_nano;      /* Timestamp in nanoseconds where the sampling ended */  
+  uint64_t               flops;       /* The amount of flops computed */
+  uint64_t               bytes;       /* The amount of bytes of type transfered */
   hwloc_obj_t            location;    /* Where the thread is taking samples */
   int                    n_threads;   /* The number of threads counting on this sample */  
 };
@@ -63,19 +64,6 @@ static int roofline_hwloc_obj_snprintf(const hwloc_obj_t obj, char * info_in, co
   return nc;
 }
 
-static const char * roofline_type_str(const enum roofline_mem_type type){
-  switch(type){
-  case TYPE_LOAD:
-    return "load";
-    break;
-  case TYPE_STORE:
-    return "store";
-    break;    
-  default:
-    return "";
-    break;    
-  }
-}
 #ifdef _PAPI_
 static void
 PAPI_handle_error(const int err)
@@ -131,7 +119,7 @@ PAPI_handle_error(const int err)
     }							\
   } while(0)
 
-void roofline_sampling_eventset_init(const hwloc_obj_t PU, int * eventset, const enum roofline_mem_type type){
+void roofline_sampling_eventset_init(const hwloc_obj_t PU, int * eventset){
 #ifdef _OPENMP
 #pragma omp critical
     {
@@ -148,16 +136,13 @@ void roofline_sampling_eventset_init(const hwloc_obj_t PU, int * eventset, const
       PAPI_call_check(PAPI_set_opt(PAPI_CPU_ATTACH,&cpu_option), PAPI_OK, "Failed to bind eventset to cpu: ");
       
       PAPI_call_check(PAPI_add_named_event(*eventset, "FP_ARITH:SCALAR_DOUBLE"), PAPI_OK, "Failed to add FP_ARITH:SCALAR_DOUBLE event\n");
-      PAPI_call_check(PAPI_add_named_event(*eventset, "FP_ARITH:128B_PACKED_DOUBLE"), PAPI_OK, "Failed to add FP_ARITH:128B_PACKED_DOUBLE event\n");
-      PAPI_call_check(PAPI_add_named_event(*eventset, "FP_ARITH:256B_PACKED_DOUBLE"), PAPI_OK, "Failed to add FP_ARITH:256B_PACKED_DOUBLE event\n");
-      switch(type){
-      case TYPE_STORE:
-	PAPI_call_check(PAPI_add_named_event(*eventset, "MEM_UOPS_RETIRED:ALL_STORES"), PAPI_OK, "Failed to add MEM_UOPS_RETIRED:ALL_STORES event\n");
-	break;
-      default:
-	PAPI_call_check(PAPI_add_named_event(*eventset, "MEM_UOPS_RETIRED:ALL_LOADS"), PAPI_OK, "Failed to add MEM_UOPS_RETIRED:ALL_LOADS event\n");
-	break;
-      } 
+      if(BYTES == 16)
+	PAPI_call_check(PAPI_add_named_event(*eventset, "FP_ARITH:128B_PACKED_DOUBLE"), PAPI_OK, "Failed to add FP_ARITH:128B_PACKED_DOUBLE event\n");
+      else if(BYTES == 32)
+	PAPI_call_check(PAPI_add_named_event(*eventset, "FP_ARITH:256B_PACKED_DOUBLE"), PAPI_OK, "Failed to add FP_ARITH:256B_PACKED_DOUBLE event\n");
+      PAPI_call_check(PAPI_add_named_event(*eventset, "MEM_UOPS_RETIRED:ALL_STORES"), PAPI_OK, "Failed to add MEM_UOPS_RETIRED:ALL_STORES event\n");
+      PAPI_call_check(PAPI_add_named_event(*eventset, "MEM_UOPS_RETIRED:ALL_LOADS"), PAPI_OK, "Failed to add MEM_UOPS_RETIRED:ALL_LOADS event\n");
+
 #ifdef _OPENMP
     }
 #endif /* _OPENMP */
@@ -201,21 +186,19 @@ static struct roofline_sample * roofline_sample_accumulate(struct roofline_sampl
 #endif  
 }
 
-static struct roofline_sample * new_roofline_sample(const hwloc_obj_t PU, const enum roofline_mem_type type){
+static struct roofline_sample * new_roofline_sample(const hwloc_obj_t PU){
   struct roofline_sample * s = malloc(sizeof(struct roofline_sample));
   if(s==NULL){perror("malloc"); return NULL;}
   s->s_nano = 0;
   s->e_nano = 0;  
   s->flops = 0;
   s->bytes = 0;
-  s->type = type;
   s->location = PU;
   s->n_threads=0;
   s->last_thread = 0;
   while(s->location->depth>reduction_depth){s->location = s->location->parent;}
 #ifdef _PAPI_
-  roofline_sampling_eventset_init(PU, &(s->eventset), type);
-  s->started = 0;
+  roofline_sampling_eventset_init(PU, &(s->eventset));
 #endif /* _PAPI_ */
   return s;
 }
@@ -233,13 +216,13 @@ static void roofline_sample_print(const struct roofline_sample * s, const char *
   roofline_hwloc_obj_snprintf(s->location, location, sizeof(location));
   char * info_cat = roofline_cat_info(info);
   
-  fprintf(output_file, "%16s %16ld %16ld %16ld %10d %10s %s\n",
+  fprintf(output_file, "%16s %16lu %16lu %16lu %10d %10s %s\n",
   	  location,
   	  (s->e_nano-s->s_nano),
   	  s->bytes,
   	  s->flops,
   	  s->n_threads,
-  	  roofline_type_str(s->type),
+  	  "APP",
   	  info_cat);
 }
 
@@ -270,7 +253,6 @@ static int roofline_reduction_depth(const enum roofline_location reduction_locat
 }
 
 void roofline_sampling_init(const char * output, const int append_output,
-			    const enum roofline_mem_type type,
 			    const enum roofline_location reduction_location){
 
   /* Open output */
@@ -303,6 +285,20 @@ void roofline_sampling_init(const char * output, const int append_output,
     exit(EXIT_FAILURE);
   }
 
+  /* Check whether flops counted will be AVX or SSE */
+  int eax = 0, ebx = 0, ecx = 0, edx = 0;
+  /* Check SSE */
+  eax = 1;
+  __asm__ __volatile__ ("CPUID\n\t": "=c" (ecx), "=d" (edx): "a" (eax));
+  if ((edx & 1 << 25) || (edx & 1 << 26)) {BYTES = 16; FLOPS=2;}
+  /* Check AVX */
+  if ((ecx & 1 << 28) || (edx & 1 << 26)) {BYTES = 32; FLOPS=4;}
+  eax = 7; ecx = 0;
+  __asm__ __volatile__ ("CPUID\n\t": "=b" (ebx), "=c" (ecx): "a" (eax), "c" (ecx));
+  if ((ebx & 1 << 5)) {BYTES = 32; FLOPS=4;}
+  /* AVX512. Not checked */
+  if ((ebx & 1 << 16)) {BYTES = 64; FLOPS=8;}
+  
   /* Initialize bindings array */
   unsigned i, max_threads;
 #ifdef _OPENMP
@@ -330,7 +326,7 @@ void roofline_sampling_init(const char * output, const int append_output,
   samples = new_list(sizeof(s), n_PU, (void(*)(void*))delete_roofline_sample);
   for(i=0; i<n_PU; i++){
     obj = hwloc_get_obj_by_type(topology, HWLOC_OBJ_PU, i);
-    s = new_roofline_sample(obj, type);
+    s = new_roofline_sample(obj);
     while(obj && obj->depth != reduction_depth){obj = obj->parent;}
     s->location = obj;
     list_push(samples, s);
@@ -344,22 +340,7 @@ void roofline_sampling_init(const char * output, const int append_output,
     first_PU = obj; while(first_PU->type!=HWLOC_OBJ_PU){first_PU = first_PU->first_child;}    
     obj->userdata = sub_list(samples, first_PU->logical_index, n_PU);    
   }
-   
-  /* Check whether flops counted will be AVX or SSE */
-  int eax = 0, ebx = 0, ecx = 0, edx = 0;
-  /* Check SSE */
-  eax = 1;
-  __asm__ __volatile__ ("CPUID\n\t": "=c" (ecx), "=d" (edx): "a" (eax));
-  if ((edx & 1 << 25) || (edx & 1 << 26)) {BYTES = 16;}
-  /* Check AVX */
-  if ((ecx & 1 << 28) || (edx & 1 << 26)) {BYTES = 32;}
-  eax = 7; ecx = 0;
-  __asm__ __volatile__ ("CPUID\n\t": "=b" (ebx), "=c" (ecx): "a" (eax), "c" (ecx));
-  if ((ebx & 1 << 5)) {BYTES = 32;}
-  /* AVX512. Not checked */
-  if ((ebx & 1 << 16)) {BYTES = 64;}
-
-
+ 
   /* Passed initialization then print header */
   if(print_header){roofline_print_header();}
 }
@@ -378,7 +359,6 @@ void roofline_sampling_fini(){
 
 static void roofline_samples_reduce(list l, hwloc_obj_t location, const char * info){
   struct roofline_sample s;
-  s.type = TYPE_LOAD;
   s.s_nano = 0;
   s.e_nano = 0;
   s.flops = 0;
@@ -477,12 +457,26 @@ static void roofline_sequential_sampling_stop(void *sample, const char* info){
   if(__sync_fetch_and_sub(&s->last_thread, 1) == 1){
     PAPI_stop(s->eventset, s->values);
     s->e_nano = t.tv_nsec + 1e9*t.tv_sec;
-    s->flops = s->values[0] + 2 * s->values[1] + 4 * s->values[2];
-    long fp_op = s->values[0] + s->values[1] + s->values[2];
-    if(fp_op > 0){
-      s->bytes = 8*s->values[3]*(4*s->values[2] + 2*s->values[1] + s->values[0])/fp_op;
+    s->flops = s->values[0] + FLOPS * s->values[1];
+    unsigned long muops = s->values[3]+s->values[2];
+    unsigned long fuops = s->values[0] + s->values[1];
+    if(fuops > 0){
+      s->bytes = (8*muops/fuops)*(FLOPS*s->values[1] + s->values[0]);
     } else {
-      s->bytes = 8*s->values[3];
+      s->bytes = 8*muops;
+    }
+#pragma omp critical
+    {
+      printf("%s:%d: load_muops=%ld, store_muops=%ld, PD(%d)=%ld, SD=%ld, AI=%f, GFlops/s=%f\n",
+	     hwloc_type_name(s->location->type),
+	     s->location->logical_index,
+	     s->values[3],
+	     s->values[2],
+	     FLOPS,	     	     
+	     s->values[1],
+	     s->values[0],
+	     (float)s->flops/(float)s->bytes,
+	     (float)s->flops/(float)(s->e_nano-s->s_nano));
     }
   }
 #else

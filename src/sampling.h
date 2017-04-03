@@ -1,14 +1,6 @@
 #ifndef SAMPLING_H
 #define SAMPLING_H
 
-
-/**
- * The hardware counters allow only a limited number of counter on each processing unit. 
- * Hence it is necessary to choose if bytes will be counted for load operations or for store operations. 
- * To count them both, it is necessary to run the code once with each type.
- **/
-enum roofline_mem_type{TYPE_LOAD, TYPE_STORE};
-
 /**
  * Underneath the abstraction, samples are collected on Processing Elements, and accumulated on nodes of the topology.
  * Possible location to reduce samples are the topology root (ROOFLINE_MACHINE), 
@@ -27,11 +19,9 @@ enum roofline_location{ROOFLINE_MACHINE, ROOFLINE_NUMA, ROOFLINE_CORE};
  * @arg output: The file where to write the output on call to sampling stop.
  * @arg append_output: if output file already exists, and \p apppend_output is TRUE, 
  *                     then results are appended to output without printing header.
- * @arg type: The memory operation type to record.
  * @arg reduction_location: A topology level type giving the depth of nodes where samples are accumulated.  
  **/
 void   roofline_sampling_init(const char * output, int append_output,
-			      const enum roofline_mem_type type,
 			      const enum roofline_location reduction_location);
 
 /**
@@ -76,7 +66,6 @@ void * roofline_sampling_start(int force_parallel, long flops, long bytes);
  * Bytes and Flops are counted between roofline_sampling_start() and roofline_sampling_stop() calls, 
  * whether with hardware counters or with manually provided values.
  * n_threads is the number of threads actually used in a parallel region by the library.
- * type is whether load or store depending on the library initialization type.
  * Additionnally, the environment variable "LARM_INFO" is read on each roofline_sampling_stop() call, 
  * and is appended to the info column of the sample result.
  * @arg sample: The structure provided on roofline_sampling_start() call.
