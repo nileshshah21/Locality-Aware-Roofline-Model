@@ -153,7 +153,7 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
 {
   size_t * sizes, low_size, up_size;
   roofline_output out = new_roofline_output();
-  long repeat;
+  long repeat = 100;
   void (*  benchmark_function)(roofline_stream, roofline_output, int, long) = benchmark;
 
   /* Generate samples size */
@@ -192,7 +192,7 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
       /* if(op_type == ROOFLINE_LATENCY_LOAD){ latency_stream_resize(src, src->size); } */
     
       /* Set the length of the benchmark to have a small variance */
-      repeat = roofline_autoset_repeat(dst, src, op_type, benchmark);
+      if(repeat>1){repeat = roofline_autoset_repeat(dst, src, op_type, benchmark);}
 
       /* Benchmark */
       if(op_type == ROOFLINE_COPY)
