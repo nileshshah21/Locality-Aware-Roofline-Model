@@ -50,7 +50,7 @@ long roofline_autoset_repeat(roofline_stream dst, roofline_stream src, const int
 						 int,
 						 long)) benchmark;
   samples = new_list(sizeof(roofline_output), n_samples, (void (*)(void*))delete_roofline_output);
-  for(i=0; i<n_samples; i++){ list_push(samples, new_roofline_output()); }
+  for(i=0; i<n_samples; i++){ list_push(samples, new_roofline_output(NULL,NULL)); }
   while(1){
     cycles = 0;        
     for(i=0; i<n_samples; i++){
