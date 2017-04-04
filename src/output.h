@@ -15,11 +15,12 @@ typedef struct roofline_output_s{
   uint64_t bytes;                       /* The amount of bytes transfered */
   uint64_t flops;                       /* The amount of flops computed */
   unsigned n;                           /* The number of accumulated samples */
+  hwloc_obj_t mem_location;             /* Location where data is allocated */
+  hwloc_obj_t thr_location;             /* Location where thread collecting data is pinned */  
 } * roofline_output;
 
-roofline_output new_roofline_output();
+roofline_output new_roofline_output(hwloc_obj_t thr_location, hwloc_obj_t mem_location);
 void            delete_roofline_output(roofline_output);
-roofline_output roofline_output_copy(roofline_output);
 void            roofline_output_clear(roofline_output);
 void            roofline_output_accumulate(roofline_output dst, const roofline_output src);
 float           roofline_output_throughput(const roofline_output);
@@ -28,11 +29,7 @@ int             roofline_compare_cycles(const void * x, const void * y);
 void            roofline_output_begin_measure(roofline_output);
 void            roofline_output_end_measure(roofline_output o, const uint64_t bytes, const uint64_t flops, const uint64_t ins);
 void            roofline_output_print_header(FILE * output);
-void            roofline_output_print(FILE * output,
-				      const hwloc_obj_t src,
-				      const hwloc_obj_t mem,
-				      const roofline_output sample_out,
-				      const int type);
+void            roofline_output_print(FILE * output, const roofline_output sample_out, const int type);
 
 #endif /* OUTPUT_H */
 

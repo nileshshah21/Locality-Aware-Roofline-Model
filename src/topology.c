@@ -79,6 +79,44 @@ int roofline_hwloc_obj_snprintf(const hwloc_obj_t obj, char * info_in, const siz
   return nc;
 }
 
+hwloc_obj_t roofline_hwloc_get_cpubind(){
+  hwloc_obj_t    bound;
+  hwloc_bitmap_t cpuset = hwloc_bitmap_alloc();
+  if(hwloc_get_cpubind(topology, cpuset, HWLOC_CPUBIND_THREAD) == -1){
+    perror("get_cpubind");
+    hwloc_bitmap_free(cpuset);
+    return NULL; 
+  }
+  
+  bound = hwloc_get_first_largest_obj_inside_cpuset(topology, cpuset);
+  free(cpuset);
+  return bound;
+}
+
+hwloc_obj_t roofline_hwloc_cpubind(const hwloc_obj_type_t leaf_type){
+  unsigned tid = 0;
+#ifdef _OPENMP
+  tid = omp_get_thread_num();
+#endif
+  unsigned n_leaves = hwloc_get_nbobjs_inside_cpuset_by_type(topology, root->cpuset, leaf_type);
+  if(n_leaves == 0){
+    roofline_mkstr(root_str, 32);
+    roofline_hwloc_obj_snprintf(root, root_str, sizeof(root_str));
+    fprintf(stderr,"cpubind failed because root %s has no child %s\n", root_str, hwloc_type_name(leaf_type));
+    return NULL;
+  }
+  hwloc_obj_t leaf = hwloc_get_obj_inside_cpuset_by_type(topology, root->cpuset, leaf_type, tid%n_leaves);
+  if(leaf_type == HWLOC_OBJ_CORE) leaf = leaf->first_child;
+  
+  if(hwloc_set_cpubind(topology, leaf->cpuset, HWLOC_CPUBIND_THREAD|HWLOC_CPUBIND_STRICT|HWLOC_CPUBIND_NOMEMBIND) == -1){
+    perror("cpubind");
+    return NULL;
+  }
+
+  if(!roofline_hwloc_check_cpubind(leaf->cpuset)){return NULL;}
+  return leaf;
+}
+
 int roofline_hwloc_check_cpubind(hwloc_cpuset_t cpuset){
   int ret;
   hwloc_bitmap_t checkset = hwloc_bitmap_alloc();
@@ -99,27 +137,12 @@ int roofline_hwloc_check_cpubind(hwloc_cpuset_t cpuset){
   return ret;
 }
 
-static hwloc_obj_t roofline_hwloc_local_memory(){
-  hwloc_obj_t thread_location;
-  hwloc_cpuset_t cpuset = hwloc_bitmap_alloc();
-    unsigned node_depth = hwloc_get_type_depth(topology, HWLOC_OBJ_NUMANODE);
-  
-  if(hwloc_get_cpubind(topology, cpuset, HWLOC_CPUBIND_THREAD) == -1){
-    perror("get_cpubind");
-    goto machine_bind_error;
-  }
-  if(hwloc_get_largest_objs_inside_cpuset(topology, cpuset, &thread_location, 1) == -1){
-    perror("hwloc_get_largest_objs_inside_cpuset");
-    goto machine_bind_error;
-  }
-  
-  while(thread_location != NULL && thread_location->depth > node_depth) thread_location = thread_location->parent;
-  hwloc_bitmap_free(cpuset);
+hwloc_obj_t roofline_hwloc_local_memory(){
+  hwloc_obj_t thread_location = roofline_hwloc_get_cpubind();
+  if(thread_location == NULL) return NULL;  
+  while(thread_location != NULL && thread_location->depth > hwloc_get_type_depth(topology, HWLOC_OBJ_NUMANODE))
+    thread_location = thread_location->parent;
   return thread_location;
-  
-machine_bind_error:
-  hwloc_bitmap_free(cpuset);
-  return NULL;
 }
 
 #ifdef DEBUG2
@@ -154,7 +177,7 @@ print_area_error:
 }
 #endif
 
-int roofline_hwloc_set_area_membind(const hwloc_obj_t membind_location, void * ptr, const size_t size){
+hwloc_obj_t roofline_hwloc_set_area_membind(const hwloc_obj_t membind_location, void * ptr, const size_t size){
   hwloc_obj_t where = membind_location;
   unsigned n_nodes = hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_NUMANODE);
   unsigned node_depth = hwloc_get_type_depth(topology, HWLOC_OBJ_NUMANODE);
@@ -163,7 +186,7 @@ int roofline_hwloc_set_area_membind(const hwloc_obj_t membind_location, void * p
   
   /* Check if binding is even necessary */
   if(n_nodes <= 1){goto area_membind_success;}
-  if(where == NULL){return 0;}
+  if(where == NULL){goto area_membind_success;}
   
   /* Bind on node */
   if(where != NULL && where->depth <= node_depth)
@@ -195,7 +218,7 @@ int roofline_hwloc_set_area_membind(const hwloc_obj_t membind_location, void * p
 			    HWLOC_MEMBIND_MIGRATE  |
 			    HWLOC_MEMBIND_BYNODESET) == -1){
     perror("hwloc_set_area_membind");
-    return 0;
+    return NULL;
   }
 
   /* Print area location */
@@ -205,9 +228,8 @@ int roofline_hwloc_set_area_membind(const hwloc_obj_t membind_location, void * p
 
 area_membind_success:
   memset(ptr, 0, size);
-  return 1;
+  return where;
 }
-
 
 inline int roofline_hwloc_objtype_is_cache(const hwloc_obj_type_t type){
   return type==HWLOC_OBJ_L1CACHE || type==HWLOC_OBJ_L2CACHE || type==HWLOC_OBJ_L3CACHE || type==HWLOC_OBJ_L4CACHE || type==HWLOC_OBJ_L5CACHE;
@@ -243,29 +265,6 @@ hwloc_obj_t roofline_hwloc_parse_obj(const char* arg){
 err_parse_obj:
   free(dup_arg);
   return NULL;
-}
-
-int roofline_hwloc_cpubind(const hwloc_obj_type_t leaf_type){
-  unsigned tid = 0;
-#ifdef _OPENMP
-  tid = omp_get_thread_num();
-#endif
-  unsigned n_leaves = hwloc_get_nbobjs_inside_cpuset_by_type(topology, root->cpuset, leaf_type);
-  if(n_leaves == 0){
-    roofline_mkstr(root_str, 32);
-    roofline_hwloc_obj_snprintf(root, root_str, sizeof(root_str));
-    fprintf(stderr,"cpubind failed because root %s has no child %s\n", root_str, hwloc_type_name(leaf_type));
-    return 0;
-  }
-  hwloc_obj_t leaf = hwloc_get_obj_inside_cpuset_by_type(topology, root->cpuset, leaf_type, tid%n_leaves);
-  if(leaf_type == HWLOC_OBJ_CORE) leaf = leaf->first_child;
-  
-  if(hwloc_set_cpubind(topology, leaf->cpuset, HWLOC_CPUBIND_THREAD|HWLOC_CPUBIND_STRICT|HWLOC_CPUBIND_NOMEMBIND) == -1){
-    perror("cpubind");
-    return 0;
-  }
-  
-  return roofline_hwloc_check_cpubind(leaf->cpuset);
 }
 
 int roofline_hwloc_obj_is_memory(const hwloc_obj_t obj){
@@ -328,5 +327,50 @@ hwloc_obj_t roofline_hwloc_get_next_memory(const hwloc_obj_t obj){
   
   /* No memory left in topology */
   return next;
+}
+
+int roofline_hwloc_nb_parent_objs_by_depth(unsigned depth){
+  int i, n = 0;
+  int n_at_depth = hwloc_get_nbobjs_inside_cpuset_by_depth(topology, root->cpuset, depth);
+  if(n_at_depth <= 0){ return n_at_depth; }
+  
+  for(i=0; i<n_at_depth; i++){
+    hwloc_obj_t obj = hwloc_get_obj_inside_cpuset_by_depth(topology, root->cpuset, depth, i);
+    if(obj->arity > 0) n++;
+  }
+  return n;
+}
+
+hwloc_obj_t roofline_hwloc_next_parent_obj(hwloc_obj_t obj){  
+  while(obj != NULL){
+    obj = obj->next_cousin;
+    if(!hwloc_bitmap_isincluded(obj->cpuset, root->cpuset)) return NULL;
+    if(obj->arity != 0) return obj;
+  }
+}
+
+int roofline_hwloc_get_obj_id_among_parents(hwloc_obj_t obj){
+  if(obj == NULL) return -1;  
+  hwloc_obj_t first = hwloc_get_obj_inside_cpuset_by_depth(topology, root->cpuset, obj->depth, 0);
+  if(first == NULL) return -1;
+  int n = 0;  
+  while(first && first != obj){
+    if(first->arity>0){ n++; } first = first->next_cousin;
+  }
+  return n;
+}
+
+void roofline_hwloc_accumulate(hwloc_obj_t * dst, hwloc_obj_t * src){
+  /* merge cpusets */
+  if((*dst) != NULL && (*src) != NULL &&
+     hwloc_bitmap_isincluded((*dst)->cpuset, (*src)->cpuset))
+  {
+    (*dst) = (*src);
+  } else if((*dst) != NULL && (*src) != NULL){
+    while((*dst) != NULL && !hwloc_bitmap_isincluded((*src)->cpuset,(*dst)->cpuset)){ (*dst) = (*dst)->parent; }
+    while((*dst) && (*dst)->parent && hwloc_bitmap_isequal((*dst)->parent->cpuset, (*dst)->cpuset)) { *dst = (*dst)->parent; } 
+  } else if((*src) != NULL){
+    (*dst) = (*src);
+  }
 }
 

@@ -25,29 +25,18 @@ void roofline_output_accumulate(roofline_output dst, const roofline_output src){
   dst->instructions += src->instructions;
   dst->overhead += src->overhead;
   dst->n++;
+  /* merge cpusets */
+  roofline_hwloc_accumulate(&(dst->thr_location), &(src->thr_location));
+  roofline_hwloc_accumulate(&(dst->mem_location), &(src->mem_location));  
 }
 
-roofline_output new_roofline_output(){
+roofline_output new_roofline_output(hwloc_obj_t thr_location, hwloc_obj_t mem_location){
   roofline_output o = malloc(sizeof(*o));
   if(o == NULL) return NULL;
   roofline_output_clear(o);
+  o->mem_location = mem_location;
+  o->thr_location = thr_location;  
   return o;
-}
-
-roofline_output roofline_output_copy(roofline_output o){
-  roofline_output out = malloc(sizeof(*out));
-  if(out == NULL) return NULL;
-  out->ts_high_start = o->ts_high_start;
-  out->ts_high_end = o->ts_high_end;
-  out->ts_low_start = o->ts_low_start;
-  out->ts_low_end = o->ts_low_end;
-  out->cycles = 0;o->cycles;
-  out->bytes = o->bytes;
-  out->flops = o->flops;
-  out->instructions = o->instructions;
-  out->n = o->n;
-  out->overhead = o->overhead;
-  return out;
 }
 
 void delete_roofline_output(roofline_output o){ free(o); }
@@ -103,15 +92,14 @@ void roofline_output_print_header(FILE * output){
 }
 
 void roofline_output_print(FILE * output,
-			   const hwloc_obj_t src,
-			   const hwloc_obj_t mem,
 			   const roofline_output out,
 			   const int type)
 {
   roofline_mkstr(src_str,12);
   roofline_mkstr(mem_str,12);
-  roofline_hwloc_obj_snprintf(src, src_str, sizeof(src_str));
-  if(mem != NULL) roofline_hwloc_obj_snprintf(mem, mem_str, sizeof(mem_str));
+  if(out->thr_location != NULL) roofline_hwloc_obj_snprintf(out->thr_location, src_str, sizeof(src_str));
+  else snprintf(src_str, sizeof(src_str), "NA");
+  if(out->mem_location != NULL) roofline_hwloc_obj_snprintf(out->mem_location, mem_str, sizeof(mem_str));
   else snprintf(mem_str, sizeof(mem_str), "NA");
 
   float    cycles               = (float)(out->cycles-out->overhead)/(float)(out->n);
