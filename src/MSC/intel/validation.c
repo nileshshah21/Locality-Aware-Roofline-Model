@@ -44,7 +44,7 @@ static void dprint_FUOP(int fd, int type, unsigned * i, unsigned * regnum){
   default:
     break;
   }
-  *regnum = (*regnum+1)%(SIMD_N_REGS*2);
+  *regnum = (*regnum+1)%32;
   *i += 1;
 }
 
@@ -76,7 +76,7 @@ static void dprint_MUOP(int fd, int type, unsigned *i, off_t * offset, unsigned 
   }
   
   *offset+=SIMD_BYTES;
-  *regnum = (*regnum+1)%(SIMD_N_REGS*2);
+  *regnum = (*regnum+1)%32;
   *i += 1;
 }
 
@@ -270,7 +270,7 @@ void * benchmark_validation(int op_type, unsigned flops, unsigned bytes){
   /* Load the roofline function */
   benchmark = roofline_load_lib(so_path, func_name);
 
-#ifdef DEUBG2  
+#ifdef DEUBG2
   roofline_mkstr(cmd, 1024);
   snprintf(cmd, sizeof(cmd), "cat %s", c_path);
   system(cmd);  
