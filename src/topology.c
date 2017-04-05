@@ -19,28 +19,31 @@ int roofline_hwloc_get_memory_bounds(const hwloc_obj_t memory, size_t * lower, s
   hwloc_obj_t child = memory;
   unsigned n_child = 1, n_mem = 1;
   size_t child_size, mem_size = roofline_hwloc_get_memory_size(memory);
-
-  /* Variable to bound size in order to avoid swap */
-  hwloc_obj_t first_node = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NUMANODE, 0);
   
   /* Set lower bound size according to child caches */
-  do{
-    child  = roofline_hwloc_get_under_memory(child);
-  } while(child!=NULL && child->depth <= first_node->depth);
-  if(child == NULL) {
-    *lower = get_chunk_size(op_type);
-  } else{
+  hwloc_obj_t first_node = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NUMANODE, 0);  
+  do{ child  = roofline_hwloc_get_under_memory(child); } while(child!=NULL && child->depth <= first_node->depth);
+
+  if(child == NULL) { *lower = get_chunk_size(op_type); }
+  else{
+    roofline_debug2("Memory size is between %s:%d/nthreads and %s:%d/nthreads\n",
+		    hwloc_type_name(memory->type), memory->logical_index,
+		    hwloc_type_name(child->type), child->logical_index);
     n_child = hwloc_get_nbobjs_inside_cpuset_by_depth(topology, root->cpuset, child->depth);
     child_size = roofline_hwloc_get_memory_size(child);
-    *lower = child_size*n_child/n_threads;    
+    *lower = 2*child_size*n_child/n_threads;
   }
 
-  /* Set lower bound size */
+  /* Set upper bound size */
   n_mem = hwloc_get_nbobjs_inside_cpuset_by_depth(topology, root->cpuset, memory->depth);
   *upper = mem_size*n_mem/n_threads;
   
   /* Shrink if possible to save time */
-  if(*upper > *lower*4 && child != NULL){*upper = *lower*4;}
+  if(*upper*n_threads>GB){
+    if(*lower*n_threads>GB && *upper > *lower*2){ *upper = *lower*2; }
+    else if(*upper > *lower*8){ *upper = *lower*8; }
+    else if(*upper > *lower*4){ *upper = *lower*4; }    
+  }
 
 #ifdef DEBUG2
   roofline_mkstr(target, 128);
@@ -221,14 +224,13 @@ hwloc_obj_t roofline_hwloc_set_area_membind(const hwloc_obj_t membind_location, 
     perror("hwloc_set_area_membind");
     return NULL;
   }
-
+area_membind_success:
+  memset(ptr, 0, size);
   /* Print area location */
 #ifdef DEBUG2
   roofline_hwloc_print_area_membind(where, ptr, size);
 #endif
-
-area_membind_success:
-  memset(ptr, 0, size);
+  
   return where;
 }
 

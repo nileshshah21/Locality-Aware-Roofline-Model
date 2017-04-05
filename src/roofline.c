@@ -238,9 +238,25 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
       /* Set buffer size */
       if(sizes[i] < low_size || (i>0 && sizes[i] == sizes[i-1])){ goto skip_size; }    
       src->size = sizes[i];
-      roofline_debug2("size = %luB\n", sizes[i]);
-      /* if(op_type == ROOFLINE_LATENCY_LOAD){ latency_stream_resize(src, src->size); } */
-    
+
+#ifdef _OPENMP
+#pragma omp single
+      {
+#endif
+#ifdef DEBUG2
+	if(sizes[i]>GB)
+	  roofline_debug2("size = %luGB per thread, %luGB total\n", sizes[i]/GB, sizes[i]*n_threads/GB);
+	else if(sizes[i]>MB)
+	  roofline_debug2("size = %luMB per thread, %luMB total\n", sizes[i]/MB, sizes[i]*n_threads/MB);	
+	else if(sizes[i]>KB)
+	  roofline_debug2("size = %luKB per thread, %luKB total\n", sizes[i]/KB, sizes[i]*n_threads/KB);
+	else
+	  roofline_debug2("size = %luB per thread, %luB total\n", sizes[i], sizes[i]*n_threads);
+#endif
+#ifdef _OPENMP
+      }
+#endif
+	
       /* Set the length of the benchmark to have a small variance */
       if(repeat>1){repeat = roofline_autoset_repeat(src, op_type, benchmark);}
 
