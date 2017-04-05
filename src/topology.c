@@ -17,12 +17,11 @@ void roofline_hwloc_check_version(){
 
 int roofline_hwloc_get_memory_bounds(const hwloc_obj_t memory, size_t * lower, size_t * upper, const int op_type){
   hwloc_obj_t child = memory;
-  unsigned n_child = 1, n_mem;
+  unsigned n_child = 1, n_mem = 1;
   size_t child_size, mem_size = roofline_hwloc_get_memory_size(memory);
 
   /* Variable to bound size in order to avoid swap */
   hwloc_obj_t first_node = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NUMANODE, 0);
-  size_t max_size = roofline_hwloc_get_memory_size(first_node) / 2;
   
   /* Set lower bound size according to child caches */
   do{
@@ -30,16 +29,18 @@ int roofline_hwloc_get_memory_bounds(const hwloc_obj_t memory, size_t * lower, s
   } while(child!=NULL && child->depth <= first_node->depth);
   if(child == NULL) {
     *lower = get_chunk_size(op_type);
-  } else{    
+  } else{
+    n_child = hwloc_get_nbobjs_inside_cpuset_by_depth(topology, root->cpuset, child->depth);
     child_size = roofline_hwloc_get_memory_size(child);
-    *lower = 2*child_size;    
+    *lower = child_size*n_child/n_threads;    
   }
 
-  *upper = roofline_MIN(mem_size, max_size);
+  /* Set lower bound size */
+  n_mem = hwloc_get_nbobjs_inside_cpuset_by_depth(topology, root->cpuset, memory->depth);
+  *upper = mem_size*n_mem/n_threads;
   
   /* Shrink if possible to save time */
   if(*upper > *lower*4 && child != NULL){*upper = *lower*4;}
-  else if(*upper > *lower*2 && child != NULL){*upper = *upper/2;}
 
 #ifdef DEBUG2
   roofline_mkstr(target, 128);
@@ -140,7 +141,7 @@ int roofline_hwloc_check_cpubind(hwloc_cpuset_t cpuset){
 hwloc_obj_t roofline_hwloc_local_memory(){
   hwloc_obj_t thread_location = roofline_hwloc_get_cpubind();
   if(thread_location == NULL) return NULL;  
-  while(thread_location != NULL && thread_location->depth > hwloc_get_type_depth(topology, HWLOC_OBJ_NUMANODE))
+  while(thread_location != NULL && (int)thread_location->depth > hwloc_get_type_depth(topology, HWLOC_OBJ_NUMANODE))
     thread_location = thread_location->parent;
   return thread_location;
 }
@@ -347,6 +348,7 @@ hwloc_obj_t roofline_hwloc_next_parent_obj(hwloc_obj_t obj){
     if(!hwloc_bitmap_isincluded(obj->cpuset, root->cpuset)) return NULL;
     if(obj->arity != 0) return obj;
   }
+  return obj;
 }
 
 int roofline_hwloc_get_obj_id_among_parents(hwloc_obj_t obj){
