@@ -9,6 +9,10 @@
 #include <omp.h>
 #endif
 
+#define GB 1073741824
+#define MB 1048576
+#define KB 1024
+
 #define STR(x) #x
 #define STRINGIFY(x) STR(x) 
 #define CONCATENATE(X,Y) X ( Y )
