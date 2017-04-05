@@ -68,13 +68,10 @@ long roofline_autoset_repeat(roofline_stream dst, roofline_stream src, const int
 	      op_type == ROOFLINE_STORE   ||
 	      op_type == ROOFLINE_STORE_NT||
 	      op_type == ROOFLINE_2LD1ST){
-	benchmark_single_stream(src, sample, op_type, repeat);
+	benchmark_stream(src, sample, op_type, repeat);
       }
       else if(op_type == ROOFLINE_LATENCY_LOAD){
 	roofline_latency_stream_load(src, sample, 0, repeat);
-      }
-      else if(op_type  == ROOFLINE_COPY){
-	benchmark_double_stream(dst, src, sample, op_type, repeat);
       }
       else if(benchmark != NULL){
 	benchmark_function(src, sample, op_type, repeat);
@@ -106,7 +103,12 @@ long roofline_autoset_repeat(roofline_stream dst, roofline_stream src, const int
     repeat *= 2;
   }
 
-  roofline_debug1("variance = %f, throughput = %f, time=%dus, repeat=%ld\n", var, median, (median_output->cycles*(1e3/cpu_freq)), repeat);
+  roofline_debug1("variance = %f, throughput = %f, time=%luus, repeat=%ld\n",
+		  var,
+		  median,
+		  (unsigned long)(median_output->cycles*(1e3/cpu_freq)),
+		  repeat);
+  
   delete_list(samples);  
   return repeat;
 

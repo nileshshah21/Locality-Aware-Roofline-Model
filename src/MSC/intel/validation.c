@@ -67,10 +67,6 @@ static void dprint_MUOP(int fd, int type, unsigned *i, off_t * offset, unsigned 
     if((*i)%3) return dprint_MUOP(fd, ROOFLINE_LOAD, i, offset, regnum);
     else return dprint_MUOP(fd, ROOFLINE_STORE, i, offset, regnum);
     break;
-  case ROOFLINE_COPY:
-    if((*i)%2) return dprint_MUOP(fd, ROOFLINE_LOAD, i, offset, regnum);
-    else return dprint_MUOP(fd, ROOFLINE_STORE, i, offset, regnum);
-    break;
   default:
     break;
   }
@@ -169,9 +165,8 @@ static int roofline_compile_lib(char * c_path, char* so_path){
 off_t roofline_benchmark_write_oi_bench(int fd, const char * name, int mem_type, int flop_type, unsigned mem_ins, unsigned flop_ins){
   
   off_t offset = 0; size_t len;
-  unsigned i, max = 40;
+  unsigned i;
   unsigned muops = 0, fuops = 0, regnum = 0;
-  off_t maxsize = 4096;
   char * idx;
   unsigned long bytes = 0;
   unsigned long flops = 0;
@@ -232,7 +227,7 @@ void * benchmark_validation(int op_type, unsigned flops, unsigned bytes){
   int fd;
   void * benchmark = NULL;
   
-  int mem_type = op_type & (ROOFLINE_LOAD|ROOFLINE_LOAD_NT|ROOFLINE_STORE|ROOFLINE_STORE_NT|ROOFLINE_2LD1ST|ROOFLINE_COPY);
+  int mem_type = op_type & (ROOFLINE_LOAD|ROOFLINE_LOAD_NT|ROOFLINE_STORE|ROOFLINE_STORE_NT|ROOFLINE_2LD1ST);
   int flop_type = op_type & (ROOFLINE_MUL|ROOFLINE_ADD|ROOFLINE_MAD|ROOFLINE_FMA);  
   /* Parameters checking */
   if(!mem_type  || ! flop_type){

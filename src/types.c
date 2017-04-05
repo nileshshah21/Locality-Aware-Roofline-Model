@@ -9,7 +9,6 @@ int roofline_type_from_str(const char * type){
   if(!strcmp(type, "STORE") || !strcmp(type, "store")){return ROOFLINE_STORE;}
   if(!strcmp(type, "STORE_NT") || !strcmp(type, "store_nt")){return ROOFLINE_STORE_NT;}
   if(!strcmp(type, "2LD1ST") || !strcmp(type, "2ld1st")){return ROOFLINE_2LD1ST;}
-  if(!strcmp(type, "COPY") || !strcmp(type, "copy")){return ROOFLINE_COPY;}
   if(!strcmp(type, "ADD") || !strcmp(type, "add")){return ROOFLINE_ADD;}
   if(!strcmp(type, "MUL") || !strcmp(type, "mul")){return ROOFLINE_MUL;}
   if(!strcmp(type, "MAD") || !strcmp(type, "mad")){return ROOFLINE_MAD;}
@@ -24,7 +23,6 @@ const char * roofline_type_str(const int type){
   if(type & ROOFLINE_STORE) return "STORE";
   if(type & ROOFLINE_STORE_NT) return "STORE_NT";
   if(type & ROOFLINE_2LD1ST) return "2LD1ST";
-  if(type & ROOFLINE_COPY) return "COPY";
   if(type & ROOFLINE_ADD) return "ADD";
   if(type & ROOFLINE_MUL) return "MUL";
   if(type & ROOFLINE_MAD) return "MAD";
@@ -45,8 +43,6 @@ int roofline_types_snprintf(const int types, char * str, const size_t len){
     n+=snprintf(str+n,len-n,"%s, ", roofline_type_str(ROOFLINE_STORE_NT));
   if(types & ROOFLINE_2LD1ST)
     n+=snprintf(str+n,len-n,"%s, ", roofline_type_str(ROOFLINE_2LD1ST));
-  if(types & ROOFLINE_COPY)
-    n+=snprintf(str+n,len-n,"%s, ", roofline_type_str(ROOFLINE_COPY));
   if(types & ROOFLINE_ADD)
     n+=snprintf(str+n,len-n,"%s, ", roofline_type_str(ROOFLINE_ADD));
   if(types & ROOFLINE_MUL)
@@ -83,7 +79,7 @@ unsigned roofline_default_types(hwloc_obj_t obj){
 unsigned roofline_filter_types(hwloc_obj_t obj, int type){
   int supported = benchmark_types_supported() | ROOFLINE_LATENCY_LOAD;
   int FP_possible = (ROOFLINE_ADD|ROOFLINE_MAD|ROOFLINE_MUL|ROOFLINE_FMA) & supported;
-  int CACHE_possible = (ROOFLINE_LOAD|ROOFLINE_STORE|ROOFLINE_2LD1ST|ROOFLINE_COPY|ROOFLINE_LATENCY_LOAD) & supported;
+  int CACHE_possible = (ROOFLINE_LOAD|ROOFLINE_STORE|ROOFLINE_2LD1ST|ROOFLINE_LATENCY_LOAD) & supported;
   int NUMA_possible = (CACHE_possible|ROOFLINE_LOAD_NT|ROOFLINE_STORE_NT) & supported;
   int obj_type = 0;
   

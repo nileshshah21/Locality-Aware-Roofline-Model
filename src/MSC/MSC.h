@@ -15,13 +15,7 @@ void benchmark_fpeak(int op_type,
 		     roofline_output out,
 		     long repeat);
 
-void benchmark_single_stream(roofline_stream data,
-			     roofline_output out,
-			     int op_type,
-			     long repeat);
-
-void benchmark_double_stream(roofline_stream dst,
-			     roofline_stream src,
+void benchmark_stream(roofline_stream data,
 			     roofline_output out,
 			     int op_type,
 			     long repeat);
