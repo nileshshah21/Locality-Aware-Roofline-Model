@@ -33,7 +33,7 @@ static float roofline_throughput_var(list samples){
   return sqrt(ssqerr/n);
 }
 
-long roofline_autoset_repeat(roofline_stream dst, roofline_stream src, const int op_type, const void * benchmark)
+long roofline_autoset_repeat(roofline_stream src, const int op_type, const void * benchmark)
 {
   unsigned i;
   list samples;

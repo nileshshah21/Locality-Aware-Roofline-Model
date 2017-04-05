@@ -12,6 +12,6 @@
 unsigned roofline_PGCD(unsigned, unsigned);
 unsigned roofline_PPCM(unsigned, unsigned);
 
-long roofline_autoset_repeat(roofline_stream dst, roofline_stream src, const int op_type, const void * benchmark);
+long roofline_autoset_repeat(roofline_stream src, const int op_type, const void * benchmark);
 
 #endif /* STATS_H */

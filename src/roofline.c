@@ -157,7 +157,7 @@ static void roofline_delete_outputs(const roofline_output outputs){ free(outputs
 void roofline_fpeak(FILE * output, int op_type)
 {
   roofline_output out = roofline_setup_output();
-  long repeat = roofline_autoset_repeat(NULL, NULL, op_type, NULL);
+  long repeat = roofline_autoset_repeat(NULL, op_type, NULL);
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -242,7 +242,7 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
       /* if(op_type == ROOFLINE_LATENCY_LOAD){ latency_stream_resize(src, src->size); } */
     
       /* Set the length of the benchmark to have a small variance */
-      if(repeat>1){repeat = roofline_autoset_repeat(NULL, src, op_type, benchmark);}
+      if(repeat>1){repeat = roofline_autoset_repeat(src, op_type, benchmark);}
 
       /* Benchmark */
       if(op_type == ROOFLINE_LOAD    || op_type == ROOFLINE_LOAD_NT ||
