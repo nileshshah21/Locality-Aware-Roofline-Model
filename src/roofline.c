@@ -115,23 +115,27 @@ inline void roofline_lib_finalize(void)
   hwloc_topology_destroy(topology);
 }
 
-static roofline_output roofline_get_local_output(roofline_output outputs){
-  if(root->depth<node_depth){
-    hwloc_obj_t local_memory = roofline_hwloc_local_memory();
-    if(local_memory == NULL) return outputs;
-    int nid = roofline_hwloc_get_obj_id_among_parents(local_memory);
-    if(nid<0) return outputs;
-    return outputs+nid;
-  } else {
-    return outputs;
-  }
-}
 
 static unsigned roofline_get_nb_outputs(){
-  if(root->depth<node_depth){ return n_parent_nodes; }
-  return 1;
+  if(root->depth>=node_depth){ return 1; }
+  return roofline_hwloc_nb_parent_objs_by_depth(node_depth);
 }
 
+static roofline_output roofline_get_local_output(roofline_output outputs){
+  roofline_output ret = outputs;
+#pragma omp critical
+  {
+    if(root->depth<node_depth){
+      hwloc_obj_t local_memory = roofline_hwloc_local_memory();  
+      if(local_memory == NULL){ goto return_self; }
+      int nid = roofline_hwloc_get_obj_id_among_parents(local_memory);
+      if(nid<0){ goto return_self; }
+      ret = outputs+nid;
+    } else { goto return_self; }
+  return_self:;
+  }
+  return ret;
+}
 static roofline_output roofline_setup_output(){
   unsigned i, n = roofline_get_nb_outputs();
   roofline_output out;
@@ -184,7 +188,7 @@ void roofline_fpeak(FILE * output, int op_type)
 #endif
       roofline_print_outputs(output, out, op_type);
     }
-    delete_roofline_output(local_out);
+    roofline_delete_outputs(local_out);
 #ifdef _OPENMP    
   }
 #endif

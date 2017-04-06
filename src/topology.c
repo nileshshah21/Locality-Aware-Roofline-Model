@@ -355,7 +355,8 @@ hwloc_obj_t roofline_hwloc_next_parent_obj(hwloc_obj_t obj){
 
 int roofline_hwloc_get_obj_id_among_parents(hwloc_obj_t obj){
   if(obj == NULL) return -1;  
-  hwloc_obj_t first = hwloc_get_obj_inside_cpuset_by_depth(topology, root->cpuset, obj->depth, 0);
+  hwloc_obj_t first = root;
+  while(first != NULL && first->depth<obj->depth){ first = first->first_child; }
   if(first == NULL) return -1;
   int n = 0;  
   while(first && first != obj){
