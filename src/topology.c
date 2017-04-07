@@ -17,7 +17,7 @@ void roofline_hwloc_check_version(){
 
 int roofline_hwloc_get_memory_bounds(const hwloc_obj_t memory, size_t * lower, size_t * upper, const int op_type){
   hwloc_obj_t child = memory;
-  unsigned n_child = 1, n_mem = 1;
+  unsigned n_child = 1;
   size_t child_size, mem_size = roofline_hwloc_get_memory_size(memory);
   
   /* Set lower bound size according to child caches */
@@ -31,24 +31,23 @@ int roofline_hwloc_get_memory_bounds(const hwloc_obj_t memory, size_t * lower, s
 		    hwloc_type_name(child->type), child->logical_index);
     n_child = hwloc_get_nbobjs_inside_cpuset_by_depth(topology, root->cpuset, child->depth);
     child_size = roofline_hwloc_get_memory_size(child);
-    *lower = 2*child_size*n_child/n_threads;
+    *lower = 2*child_size*n_child;
   }
 
   /* Set upper bound size */
-  n_mem = hwloc_get_nbobjs_inside_cpuset_by_depth(topology, root->cpuset, memory->depth);
-  *upper = mem_size*n_mem/n_threads;
+  *upper = mem_size*hwloc_get_nbobjs_inside_cpuset_by_depth(topology, root->cpuset, memory->depth);
   
   /* Shrink if possible to save time */
-  if(*upper*n_threads>GB){
-    if(*lower*n_threads>GB && *upper > *lower*2){ *upper = *lower*2; }
-    else if(*upper > *lower*8){ *upper = *lower*8; }
-    else if(*upper > *lower*4){ *upper = *lower*4; }    
+  if(*upper>GB){
+    if(*lower>GB && *upper>*lower*2){ *upper = *lower*2; }
+    if(*upper > *lower*8){ *upper = *upper/8; }
+    else if(*upper > *lower*4){ *upper = *upper/4; }
   }
 
 #ifdef DEBUG2
   roofline_mkstr(target, 128);
   roofline_hwloc_obj_snprintf(memory, target, sizeof(target));
-  printf("Memory bounds for %s found at: [%ldB, %ldB]\n", target, *lower, *upper);
+  printf("Memory bounds for %s set at: [%ldB, %ldB]\n", target, *lower, *upper);
 #endif
   
   /* Handle unexpected sizes */
@@ -182,39 +181,23 @@ print_area_error:
 #endif
 
 hwloc_obj_t roofline_hwloc_set_area_membind(const hwloc_obj_t membind_location, void * ptr, const size_t size){
-  hwloc_obj_t where = membind_location;
-  unsigned n_nodes = hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_NUMANODE);
-  unsigned node_depth = hwloc_get_type_depth(topology, HWLOC_OBJ_NUMANODE);
-  unsigned tid = 0, nid = 0;
   hwloc_membind_policy_t policy = HWLOC_MEMBIND_BIND;
+  unsigned               node_depth = hwloc_get_type_depth(topology, HWLOC_OBJ_NUMANODE);  
+  hwloc_obj_t            where = membind_location;
   
-  /* Check if binding is even necessary */
-  if(n_nodes <= 1){goto area_membind_success;}
-  if(where == NULL){goto area_membind_success;}
-  
-  /* Bind on node */
-  if(where != NULL && where->depth <= node_depth)
-  {
-    if(where->depth == node_depth){n_nodes = 1;}
-    else{n_nodes = hwloc_get_nbobjs_inside_cpuset_by_type(topology, where->cpuset, HWLOC_OBJ_NUMANODE);}
-#ifdef _OPENMP
-    tid = omp_get_thread_num();
-#endif
-    nid = tid*n_nodes/n_threads;
-    
-    /* If there are several NUMA memory possible, we have to choose among them where to bind memory. */
-    if(n_nodes>1){
-      /* Balance with interleave on remote nodes. More efficient than balancing as for local nodes */
-      if(hwloc_bitmap_isequal(where->cpuset, root->cpuset)){ policy = HWLOC_MEMBIND_INTERLEAVE; }
-      /* Balance round robin per group of threads (NUMA:0 <- group:0, NUMA:1 <- group:1) */
-      else{where = hwloc_get_obj_inside_cpuset_by_type(topology, where->cpuset, HWLOC_OBJ_NUMANODE, nid);}
-    }
-  }
-  /* Bind close to thread */
-  else { where = roofline_hwloc_local_memory(); }
+  while(where != NULL && where->depth>node_depth){ where = where->parent; }
+  if(where == NULL){return NULL;}
 
+  /* If their is more than one node where to bind, we have to apply user policy instead of force binding on a single node */
+  if(hwloc_get_nbobjs_inside_cpuset_by_type(topology, where->cpuset, HWLOC_OBJ_NUMANODE) > 1){
+    hwloc_bitmap_t nodeset = hwloc_bitmap_alloc();
+    if(hwloc_get_membind(topology, nodeset, &policy, HWLOC_MEMBIND_BYNODESET) == -1){
+      perror("hwloc_get_membind");
+    }
+    hwloc_bitmap_free(nodeset);
+  }
+  
   /* Apply memory binding */
-  if(where == NULL){return 0;}  
   if(hwloc_set_area_membind(topology, ptr, size, where->nodeset,policy,
 			    HWLOC_MEMBIND_THREAD   |
 			    HWLOC_MEMBIND_NOCPUBIND|
@@ -224,13 +207,11 @@ hwloc_obj_t roofline_hwloc_set_area_membind(const hwloc_obj_t membind_location, 
     perror("hwloc_set_area_membind");
     return NULL;
   }
-area_membind_success:
+
   memset(ptr, 0, size);
-  /* Print area location */
 #ifdef DEBUG2
   roofline_hwloc_print_area_membind(where, ptr, size);
-#endif
-  
+#endif  
   return where;
 }
 
