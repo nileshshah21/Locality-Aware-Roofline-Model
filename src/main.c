@@ -16,19 +16,25 @@ static double        oi = 0;             /* -1 => perform validation benchmarks,
 static unsigned int  roofline_types = 0; /* What rooflines do we want in byte array */
 static char *        thread_location = "Node:0"; /* Threads location */
 static int           matrix = 0;         /* Do we benchmark matrix ? */
+static LARM_policy   policy = LARM_DRAM;
 
 static void usage(char * argv0){
   printf("%s <options...>\n\n", argv0);
-  printf("OPTIONS:\n");
-  printf("\t-h, --help: print this help message\n");
-  printf("\t-v, --validate: perform roofline validation checking. This will run benchmark for several operational intensity trying to hit the roofs.\n");
-  printf("\t-oi, --operational-intensity: perform roofline validation checking on set operational intensity.\n");
-  printf("\t-t, --type  <\"LOAD|LOAD_NT|STORE|STORE_NT|2LD1ST|MUL|ADD|MAD\">: choose the roofline types among load, load_nt, store, store_nt, or 2loads/1store for memory, add, mul, and fma for fpeak.\n");
-  printf("\t-m, --memory <hwloc_obj:id|hwloc_obj:id|...>: benchmark a single memory level.\n");
-  printf("\t--CARM: Build the Cache Aware Roofline Model.\n");
-  printf("\t-s, --src <hwloc_ibj:idx>: Build the model with threads at leaves of src obj. Default is Node:0.\n");
-  printf("\t-mat, --matrix: Benchmark bandwidth matrix at --src level.\n");
-  printf("\t-o, --output <output>: Set output file to write results.\n");
+  printf("OPTIONS:\n\t");
+  printf("-h, --help: print this help message\n\t");
+  printf("-v, --validate: perform roofline validation checking. This will run benchmark for several operational intensity trying to hit the roofs.\n\t");
+  printf("-oi, --operational-intensity: perform roofline validation checking on set operational intensity.\n\t");
+  printf("-t, --type  <\"LOAD|LOAD_NT|STORE|STORE_NT|2LD1ST|MUL|ADD|MAD\">: choose the roofline types among load, load_nt, store, store_nt, or 2loads/1store for memory, add, mul, and fma for fpeak.\n\t");
+  printf("-m, --memory <hwloc_obj:id|hwloc_obj:id|...>: benchmark a single memory level.\n\t");
+  printf("--CARM: Build the Cache Aware Roofline Model.\n\t");
+  printf("-s, --src <hwloc_ibj:idx>: Build the model with threads at leaves of src obj. Default is Node:0.\n\t");
+  printf("-mat, --matrix: Benchmark bandwidth matrix at --src level.\n\t");
+  printf("-o, --output <output>: Set output file to write results.\n\t");
+  printf("-p, --policy <policy>: Set the allocation policy when target memory scope more than one node:.\n\t\t");
+  printf("firsttouch: bind data near threads.\n\t\t");
+  printf("interleave: bind data round robin on nodes.\n\t\t");
+  printf("DRAM: equivalent to firsttouch but remove ambiguity when several types of memory exist. (Default)\n\t\t");
+  printf("HBM: equivalent to firsttouch but target only high bandwidth memories.\n");
 #if defined(_OPENMP)
   printf("\t-ht, --with-hyperthreading: use hyperthreading for benchmarks\n");
 #endif    
@@ -78,6 +84,14 @@ static void parse_args(int argc, char ** argv){
     else if(!strcmp(argv[i],"--output") || !strcmp(argv[i],"-o")){
       output = argv[++i];
     }
+    else if(!strcmp(argv[i],"--policy") || !strcmp(argv[i],"-p")){
+      if(!strcmp(argv[i+1], "firsttouch")){ policy = LARM_FIRSTTOUCH; }
+      else if(!strcmp(argv[i+1], "interleave")){ policy = LARM_INTERLEAVE; }
+      else if(!strcmp(argv[i+1], "DRAM")){ policy = LARM_DRAM; }
+      else if(!strcmp(argv[i+1], "HBM")){ policy = LARM_HBM; }
+      else{ fprintf(stderr, "Unrecognized policy.\n"); }
+      ++i;
+    }
     else ERR_EXIT("Unrecognized option: %s\n", argv[i]);
   }
 }
@@ -124,7 +138,7 @@ int main(int argc, char * argv[]){
   FILE * out;
   parse_args(argc,argv);
 
-  if(roofline_lib_init(NULL, thread_location, hyperthreading)==-1)
+  if(roofline_lib_init(NULL, thread_location, hyperthreading, policy)==-1)
     ERR_EXIT("roofline library init failure\n");
 
   if(mem_str != NULL){

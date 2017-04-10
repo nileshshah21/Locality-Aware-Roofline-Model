@@ -3,6 +3,9 @@
 
 #include <hwloc.h>
 
+/* Allocation policies */
+typedef enum{LARM_FIRSTTOUCH, LARM_INTERLEAVE, LARM_DRAM, LARM_HBM} LARM_policy;
+
 extern hwloc_topology_t topology;   /* Current machine topology */
 extern hwloc_obj_t      root;       /* The subroot of topology to select the amount of threads */
 extern size_t           max_size;   /* The 32 * last level cache size */
@@ -17,7 +20,7 @@ hwloc_obj_t roofline_hwloc_get_cpubind();
 int         roofline_hwloc_check_cpubind(hwloc_cpuset_t cpuset);
 
 /* Memory binding */
-hwloc_obj_t roofline_hwloc_set_area_membind(const hwloc_obj_t, void *, const size_t);
+hwloc_obj_t roofline_hwloc_set_area_membind(const hwloc_obj_t, void *, const size_t, LARM_policy);
 hwloc_obj_t roofline_hwloc_local_memory();
 int         roofline_hwloc_obj_is_memory(const hwloc_obj_t);
 size_t      roofline_hwloc_get_memory_size(const hwloc_obj_t);
@@ -32,4 +35,6 @@ hwloc_obj_t roofline_hwloc_next_parent_obj(hwloc_obj_t obj);
 
 /* Merging cpusets */
 void roofline_hwloc_accumulate(hwloc_obj_t * dst, hwloc_obj_t * src);
+
 #endif /* TOPOLOGY_H */
+
