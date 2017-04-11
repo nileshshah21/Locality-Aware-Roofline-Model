@@ -198,12 +198,12 @@ hwloc_obj_t roofline_hwloc_set_area_membind(const hwloc_obj_t membind_location, 
   hwloc_membind_policy_t hwloc_policy = HWLOC_MEMBIND_BIND;
   unsigned               node_depth = hwloc_get_type_depth(topology, HWLOC_OBJ_NUMANODE);  
   hwloc_obj_t            where = membind_location;
-  
+
   while(where != NULL && where->depth>node_depth){ where = where->parent; }
   if(where == NULL){return NULL;}
 
   /* If their is more than one node where to bind, we have to apply user policy instead of force binding on a single node */
-  if(hwloc_get_nbobjs_inside_cpuset_by_type(topology, where->cpuset, HWLOC_OBJ_NUMANODE) > 1){
+  if(where->depth<node_depth){
     switch(policy){
     case LARM_FIRSTTOUCH:
       hwloc_policy = HWLOC_MEMBIND_FIRSTTOUCH;
@@ -225,7 +225,6 @@ hwloc_obj_t roofline_hwloc_set_area_membind(const hwloc_obj_t membind_location, 
       }      
     }
   }
-  
   /* Apply memory binding */
   if(hwloc_set_area_membind(topology, ptr, size, where->nodeset, hwloc_policy,
 			    HWLOC_MEMBIND_THREAD   |
