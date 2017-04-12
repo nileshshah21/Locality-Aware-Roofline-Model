@@ -41,7 +41,7 @@ long roofline_autoset_repeat(roofline_stream src, const int op_type, const void 
   roofline_output median_output, sample;
   uint64_t cycles;
   static int test_stop = 0;
-  long repeat = 1;
+  long repeat=1;
   void (*  benchmark_function)(roofline_stream,
 			       roofline_output,
 			       int,
@@ -103,11 +103,16 @@ long roofline_autoset_repeat(roofline_stream src, const int op_type, const void 
     repeat *= 2;
   }
 
+#ifdef DEBUG1
+#ifdef _OPENMP      
+#pragma omp single
+#endif  
   roofline_debug1("variance = %f, throughput = %f, time=%luus, repeat=%ld\n",
 		  var,
 		  median,
 		  (unsigned long)(median_output->cycles*(1e3/cpu_freq)),
 		  repeat);
+#endif
   
   delete_list(samples);  
   return repeat;
