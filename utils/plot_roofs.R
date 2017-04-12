@@ -334,20 +334,20 @@ label_Ycoords <- function(pts, ylim, frac=50){
 }
 
 plot_data <-function(pts, xlim, ylim, col_start=1, pch_start=1, cex=.5){
-    tmax = max(pts$Elapsed.s)
     colors = (col_start+1):(col_start+nrow(pts))
     lgd = sapply(1:nrow(pts), function(i){sprintf("%s", pts$info[i])})
     ##sort points
     pts = pts[order(pts$GFlop.s),]
 
-    #plot points and text
+    ##plot points and text
     points(pts$AI, pts$GFlop.s, pch=colors, col=colors, cex=cex)    
     ylab_coord = label_Ycoords(pts,ylim,40)
     text(pts$AI, ylab_coord,  labels=pts$info, cex=.6, col="black", pos=2)
 
-    #plot circle around point
+    ##plot circle around point
+    tmax = max(pts$Elapsed.s)
     for(i in 1:nrow(pts)){
-        r = 0.05 #pts$Elapsed.s[i]*0.1/tmax
+        r = pts$Elapsed.s[i]*0.1/tmax #0.05
         symbols(pts$AI[i],
                 pts$GFlop.s[i],
                 circles=1,
