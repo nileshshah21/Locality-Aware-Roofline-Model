@@ -197,17 +197,19 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
   long repeat = 100;
   void (*  benchmark_function)(roofline_stream, roofline_output, int, long) = benchmark;
   static int stop = 0;
-  
+  unsigned n_leaves = hwloc_get_nbobjs_inside_cpuset_by_type(topology, memory->cpuset, leaf_type);
+  n_leaves = roofline_MIN(n_leaves, n_threads);
+  if(memory->depth<=node_depth){ n_leaves = roofline_MAX(n_leaves, n_threads); }
+    
   /* Generate samples size */
   int n_sizes = ROOFLINE_N_SAMPLES;
-  if(roofline_hwloc_get_memory_bounds(memory, &low_size, &up_size, op_type) == -1){
-    
-    return;
-  }
-  sizes = roofline_linear_sizes(op_type, low_size/n_threads, up_size/n_threads, &n_sizes);
+  if(roofline_hwloc_get_memory_bounds(memory, &low_size, &up_size, op_type) == -1){ return; }
+  up_size = up_size/n_leaves;
+  low_size = low_size/n_leaves;  
+  sizes = roofline_linear_sizes(op_type, low_size, up_size, &n_sizes);
   if(sizes==NULL){roofline_debug2("Computing array of input sizes from %lu to %lu failed\n", low_size, up_size); return;}
 #ifdef DEBUG2
-  roofline_debug2("linear array of sizes from %lu to %lu of %d sizes\n", low_size/n_threads, up_size/n_threads, n_sizes);
+  roofline_debug2("linear array of sizes from %lu to %lu of %d sizes\n", low_size, up_size, n_sizes);
   do{int i;
     for(i=0;i<n_sizes;i++){roofline_debug2("%lu ", sizes[i]);}
     roofline_debug2("\n");
@@ -228,7 +230,7 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
     if(stop) goto end_parallel_mem_bench;
 
     /*Initialize IO */    
-    roofline_stream src        = new_roofline_stream(up_size/n_threads, op_type);
+    roofline_stream src        = new_roofline_stream(up_size, op_type);
     hwloc_obj_t mem_loc        = roofline_hwloc_set_area_membind(memory, src->stream, src->alloc_size, policy);
     roofline_output local_out  = new_roofline_output(thr_loc, memory->depth<node_depth?mem_loc:memory);
     roofline_output global_out = roofline_get_local_output(out);
@@ -236,7 +238,7 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
     /* measure for several sizes inside bounds */
     int i; for(i=0;i<n_sizes;i++){      
       /* Set buffer size */
-      if(sizes[i] < low_size/n_threads || (i>0 && sizes[i] == sizes[i-1])){ goto skip_size; }    
+      if(sizes[i] < low_size || (i>0 && sizes[i] == sizes[i-1])){ goto skip_size; }    
       src->size = sizes[i];
       if(op_type == ROOFLINE_LATENCY_LOAD){roofline_set_latency_stream(src, src->size);}
 
@@ -245,14 +247,31 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
       {
 #endif
 #ifdef DEBUG2
+	
 	if(sizes[i]>GB)
-	  roofline_debug2("size = %luGB per thread, %luGB total\n", sizes[i]/GB, sizes[i]*n_threads/GB);
+	  roofline_debug2("size = %luGB per thread, %luGB total per %s of size %luGB\n",
+			  sizes[i]/GB,
+			  sizes[i]*n_leaves/GB,
+			  hwloc_type_name(memory->type),
+			  roofline_hwloc_get_memory_size(memory)/GB);
 	else if(sizes[i]>MB)
-	  roofline_debug2("size = %luMB per thread, %luMB total\n", sizes[i]/MB, sizes[i]*n_threads/MB);	
+	  roofline_debug2("size = %luMB per thread, %luMB total per %s of size %luMB\n",
+			  sizes[i]/MB,
+			  sizes[i]*n_leaves/MB,
+			  hwloc_type_name(memory->type),
+			  roofline_hwloc_get_memory_size(memory)/MB);	
 	else if(sizes[i]>KB)
-	  roofline_debug2("size = %luKB per thread, %luKB total\n", sizes[i]/KB, sizes[i]*n_threads/KB);
+	  roofline_debug2("size = %luKB per thread, %luKB total per %s of size %luKB\n",
+			  sizes[i]/KB,
+			  sizes[i]*n_leaves/KB,
+			  hwloc_type_name(memory->type),
+			  roofline_hwloc_get_memory_size(memory)/KB);
 	else
-	  roofline_debug2("size = %luB per thread, %luB total\n", sizes[i], sizes[i]*n_threads);
+	  roofline_debug2("size = %luB per thread, %luB total per %s of size %luB\n",
+			  sizes[i],
+			  sizes[i]*n_leaves,
+			  hwloc_type_name(memory->type),
+			  roofline_hwloc_get_memory_size(memory));
 #endif
 #ifdef _OPENMP
 	
