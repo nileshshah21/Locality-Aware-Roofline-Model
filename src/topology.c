@@ -26,22 +26,23 @@ int roofline_hwloc_get_memory_bounds(const hwloc_obj_t memory, size_t * lower, s
 
   if(child == NULL) { *lower = get_chunk_size(op_type); }
   else{
-    roofline_debug2("Memory size is between %s:%d/nthreads and %s:%d/nthreads\n",
-		    hwloc_type_name(memory->type), memory->logical_index,
-		    hwloc_type_name(child->type), child->logical_index);
     n_child = hwloc_get_nbobjs_inside_cpuset_by_depth(topology, root->cpuset, child->depth);
+    roofline_debug2("Memory size is between %s:%d and %s*%d(%s)\n",
+		    hwloc_type_name(memory->type), memory->logical_index,
+		    hwloc_type_name(child->type), n_child, hwloc_type_name(child->type));
+    
     child_size = roofline_hwloc_get_memory_size(child);
     *lower = 2*child_size*n_child;
   }
 
   /* Set upper bound size */
-  *upper = mem_size*hwloc_get_nbobjs_inside_cpuset_by_depth(topology, root->cpuset, memory->depth);
+  *upper = mem_size;
   
   /* Shrink if possible to save time */
   if(*upper>GB){
-    if(*lower>GB && *upper>*lower*2){ *upper = *lower*2; }
-    if(*upper > *lower*8){ *upper = *upper/8; }
-    else if(*upper > *lower*4){ *upper = *upper/4; }
+    if(                  *upper > *lower*8){ *upper = *upper/8; }
+    else if(*lower>GB && *upper > *lower*4){ *upper = *upper/4; }    
+    else if(*lower>GB && *upper > *lower*2){ *upper = *upper/2; }
   }
 
 #ifdef DEBUG2
