@@ -465,19 +465,19 @@ static void roofline_sequential_sampling_stop(void *sample, const char* info){
     } else {
       s->bytes = 8*muops;
     }
-#pragma omp critical
-    {
-      printf("%s:%d: load_muops=%ld, store_muops=%ld, PD(%d)=%ld, SD=%ld, AI=%f, GFlops/s=%f\n",
-	     hwloc_type_name(s->location->type),
-	     s->location->logical_index,
-	     s->values[3],
-	     s->values[2],
-	     FLOPS,	     	     
-	     s->values[1],
-	     s->values[0],
-	     (float)s->flops/(float)s->bytes,
-	     (float)s->flops/(float)(s->e_nano-s->s_nano));
-    }
+/* #pragma omp critical */
+/*     { */
+/*       printf("%s:%d: load_muops=%ld, store_muops=%ld, PD(%d)=%ld, SD=%ld, AI=%f, GFlops/s=%f\n", */
+/* 	     hwloc_type_name(s->location->type), */
+/* 	     s->location->logical_index, */
+/* 	     s->values[3], */
+/* 	     s->values[2], */
+/* 	     FLOPS,	     	      */
+/* 	     s->values[1], */
+/* 	     s->values[0], */
+/* 	     (float)s->flops/(float)s->bytes, */
+/* 	     (float)s->flops/(float)(s->e_nano-s->s_nano)); */
+/*     } */
   }
 #else
   if(__sync_fetch_and_sub(&s->last_thread, 1) == 1){ s->e_nano = t.tv_nsec + 1e9*t.tv_sec; }
