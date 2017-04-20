@@ -4,7 +4,7 @@
 #include <hwloc.h>
 
 /* Allocation policies */
-typedef enum{LARM_FIRSTTOUCH, LARM_INTERLEAVE, LARM_DRAM, LARM_HBM} LARM_policy;
+typedef enum{LARM_FIRSTTOUCH, LARM_INTERLEAVE, LARM_FIRSTTOUCH_HBM, LARM_INTERLEAVE_DDR, LARM_INTERLEAVE_HBM} LARM_policy;
 
 extern hwloc_topology_t topology;   /* Current machine topology */
 extern hwloc_obj_t      root;       /* The subroot of topology to select the amount of threads */

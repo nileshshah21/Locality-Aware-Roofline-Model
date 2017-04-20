@@ -16,7 +16,7 @@ static double        oi = 0;             /* -1 => perform validation benchmarks,
 static unsigned int  roofline_types = 0; /* What rooflines do we want in byte array */
 static char *        thread_location = "Node:0"; /* Threads location */
 static int           matrix = 0;         /* Do we benchmark matrix ? */
-static LARM_policy   policy = LARM_DRAM;
+static LARM_policy   policy = LARM_FIRSTTOUCH;
 
 static void usage(char * argv0){
   printf("%s <options...>\n\n", argv0);
@@ -33,7 +33,10 @@ static void usage(char * argv0){
   printf("-p, --policy <policy>: Set the allocation policy when target memory scope more than one node:.\n\t\t");
   printf("firsttouch: bind data near threads.\n\t\t");
   printf("interleave: bind data round robin on nodes.\n\t\t");
-  printf("DRAM: equivalent to firsttouch but remove ambiguity when several types of memory exist. (Default)\n\t\t");
+  printf("firsttouch_HBM: firsttouch on HBM nodes.\n\t\t");
+  printf("interleave_DDR: interleave on DDR nodes.\n\t\t");
+  printf("interleave_HBM: interleave on HBM nodes.\n\t\t");  
+  
   printf("HBM: equivalent to firsttouch but target only high bandwidth memories.\n");
 #if defined(_OPENMP)
   printf("\t-ht, --with-hyperthreading: use hyperthreading for benchmarks\n");
@@ -87,8 +90,9 @@ static void parse_args(int argc, char ** argv){
     else if(!strcmp(argv[i],"--policy") || !strcmp(argv[i],"-p")){
       if(!strcmp(argv[i+1], "firsttouch")){ policy = LARM_FIRSTTOUCH; }
       else if(!strcmp(argv[i+1], "interleave")){ policy = LARM_INTERLEAVE; }
-      else if(!strcmp(argv[i+1], "DRAM")){ policy = LARM_DRAM; }
-      else if(!strcmp(argv[i+1], "HBM")){ policy = LARM_HBM; }
+      else if(!strcmp(argv[i+1], "firsttouch_HBM")){ policy = LARM_FIRSTTOUCH_HBM; }
+      else if(!strcmp(argv[i+1], "interleave_DDR")){ policy = LARM_INTERLEAVE_DDR; }
+      else if(!strcmp(argv[i+1], "interleave_HBM")){ policy = LARM_INTERLEAVE_HBM; }      
       else{ fprintf(stderr, "Unrecognized policy.\n"); }
       ++i;
     }

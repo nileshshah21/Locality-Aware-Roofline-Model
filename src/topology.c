@@ -208,39 +208,66 @@ hwloc_obj_t roofline_hwloc_set_area_membind(const hwloc_obj_t membind_location, 
   hwloc_obj_t            where = NULL;  
   hwloc_membind_policy_t hwloc_policy = HWLOC_MEMBIND_BIND;
   unsigned               node_depth = hwloc_get_type_depth(topology, HWLOC_OBJ_NUMANODE);  
-
-  if(membind_location == NULL || ptr == NULL){return NULL;}
+  hwloc_bitmap_t         nodeset = hwloc_bitmap_alloc();
+  
+  if(membind_location == NULL || ptr == NULL){goto exit_alloc;}
 
   /* If their is more than one node where to bind, we have to apply user policy instead of force binding on a single node */
   if(membind_location->depth<node_depth){
     switch(policy){
     case LARM_FIRSTTOUCH:
-      where = roofline_hwloc_local_memory();                  
+      where = roofline_hwloc_local_memory();
+      hwloc_bitmap_copy(nodeset, where->nodeset);
       break;
     case LARM_INTERLEAVE:
       hwloc_policy = HWLOC_MEMBIND_INTERLEAVE;
-      break;    
-    case LARM_DRAM:
-      where = roofline_hwloc_local_memory();            
+      where = membind_location;
+      hwloc_bitmap_copy(nodeset, where->nodeset);      
       break;
-    case LARM_HBM:;
+    case LARM_FIRSTTOUCH_HBM:
       where = roofline_hwloc_local_memory();
-      while(where != NULL && (where->subtype == NULL || strcmp(where->subtype, "MCDRAM"))){
-	where = where->next_cousin;
-      }
+      while(where != NULL && (where->subtype == NULL || strcmp(where->subtype, "MCDRAM"))){where = where->next_cousin;}
       if(where == NULL){
-	fprintf(stderr, "No HBM found\n");
-	where = membind_location;
-      }      
+	fprintf(stderr, "No HBM found bind firsttouch DDR\n");
+        where = roofline_hwloc_local_memory();
+      }
+      hwloc_bitmap_copy(nodeset, where->nodeset);
+      break;
+    case LARM_INTERLEAVE_DDR:
+      hwloc_policy = HWLOC_MEMBIND_INTERLEAVE;
+      where = membind_location;      
+      while(where != NULL && where->depth<node_depth){where = where->first_child;}
+      while(where != NULL && hwloc_bitmap_isincluded(where->nodeset, membind_location->nodeset)){
+	if(where->subtype == NULL || strcmp(where->subtype, "MCDRAM")){
+	  hwloc_bitmap_or(nodeset, where->nodeset, nodeset);
+	}
+	where = where->next_cousin;	  	
+      }
+      where = membind_location;
+      break;
+    case LARM_INTERLEAVE_HBM:
+      hwloc_policy = HWLOC_MEMBIND_INTERLEAVE;
+      where = membind_location;      
+      while(where != NULL && where->depth<node_depth){where = where->first_child;}
+      while(where != NULL && hwloc_bitmap_isincluded(where->nodeset, membind_location->nodeset)){	
+	if(where->subtype != NULL && !strcmp(where->subtype, "MCDRAM")){
+	  hwloc_bitmap_or(nodeset, where->nodeset, nodeset);
+	}
+	where = where->next_cousin;	
+      }
+      where = membind_location;
+      break;
     }
   } else if(membind_location->depth>node_depth){
-    where = roofline_hwloc_local_memory();   
+    where = roofline_hwloc_local_memory();
+    hwloc_bitmap_copy(nodeset, where->nodeset);          
   } else {
     where = membind_location;
+    hwloc_bitmap_copy(nodeset, where->nodeset);          
   }
   
   /* Apply memory binding */
-  if(hwloc_set_area_membind(topology, ptr, size, where->nodeset, hwloc_policy,
+  if(hwloc_set_area_membind(topology, ptr, size, nodeset, hwloc_policy,
 			    HWLOC_MEMBIND_THREAD   |
 			    HWLOC_MEMBIND_NOCPUBIND|
 			    HWLOC_MEMBIND_STRICT   |
@@ -251,10 +278,12 @@ hwloc_obj_t roofline_hwloc_set_area_membind(const hwloc_obj_t membind_location, 
   }
   
   memset(ptr, 0, size);
-  where = roofline_hwloc_get_area_membind(ptr, size);
 #ifdef DEBUG2
-  roofline_check_area_membind(membind_location, where);
-#endif  
+  roofline_check_area_membind(membind_location, roofline_hwloc_get_area_membind(ptr, size));
+#endif
+
+exit_alloc:
+  hwloc_bitmap_free(nodeset);
   return where;
 }
 
