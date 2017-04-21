@@ -36,8 +36,6 @@ static void usage(char * argv0){
   printf("firsttouch_HBM: firsttouch on HBM nodes.\n\t\t");
   printf("interleave_DDR: interleave on DDR nodes.\n\t\t");
   printf("interleave_HBM: interleave on HBM nodes.\n\t\t");  
-  
-  printf("HBM: equivalent to firsttouch but target only high bandwidth memories.\n");
 #if defined(_OPENMP)
   printf("\t-ht, --with-hyperthreading: use hyperthreading for benchmarks\n");
 #endif    
