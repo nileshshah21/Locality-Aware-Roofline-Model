@@ -54,11 +54,11 @@ void roofline_output_begin_measure(roofline_output o){
 }
 
 void roofline_output_end_measure(roofline_output o, const uint64_t bytes, const uint64_t flops, const uint64_t ins){
-#ifdef _OPENMP
-#pragma omp barrier
-#endif
   __asm__ __volatile__ ("CPUID\n\t" "RDTSC\n\t" "movq %%rdx, %0\n\t" "movq %%rax, %1\n\t" \
 			:"=r" (o->ts_high_end), "=r" (o->ts_low_end)::"%rax", "%rbx", "%rcx", "%rdx");
+#ifdef _OPENMP
+#pragma omp barrier
+#endif  
   if((flops == 0 && bytes == 0) || ins == 0){
     o->overhead = (o->ts_high_end<<32|o->ts_low_end)-(o->ts_high_start<<32|o->ts_low_start);
   } else {
