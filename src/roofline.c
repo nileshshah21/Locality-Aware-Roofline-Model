@@ -20,12 +20,15 @@ static unsigned  node_depth;
 static unsigned  n_parent_nodes;
 
 #if defined(_OPENMP)
-int roofline_lib_init(hwloc_topology_t topo, const char * threads_location, int with_hyperthreading, LARM_policy p)
+  int roofline_lib_init(hwloc_topology_t topo,
+			const char * threads_location,
+			int with_hyperthreading,
+			LARM_policy p)
 #else
   int roofline_lib_init(hwloc_topology_t topo,
 			const char * threads_location,
 			__attribute__ ((unused)) int with_hyperthreading,
-			LARM_policy policy)
+			LARM_policy p)
 #endif
 {
   char * cpu_freq_str;
