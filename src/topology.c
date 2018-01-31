@@ -297,9 +297,8 @@ hwloc_obj_t roofline_hwloc_parse_obj(const char* arg){
   int logical_index;
   char * dup_arg = strdup(arg);
   name = strtok(dup_arg,":");
-
   if(name==NULL) goto err_parse_obj;
-    
+
   err = hwloc_type_sscanf_as_depth(name, &type, topology, &depth);
   if(err == HWLOC_TYPE_DEPTH_UNKNOWN){
     fprintf(stderr,"type %s cannot be found, level=%d\n",name,depth);
@@ -315,9 +314,7 @@ hwloc_obj_t roofline_hwloc_parse_obj(const char* arg){
   if(idx!=NULL) logical_index = atoi(idx);
   free(dup_arg);
   hwloc_obj_t obj = hwloc_get_obj_by_depth(topology,depth,logical_index);
-  do {
-    obj = obj->parent;
-  } while(obj && hwloc_obj_type_is_memory(obj->type));
+  while(obj && obj->type==HWLOC_OBJ_NUMANODE){ obj = obj->parent; }
   return obj;
 
 err_parse_obj:
