@@ -18,8 +18,6 @@ static char *        thread_location = "Node:0"; /* Threads location */
 static int           matrix = 0;         /* Do we benchmark matrix ? */
 static LARM_policy   policy = LARM_FIRSTTOUCH;
 
-extern unsigned      NUMA_domain_depth; //defined in roofline.c, gives the depth of HWLOC_OBJ_NUMANODE
-
 static void usage(char * argv0){
   printf("%s <options...>\n\n", argv0);
   printf("OPTIONS:\n\t");
@@ -151,7 +149,7 @@ int main(int argc, char * argv[]){
     mem = malloc(sizeof(hwloc_obj_t)*hwloc_get_type_depth(topology, HWLOC_OBJ_PU));
     while(item != NULL){
       mem[n_mem] = roofline_hwloc_parse_obj(item);
-      if(mem[n_mem] != NULL && roofline_hwloc_obj_is_memory(mem[n_mem])){n_mem++;}
+      if(mem[n_mem] != NULL && roofline_hwloc_ismemory(mem[n_mem])){n_mem++;}
       item = strtok_r(NULL, "|", &save_ptr);
     }
   }
@@ -168,25 +166,18 @@ int main(int argc, char * argv[]){
   if(oi <= 0){ roofline_flops(out, roofline_types == 0 ? flop_deftype : roofline_types); }
 
   /* Benchmark matrix */
-  if(matrix){
-    hwloc_obj_t dst = NULL;
-    hwloc_obj_t src = roofline_hwloc_parse_obj(thread_location);
-    if(src == NULL) {
-      fprintf(stderr,"Provided source location %s does not match any object in topology\n", thread_location);
-      goto exit;
-    }
-    if(!roofline_hwloc_obj_is_memory(src)){
-      src = roofline_hwloc_get_next_memory(src);
-    }
-    if((int)src->depth > hwloc_get_type_depth(topology, HWLOC_OBJ_NUMANODE)){
-      fprintf(stderr,"Cannot build matrix of memory below NUMANode\n");
-      goto exit;
-    }
-    for(src = hwloc_get_obj_by_depth(topology,src->depth,0); src != NULL; src = src->next_cousin){
-      root = src;
-      if(root->arity == 0 && root->type == HWLOC_OBJ_NUMANODE) continue;
-      for(dst = hwloc_get_obj_by_depth(topology,src->depth,0); dst != NULL; dst = dst->next_cousin){
-	bench_memory(out, dst);
+  if(matrix){    
+    hwloc_obj_t cluster = hwloc_get_obj_by_type(topology, HWLOC_OBJ_GROUP, 0);
+    hwloc_obj_t NODE0   = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NUMANODE, 0);
+    hwloc_obj_t mem     = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NUMANODE, 0);
+
+    while(cluster != NULL){
+      roofline_set_root(cluster);      
+      bench_memory(out, mem);      
+      mem = mem->next_cousin;
+      if(mem == NULL){
+        mem = NODE0;
+        cluster = cluster->next_cousin;
       }
     }
     goto exit;
@@ -195,9 +186,14 @@ int main(int argc, char * argv[]){
   /* roofline every memory obj */
   if(mem == NULL){
     hwloc_obj_t memory = NULL;
-    while((memory = roofline_hwloc_get_next_memory(memory)) != NULL && memory->depth >= NUMA_domain_depth){
-      bench_memory(out, memory);
-    }
+    do{
+      memory = roofline_hwloc_get_next_memory(memory);
+      if(memory == NULL){
+	break;
+      } else {
+	bench_memory(out, memory);
+      }
+    } while (1);
   }
   else{
     unsigned i;

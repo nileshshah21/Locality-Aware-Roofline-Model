@@ -14,32 +14,36 @@ void roofline_output_clear(roofline_output out){
   out->bytes = 0;
   out->flops = 0;
   out->instructions = 0;
-  out->n = 1;
+  out->n = 0;
   out->overhead = 0;
 }
 
-void roofline_output_accumulate(roofline_output dst, const roofline_output src){
+void roofline_output_accumulate(roofline_output dst, const roofline_output src){    
   dst->cycles += src->cycles;
   dst->bytes += src->bytes;
   dst->flops += src->flops;
   dst->instructions += src->instructions;
   dst->overhead += src->overhead;
   dst->n++;
-  /* merge cpusets */
+  
+  /* merge cpusets */  
   roofline_hwloc_accumulate(&(dst->thr_location), &(src->thr_location));
   roofline_hwloc_accumulate(&(dst->mem_location), &(src->mem_location));  
 }
 
-roofline_output new_roofline_output(hwloc_obj_t thr_location, hwloc_obj_t mem_location){
+roofline_output new_roofline_output(hwloc_obj_t mem_location){
+  hwloc_obj_t location = roofline_hwloc_get_cpubind();  
   roofline_output o = malloc(sizeof(*o));
   if(o == NULL) return NULL;
   roofline_output_clear(o);
   o->mem_location = mem_location;
-  o->thr_location = thr_location;  
+  o->thr_location = location;
   return o;
 }
 
-void delete_roofline_output(roofline_output o){ free(o); }
+void delete_roofline_output(roofline_output o){
+  free(o);
+}
 
 float roofline_output_throughput(const roofline_output s){
   return (float)(s->instructions)/(float)(s->cycles);
@@ -113,5 +117,48 @@ void roofline_output_print(FILE * output,
 	  src_str, out->n, mem_str, throughput, bandwidth, performance, arithmetic_intensity, roofline_type_str(type));
   
   fflush(output);
+}
+
+
+roofline_output roofline_output_init(){
+  unsigned i, n = hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_GROUP);
+  roofline_output out;
+  roofline_alloc(out, sizeof(struct roofline_output_s)*n);
+  for(i=0;i<n; i++){
+    roofline_output_clear(out+i);
+    out[i].mem_location = NULL;
+    out[i].thr_location = hwloc_get_obj_by_type(topology, HWLOC_OBJ_GROUP, i);      
+  }
+  return out;
+}
+
+void roofline_output_aggregate_result(roofline_output results, const roofline_output src){
+  roofline_output ret = results;
+  hwloc_obj_t location = src->thr_location;
+  int groupd = hwloc_get_type_depth(topology, HWLOC_OBJ_GROUP);
+  
+  if(location && location->type != HWLOC_OBJ_NUMANODE && location->depth < groupd){
+    location = hwloc_get_obj_by_type(topology, HWLOC_OBJ_GROUP, 0);
+  }     
+  while(location && location->depth > groupd){ location = location->parent; }
+  if(location && location->type == HWLOC_OBJ_NUMANODE){ location = location->parent; }  
+  if(!location){ location = hwloc_get_obj_by_type(topology, HWLOC_OBJ_GROUP, 0); }
+
+  ret = results + location->logical_index;
+  roofline_output_accumulate(ret, src);
+}
+
+void roofline_output_fini(const roofline_output output){
+  free(output);
+}
+
+void roofline_print_outputs(FILE * output, const roofline_output outputs, const int op_type){
+  int j;
+  for(j=0; j<hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_GROUP); j++){
+    if(outputs[j].n > 0){
+      roofline_output_print(output, outputs+j, op_type);
+      roofline_output_clear(outputs+j);
+    }
+  }
 }
 

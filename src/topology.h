@@ -16,23 +16,18 @@ int         roofline_hwloc_obj_snprintf(const hwloc_obj_t obj, char * info_in, c
 hwloc_obj_t roofline_hwloc_parse_obj(const char*);
 
 /* CPU binding */
-hwloc_obj_t roofline_hwloc_cpubind(const hwloc_obj_type_t);
+void        roofline_hwloc_cpubind(const hwloc_obj_t obj);
 hwloc_obj_t roofline_hwloc_get_cpubind();
 int         roofline_hwloc_check_cpubind(hwloc_cpuset_t cpuset);
 
 /* Memory binding */
-hwloc_obj_t roofline_hwloc_set_area_membind(const hwloc_obj_t, void *, const size_t, LARM_policy);
-hwloc_obj_t roofline_hwloc_local_domain();
-int         roofline_hwloc_obj_is_memory(const hwloc_obj_t);
-size_t      roofline_hwloc_get_memory_size(const hwloc_obj_t);
-hwloc_obj_t roofline_hwloc_get_next_memory(const hwloc_obj_t);
-hwloc_obj_t roofline_hwloc_get_under_memory(const hwloc_obj_t);
-int         roofline_hwloc_get_memory_bounds(const hwloc_obj_t memory, size_t * lower, size_t * upper, const int op_type);
-
-/* special indexing */
-hwloc_obj_t roofline_hwloc_NUMA_domain(int logical_index);
-int         roofline_hwloc_nb_parent_objs_by_depth(unsigned depth);
-hwloc_obj_t roofline_hwloc_next_parent_obj(hwloc_obj_t obj);
+hwloc_obj_t   roofline_hwloc_set_area_membind(const hwloc_obj_t, void *, const size_t, LARM_policy);
+hwloc_obj_t   roofline_hwloc_local_domain();
+int           roofline_hwloc_ismemory(const hwloc_obj_t);
+unsigned long roofline_hwloc_memory_size(const hwloc_obj_t obj);
+hwloc_obj_t   roofline_hwloc_get_next_memory(const hwloc_obj_t);
+hwloc_obj_t   roofline_hwloc_get_under_memory(const hwloc_obj_t);
+int           roofline_hwloc_get_memory_bounds(const hwloc_obj_t memory, size_t * lower, size_t * upper, const int op_type);
 
 /* Merging cpusets */
 void roofline_hwloc_accumulate(hwloc_obj_t * dst, hwloc_obj_t * src);

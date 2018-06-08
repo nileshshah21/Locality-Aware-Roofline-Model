@@ -12,14 +12,15 @@ MSC=intel
 #                                              BUILD                                        #
 #############################################################################################
 export CC=gcc
-export OMP_FLAG= #-fopenmp
+export OMP_FLAG=-fopenmp
 export CFLAGS= -g \
 	-DROOFLINE_MIN_DUR=$(LAST)\
 	-DROOFLINE_N_SAMPLES=$(N_SAMPLES)\
 	-DCC=$(CC)\
+	-I$(HOME)/hwloc2.0/build/include\
 	-DOMP_FLAG=$(OMP_FLAG)
 
-LDFLAGS=-ldl -lhwloc -lm $(OMP_FLAG)
+LDFLAGS=-L$(HOME)/hwloc2.0/build/lib -ldl -lhwloc -lm $(OMP_FLAG)
 
 ifdef DEBUG
 CFLAGS+=-Wall -Werror -Wextra -DDEBUG2 -DDEBUG1

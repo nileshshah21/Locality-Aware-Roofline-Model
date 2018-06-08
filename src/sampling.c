@@ -21,7 +21,7 @@ static unsigned         BYTES = 8;
 static unsigned         FLOPS = 1;
 static FILE *           output_file = NULL;
 static hwloc_topology_t topology;
-static unsigned         reduction_depth;
+static int              reduction_depth;
 static list             samples;
 static uint64_t *       bindings;
 

@@ -50,7 +50,7 @@ long roofline_autoset_repeat(roofline_stream src, const int op_type, const void 
 						 int,
 						 long)) benchmark;
   samples = new_list(sizeof(roofline_output), n_samples, (void (*)(void*))delete_roofline_output);
-  for(i=0; i<n_samples; i++){ list_push(samples, new_roofline_output(NULL,NULL)); }
+  for(i=0; i<n_samples; i++){ list_push(samples, new_roofline_output(NULL)); }
   while(1){
     cycles = 0;        
     for(i=0; i<n_samples; i++){
@@ -94,7 +94,7 @@ long roofline_autoset_repeat(roofline_stream src, const int op_type, const void 
       test_stop = 0;
       if(cycles*(1e3/cpu_freq)>1000) {test_stop = 1;}
       if((median_output->cycles)*(1e3/cpu_freq)>=10 || var*100 < median){ test_stop = 1; }
-      if(cycles*(1e3/cpu_freq)<10) {test_stop = 0;}      
+      if(cycles*(1e3/cpu_freq)<1) {test_stop = 0;}      
 #ifdef _OPENMP      
     }
 #pragma omp barrier
