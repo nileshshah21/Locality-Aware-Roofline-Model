@@ -4,7 +4,7 @@
 
 SRC=copy.c mov.c flops.c MSC.c validation.c
 OBJ=$(patsubst %.c, %.o, $(SRC))
-CFLAGS+=-march=native
+CFLAGS+=-march=native -O0
 #CFLAGS+=-D__FMA__ -D __AVX512__
 
 %.o: %.c

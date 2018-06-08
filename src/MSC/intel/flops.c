@@ -61,7 +61,8 @@
       "loop_flops_"type_str"_repeat:\n\t"				\
       simd_fp(op1,op2)							\
       "sub $1, %0\n\t"							\
-      "jnz loop_flops_"type_str"_repeat\n\t"				\
+      "cmp $0, %0\n\t"							\
+      "jne loop_flops_"type_str"_repeat\n\t"				\
       :: "r" (repeat)	: SIMD_CLOBBERED_REGS);				\
     roofline_output_end_measure(out, 0, 16*SIMD_FLOPS*repeat, repeat*16); \
   } while(0)
@@ -72,7 +73,8 @@
       "loop_flops_"type_str"_overhead_repeat:\n\t"			\
       simd_fp_overhead(op1,op2)						\
       "sub $1, %0\n\t"							\
-      "jnz loop_flops_"type_str"_overhead_repeat\n\t"			\
+      "cmp $0, %0\n\t"							\
+      "jne loop_flops_"type_str"_overhead_repeat\n\t"			\
       :: "r" (repeat)	: SIMD_CLOBBERED_REGS);				\
     roofline_output_end_measure(out, 0, 0, 0);				\
   } while(0)

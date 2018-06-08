@@ -44,9 +44,11 @@
     asm_mov(op1, op2, "%%r11")						\
     "add $"STRINGIFY(CHUNK_SIZE)", %%r11\n\t"				\
     "sub $"STRINGIFY(CHUNK_SIZE)", %%r12\n\t"				\
-    "jnz buffer_"op_str"_increment\n\t"					\
+    "cmp $0, %%r12\n\t"							\
+    "jne buffer_"op_str"_increment\n\t"					\
     "sub $1, %0\n\t"							\
-    "jnz loop_"op_str"_repeat\n\t"					\
+    "cmp $0, %0\n\t"							\
+    "jne loop_"op_str"_repeat\n\t"					\
     :: "r" (repeat), "r" (data->stream), "r" (data->size)		\
     : "%r11", "%r12", SIMD_CLOBBERED_REGS, "memory");			\
   roofline_output_end_measure(out, (data->size)*repeat, 0, repeat*data->size/SIMD_BYTES); \
@@ -62,9 +64,11 @@
       "buffer_overhead_increment:\n\t"					\
       "add $"STRINGIFY(CHUNK_SIZE)", %%r11\n\t"				\
       "sub $"STRINGIFY(CHUNK_SIZE)", %%r12\n\t"				\
-      "jnz buffer_overhead_increment\n\t"				\
+      "cmp $0, %%r12\n\t"						\
+      "jne buffer_overhead_increment\n\t"				\
       "sub $1, %0\n\t"							\
-      "jnz loop_overhead_repeat\n\t"					\
+      "cmp $0, %0\n\t"							\
+      "jne loop_overhead_repeat\n\t"					\
       :: "r" (1), "r" (data->stream), "r" (data->size)			\
       : "%r11", "%r12", SIMD_CLOBBERED_REGS, "memory");			\
     roofline_output_end_measure(out, 0, 0, 0);				\
