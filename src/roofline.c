@@ -126,7 +126,7 @@ inline void roofline_lib_finalize(void)
 
 void roofline_fpeak(FILE * output, int op_type)
 {
-  roofline_output out = roofline_output_init(root);
+  roofline_output out = roofline_output_init();
   long repeat = roofline_autoset_repeat(NULL, op_type, NULL);
 
 #ifdef _OPENMP
@@ -161,7 +161,7 @@ void roofline_fpeak(FILE * output, int op_type)
 static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int op_type, void * benchmark)
 {
   size_t * sizes, low_size, up_size;
-  roofline_output out = roofline_output_init(root);
+  roofline_output out = roofline_output_init();
   long repeat = 100;
   void (*  benchmark_function)(roofline_stream, roofline_output, int, long) = benchmark;
   static int stop = 0;
