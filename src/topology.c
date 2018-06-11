@@ -31,12 +31,12 @@ int roofline_hwloc_get_memory_bounds(const hwloc_obj_t memory, size_t * lower, s
   if(lower_memory == NULL){
     n_lower_memory = 1;
     n_lower_cpu    = 1;
-    lower_size     = get_chunk_size(op_type)*5;
+    lower_size     = get_chunk_size(op_type)*4;
   } else if(roofline_hwloc_iscache(memory)){
     n_lower_memory = hwloc_get_nbobjs_inside_cpuset_by_type(topology, memory->cpuset, lower_memory->type);
     n_lower_cpu    = hwloc_get_nbobjs_inside_cpuset_by_type(topology, lower_memory->cpuset, HWLOC_OBJ_CORE);
     n_upper_cpu    = hwloc_get_nbobjs_inside_cpuset_by_type(topology, memory->cpuset, HWLOC_OBJ_CORE);
-    lower_size     = roofline_hwloc_memory_size(lower_memory) * 2;    
+    lower_size     = roofline_hwloc_memory_size(lower_memory);    
   } else {
     lower_memory   = LLC;
     n_lower_memory = hwloc_get_nbobjs_by_type(topology, lower_memory->type);    
@@ -46,7 +46,7 @@ int roofline_hwloc_get_memory_bounds(const hwloc_obj_t memory, size_t * lower, s
   }
   
   /* Set bounds size */
-  *lower = n_lower_memory * lower_size / n_lower_cpu;
+  *lower = n_lower_memory * lower_size / n_upper_cpu;
   *upper = upper_size / n_upper_cpu;
      
   /* Upper bound size is greater than 1GB (slow). Try to reduce size */  
@@ -342,29 +342,51 @@ hwloc_obj_t roofline_hwloc_memory_group_inside_cpuset(unsigned i){
 }
 
 hwloc_obj_t roofline_hwloc_LLC(unsigned i){
-  hwloc_obj_t LLC = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NUMANODE, 0);
-  LLC = LLC->parent;
+  hwloc_obj_t LLC = hwloc_get_obj_by_type(topology, HWLOC_OBJ_MACHINE, 0);
   while(LLC && ! roofline_hwloc_iscache(LLC)){ LLC = LLC->first_child; }
   while(LLC && i--){ LLC = LLC->next_cousin; }
   return LLC;
 }
 
 hwloc_obj_t roofline_hwloc_get_under_memory(const hwloc_obj_t obj){
-  hwloc_obj_t child = obj;
+  hwloc_obj_t child   = obj;
+  hwloc_obj_t LLC     = roofline_hwloc_LLC(0);
   int         L1d     = hwloc_get_type_depth(topology, HWLOC_OBJ_L1CACHE);
   int         groupd  = roofline_hwloc_memory_group_depth();
   
-  if(child==NULL) { return NULL; }
-  if(child->type == HWLOC_OBJ_NUMANODE){ child = child->parent->first_child;}
-  if(child==NULL) { return NULL; }  
-  while(child != NULL && child->depth <= obj->depth){child = child->first_child;}
-  if(child==NULL) return NULL;
+  if(obj==NULL) { return NULL; }
 
-  if(child->depth < groupd){ return child; }
-  if(child->memory_first_child != NULL){ return child->memory_first_child; }
-  while(child != NULL && child->depth < L1d && ! roofline_hwloc_ismemory(child)){ child = child->first_child; }
-  if(child->depth <= L1d){return child;}
-  return NULL;
+  // If obj has memory children, then they are for sure the memory to return.
+  if(obj->memory_first_child != NULL){
+    return obj->memory_first_child;
+  }
+
+  // If obj is a NUMANODE, then LLC is for sure the memory to return.
+  if(obj->type == HWLOC_OBJ_NUMANODE){
+    child = LLC;
+    while(child                                                        &&
+	  !hwloc_bitmap_isincluded(child->cpuset, obj->parent->cpuset) &&
+	  !hwloc_bitmap_isincluded(obj->parent->cpuset, child->cpuset)){
+      child = child->next_cousin;
+    }
+    return child;    
+  }
+
+  // If obj is a LLC, then the next memory to return is a cache.
+  if(obj->type == LLC->type){
+    child = obj->first_child;
+    while(child && !roofline_hwloc_iscache(child)){
+      child = child->first_child;
+    }
+    return child;
+  }
+
+  // else return the next object below which is a memory but not a cache.
+  child = obj->first_child;
+  while(child && !roofline_hwloc_ismemory(child)){
+    child = child->first_child;      
+  }
+  return child;
 }
 
 
@@ -380,24 +402,21 @@ hwloc_obj_t roofline_hwloc_get_next_memory(const hwloc_obj_t obj){
 
   if(obj->type == HWLOC_OBJ_NUMANODE){
     next = obj->next_cousin;
-    if(next == NULL){
+    if(next == NULL){      
       next = obj->parent;
+      while(next && !roofline_hwloc_ismemory(next)){ next = next->parent; }
+      return next;
     }
-  } else if(roofline_hwloc_iscache(obj)){
+  } else {
     next = obj->parent;
-    if(!roofline_hwloc_iscache(next)){
-      while(next != NULL && next->memory_first_child == NULL){ next = next->parent; }
-      next = next->memory_first_child;
+    while(next && !roofline_hwloc_ismemory(next)){
+      if(next->memory_first_child != NULL){
+	return next->memory_first_child;
+      }
+      next = next->parent;
     }
-  } else if(obj->depth <= groupd){
-    next = obj->parent;
+    return next;
   }
-  
-  if(next->parent->depth == 0){
-    next = NULL;
-  }
-  
-  return next;
 }
 
 void roofline_hwloc_accumulate(hwloc_obj_t * dst, hwloc_obj_t * src){
