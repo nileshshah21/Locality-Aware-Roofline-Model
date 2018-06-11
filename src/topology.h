@@ -15,6 +15,12 @@ int         roofline_hwloc_objtype_is_cache(const hwloc_obj_type_t type);
 int         roofline_hwloc_obj_snprintf(const hwloc_obj_t obj, char * info_in, const size_t n);
 hwloc_obj_t roofline_hwloc_parse_obj(const char*);
 
+int         roofline_hwloc_memory_group_depth();
+unsigned    roofline_hwloc_n_memory_group();
+hwloc_obj_t roofline_hwloc_memory_group(unsigned i);
+hwloc_obj_t roofline_hwloc_memory_group_inside_cpuset(unsigned i);
+hwloc_obj_t roofline_hwloc_LLC(unsigned i);
+
 /* CPU binding */
 void        roofline_hwloc_cpubind(const hwloc_obj_t obj);
 hwloc_obj_t roofline_hwloc_get_cpubind();
@@ -23,6 +29,7 @@ int         roofline_hwloc_check_cpubind(hwloc_cpuset_t cpuset);
 /* Memory binding */
 hwloc_obj_t   roofline_hwloc_set_area_membind(const hwloc_obj_t, void *, const size_t, LARM_policy);
 hwloc_obj_t   roofline_hwloc_local_domain();
+int           roofline_hwloc_iscache(const hwloc_obj_t obj);
 int           roofline_hwloc_ismemory(const hwloc_obj_t);
 unsigned long roofline_hwloc_memory_size(const hwloc_obj_t obj);
 hwloc_obj_t   roofline_hwloc_get_next_memory(const hwloc_obj_t);

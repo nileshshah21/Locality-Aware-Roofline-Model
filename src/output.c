@@ -121,30 +121,37 @@ void roofline_output_print(FILE * output,
 
 
 roofline_output roofline_output_init(){
-  unsigned i, n = hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_GROUP);
+  unsigned i, n = roofline_hwloc_n_memory_group();
   roofline_output out;
   roofline_alloc(out, sizeof(struct roofline_output_s)*n);
   for(i=0;i<n; i++){
     roofline_output_clear(out+i);
     out[i].mem_location = NULL;
-    out[i].thr_location = hwloc_get_obj_by_type(topology, HWLOC_OBJ_GROUP, i);      
+    out[i].thr_location = roofline_hwloc_memory_group(i);      
   }
   return out;
 }
 
 void roofline_output_aggregate_result(roofline_output results, const roofline_output src){
-  roofline_output ret = results;
+  roofline_output ret  = results;
   hwloc_obj_t location = src->thr_location;
-  int groupd = hwloc_get_type_depth(topology, HWLOC_OBJ_GROUP);
-  
-  if(location && location->type != HWLOC_OBJ_NUMANODE && location->depth < groupd){
-    location = hwloc_get_obj_by_type(topology, HWLOC_OBJ_GROUP, 0);
-  }     
-  while(location && location->depth > groupd){ location = location->parent; }
-  if(location && location->type == HWLOC_OBJ_NUMANODE){ location = location->parent; }  
-  if(!location){ location = hwloc_get_obj_by_type(topology, HWLOC_OBJ_GROUP, 0); }
+  int groupd = roofline_hwloc_memory_group_depth();
 
-  ret = results + location->logical_index;
+  if(location){
+    if(location->depth < groupd){
+      location = roofline_hwloc_memory_group(0);
+    }
+    else if(location && location->type == HWLOC_OBJ_NUMANODE){
+      location = location->parent;
+    }
+    else {
+      while(location && location->depth > groupd){ location = location->parent; }
+    }
+  } else {    
+    location = roofline_hwloc_memory_group(0);
+  }
+
+  ret = &(results[location->logical_index]);
   roofline_output_accumulate(ret, src);
 }
 

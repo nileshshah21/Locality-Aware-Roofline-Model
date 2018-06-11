@@ -12,19 +12,16 @@ size_t           alignement = 0;             /* Level 1 cache line size */
 float            cpu_freq = 0;               /* In Hz */
 unsigned         n_threads = 1;              /* The number of threads for benchmark */
 unsigned int     roofline_types;             /* What rooflines do we want in byte array */
-hwloc_obj_t      root;                       /* The root of topology to select the amount of threads */
-
 
 static LARM_policy policy;                   /* The data allocation policy when target memory is larger than one node */ 
 static hwloc_obj_type_t leaf_type;
 
 void roofline_set_root(const hwloc_obj_t obj){
   n_threads = 1;
-  root = obj;
   int tid = 0;
 
 #if defined(_OPENMP)
-  n_threads = hwloc_get_nbobjs_inside_cpuset_by_type(topology, root->cpuset, leaf_type);
+  n_threads = hwloc_get_nbobjs_inside_cpuset_by_type(topology, obj->cpuset, leaf_type);
   omp_set_num_threads(n_threads);
 #pragma omp parallel
   {    
@@ -79,7 +76,7 @@ void roofline_set_root(const hwloc_obj_t obj){
   hwloc_obj_t location;
   /* Get first node and number of threads */
   if(threads_location == NULL){
-    location = hwloc_get_obj_by_type(topology, HWLOC_OBJ_GROUP, 0);
+    location = roofline_hwloc_memory_group(0);
   }
   else{
     location = roofline_hwloc_parse_obj(threads_location);    
@@ -165,15 +162,10 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
   long repeat = 100;
   void (*  benchmark_function)(roofline_stream, roofline_output, int, long) = benchmark;
   static int stop = 0;
-  unsigned n_leaves = hwloc_get_nbobjs_inside_cpuset_by_type(topology, memory->cpuset, leaf_type);
-  n_leaves = roofline_MIN(n_leaves, n_threads);
-  if(memory->depth<=hwloc_get_type_depth(topology, HWLOC_OBJ_GROUP)){ n_leaves = roofline_MAX(n_leaves, n_threads); }
     
   /* Generate samples size */
   int n_sizes = ROOFLINE_N_SAMPLES;
   if(roofline_hwloc_get_memory_bounds(memory, &low_size, &up_size, op_type) == -1){ return; }
-  up_size = up_size/n_leaves;
-  low_size = low_size/n_leaves;  
   sizes = roofline_linear_sizes(op_type, low_size, up_size, &n_sizes);
   if(sizes==NULL){roofline_debug2("Computing array of input sizes from %lu to %lu failed\n", low_size, up_size); return;}
 #ifdef DEBUG2
@@ -194,7 +186,7 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
     /*Initialize IO */    
     roofline_stream src        = new_roofline_stream(up_size, op_type);
     hwloc_obj_t mem_loc        = roofline_hwloc_set_area_membind(memory, src->stream, src->alloc_size, policy);
-    roofline_output local_out  = new_roofline_output(memory->depth<hwloc_get_type_depth(topology, HWLOC_OBJ_GROUP)?mem_loc:memory);
+    roofline_output local_out  = new_roofline_output(memory->depth<roofline_hwloc_memory_group_depth()?mem_loc:memory);
     
     /* measure for several sizes inside bounds */
     int i; for(i=0;i<n_sizes;i++){      
@@ -212,25 +204,25 @@ static void roofline_memory(FILE * output, const hwloc_obj_t memory, const int o
 	if(sizes[i]>GB)
 	  roofline_debug2("size = %luGB per thread, %luGB total per %s of size %luGB\n",
 			  sizes[i]/GB,
-			  sizes[i]*n_leaves/GB,
+			  sizes[i]*n_threads/GB,
 			  hwloc_obj_type_string(memory->type),
 			  roofline_hwloc_memory_size(memory)/GB);
 	else if(sizes[i]>MB)
 	  roofline_debug2("size = %luMB per thread, %luMB total per %s of size %luMB\n",
 			  sizes[i]/MB,
-			  sizes[i]*n_leaves/MB,
+			  sizes[i]*n_threads/MB,
 			  hwloc_obj_type_string(memory->type),
 			  roofline_hwloc_memory_size(memory)/MB);	
 	else if(sizes[i]>KB)
 	  roofline_debug2("size = %luKB per thread, %luKB total per %s of size %luKB\n",
 			  sizes[i]/KB,
-			  sizes[i]*n_leaves/KB,
+			  sizes[i]*n_threads/KB,
 			  hwloc_obj_type_string(memory->type),
 			  roofline_hwloc_memory_size(memory)/KB);
 	else
 	  roofline_debug2("size = %luB per thread, %luB total per %s of size %luB\n",
 			  sizes[i],
-			  sizes[i]*n_leaves,
+			  sizes[i]*n_threads,
 			  hwloc_obj_type_string(memory->type),
 			  roofline_hwloc_memory_size(memory));
 #endif
