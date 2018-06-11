@@ -92,9 +92,9 @@ long roofline_autoset_repeat(roofline_stream src, const int op_type, const void 
     {
 #endif
       test_stop = 0;
-      if(cycles*(1e3/cpu_freq)>1000) {test_stop = 1;}
+      if(cycles*(1e3/cpu_freq)>500) {test_stop = 1;}
       if((median_output->cycles)*(1e3/cpu_freq)>=10 || var*100 < median){ test_stop = 1; }
-      if(cycles*(1e3/cpu_freq)<1) {test_stop = 0;}      
+      if(cycles*(1e3/cpu_freq)<500) {test_stop = 0;}      
 #ifdef _OPENMP      
     }
 #pragma omp barrier
