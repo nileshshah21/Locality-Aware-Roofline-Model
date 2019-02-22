@@ -161,7 +161,9 @@ void roofline_output_fini(const roofline_output output){
 
 void roofline_print_outputs(FILE * output, const roofline_output outputs, const int op_type){
   int j;
-  for(j=0; j<hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_GROUP); j++){
+  hwloc_obj_t group = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NUMANODE, 0);
+  group = group->parent;
+  for(j=0; j<hwloc_get_nbobjs_by_type(topology, group->type); j++){
     if(outputs[j].n > 0){
       roofline_output_print(output, outputs+j, op_type);
       roofline_output_clear(outputs+j);
